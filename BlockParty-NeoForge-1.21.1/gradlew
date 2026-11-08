@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+# Lightweight Gradle bootstrapper for this project. Uses an installed Gradle
+# or downloads the pinned Gradle distribution into ~/.gradle/blockparty-bootstrap.
+set -eu
+GRADLE_VERSION="8.10.2"
+if command -v gradle >/dev/null 2>&1; then
+  exec gradle "$@"
+fi
+BASE="${GRADLE_USER_HOME:-$HOME/.gradle}/blockparty-bootstrap"
+HOME_DIR="$BASE/gradle-$GRADLE_VERSION"
+if [ ! -x "$HOME_DIR/bin/gradle" ]; then
+  mkdir -p "$BASE"
+  ZIP="$BASE/gradle-$GRADLE_VERSION-bin.zip"
+  URL="https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip"
+  echo "Gradle $GRADLE_VERSION not found. Downloading it..."
+  if command -v curl >/dev/null 2>&1; then curl -fL "$URL" -o "$ZIP";
+  elif command -v wget >/dev/null 2>&1; then wget -O "$ZIP" "$URL";
+  else echo "Install Gradle $GRADLE_VERSION or add curl/wget to PATH." >&2; exit 1; fi
+  if command -v unzip >/dev/null 2>&1; then unzip -q -o "$ZIP" -d "$BASE";
+  else echo "The unzip command is required to unpack Gradle." >&2; exit 1; fi
+fi
+exec "$HOME_DIR/bin/gradle" "$@"
