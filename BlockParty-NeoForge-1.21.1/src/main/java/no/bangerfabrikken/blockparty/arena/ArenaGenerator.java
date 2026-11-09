@@ -329,7 +329,7 @@ public final class ArenaGenerator {
         Block[] danceColours = {Blocks.CYAN_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.MAGENTA_CONCRETE,
                 Blocks.BLUE_CONCRETE, Blocks.BLACK_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE};
         for (int x = centerX - 8; x <= centerX + 8; x++) {
-            for (int z = lobbyZ - 6; z <= lobbyZ + 8; z++) {
+            for (int z = lobbyMinZ + 14; z <= lobbyMinZ + 28; z++) {
                 int colour = Math.floorMod((x + z), danceColours.length);
                 put(level, x, floorY, z, danceColours[colour]);
             }
@@ -337,7 +337,7 @@ public final class ArenaGenerator {
         // Lounge seating and low tables on both sides of the lobby, leaving the centre aisle clear.
         for (int side : new int[]{-1, 1}) {
             int seatX = centerX + side * 23;
-            for (int z = lobbyZ - 7; z <= lobbyZ + 17; z += 8) {
+            for (int z = lobbyMinZ + 13; z <= lobbyMinZ + 37; z += 8) {
                 put(level, seatX, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
                 put(level, seatX + side, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
                 put(level, seatX - side, floorY + 1, z, Blocks.DARK_OAK_SLAB);
