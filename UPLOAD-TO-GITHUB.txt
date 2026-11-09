@@ -1,0 +1,12 @@
+BLOCKPARTY 0.5.0 ALPHA - UPDATE INSTRUCTIONS
+
+1. Open your existing Kjelbotn/BlockParty repository.
+2. Upload the CONTENTS of this ZIP into the repository root (the same level as build.gradle).
+3. Allow GitHub to replace the matching files and folders, especially src/, gradle.properties and .github/workflows/build.yml.
+4. Commit the changes to main.
+5. Open Actions and wait for the “Build BlockParty 0.5.0” workflow to finish.
+6. Only if the workflow succeeds, download the artifact named BlockParty-NeoForge-1.21.1-0.5.0-alpha.
+
+Expected output JAR: build/libs/blockparty-0.5.0-alpha.jar
+
+This ZIP contains source code, not a precompiled mod JAR. A full Gradle build was not run locally in this environment.

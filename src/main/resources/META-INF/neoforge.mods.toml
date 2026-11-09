@@ -1,0 +1,24 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="Bangerfabrikken"
+description='''A singleplayer-friendly BlockParty minigame for Minecraft 1.21.1. Includes an indoor lobby, elevated spectator promenade, music voting book, custom resource-pack playlist, 15 timed concrete-colour rounds, one-round power-ups, scoreboard, elimination lightning, player streaks, ranks, leaderboard and a winner presentation.'''
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="${neo_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"

@@ -1,0 +1,175 @@
+{
+  "round_start": {
+    "subtitle": "subtitles.blockparty.round_start",
+    "sounds": [
+      {
+        "name": "blockparty:effects/round_start",
+        "volume": 0.52
+      }
+    ]
+  },
+  "round_end": {
+    "subtitle": "subtitles.blockparty.round_end",
+    "sounds": [
+      {
+        "name": "blockparty:effects/round_end",
+        "volume": 0.52
+      }
+    ]
+  },
+  "color_reveal": {
+    "subtitle": "subtitles.blockparty.color_reveal",
+    "sounds": [
+      {
+        "name": "blockparty:effects/color_reveal",
+        "volume": 0.52
+      }
+    ]
+  },
+  "elimination": {
+    "subtitle": "subtitles.blockparty.elimination",
+    "sounds": [
+      {
+        "name": "blockparty:effects/elimination",
+        "volume": 0.58
+      }
+    ]
+  },
+  "beacon_spawn": {
+    "subtitle": "subtitles.blockparty.beacon_spawn",
+    "sounds": [
+      {
+        "name": "blockparty:effects/beacon_spawn",
+        "volume": 0.58
+      }
+    ]
+  },
+  "powerup_pickup": {
+    "subtitle": "subtitles.blockparty.powerup_pickup",
+    "sounds": [
+      {
+        "name": "blockparty:effects/powerup_pickup",
+        "volume": 0.58
+      }
+    ]
+  },
+  "victory": {
+    "subtitle": "subtitles.blockparty.victory",
+    "sounds": [
+      {
+        "name": "blockparty:effects/victory",
+        "volume": 0.52
+      }
+    ]
+  },
+  "music_neon": {
+    "subtitle": "subtitles.blockparty.music_neon",
+    "sounds": [
+      {
+        "name": "blockparty:music/neon_beat",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_arcade": {
+    "subtitle": "subtitles.blockparty.music_arcade",
+    "sounds": [
+      {
+        "name": "blockparty:music/pixel_rush",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_rush": {
+    "subtitle": "subtitles.blockparty.music_rush",
+    "sounds": [
+      {
+        "name": "blockparty:music/night_drive",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_1": {
+    "subtitle": "subtitles.blockparty.music_custom_1",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_1",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_2": {
+    "subtitle": "subtitles.blockparty.music_custom_2",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_2",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_3": {
+    "subtitle": "subtitles.blockparty.music_custom_3",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_3",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_4": {
+    "subtitle": "subtitles.blockparty.music_custom_4",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_4",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_5": {
+    "subtitle": "subtitles.blockparty.music_custom_5",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_5",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_6": {
+    "subtitle": "subtitles.blockparty.music_custom_6",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_6",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_7": {
+    "subtitle": "subtitles.blockparty.music_custom_7",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_7",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  },
+  "music_custom_8": {
+    "subtitle": "subtitles.blockparty.music_custom_8",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_8",
+        "stream": true,
+        "volume": 0.4
+      }
+    ]
+  }
+}

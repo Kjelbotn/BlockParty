@@ -1,0 +1,20 @@
+{
+  "subtitles.blockparty.round_start": "BlockParty round starts",
+  "subtitles.blockparty.round_end": "BlockParty round ends",
+  "subtitles.blockparty.color_reveal": "Target colour revealed",
+  "subtitles.blockparty.elimination": "Player eliminated",
+  "subtitles.blockparty.beacon_spawn": "A power-up has appeared",
+  "subtitles.blockparty.powerup_pickup": "Power-up collected",
+  "subtitles.blockparty.victory": "BlockParty victory",
+  "subtitles.blockparty.music_neon": "Neon Beat",
+  "subtitles.blockparty.music_arcade": "Pixel Rush",
+  "subtitles.blockparty.music_rush": "Night Drive",
+  "subtitles.blockparty.music_custom_1": "Custom music track 1",
+  "subtitles.blockparty.music_custom_2": "Custom music track 2",
+  "subtitles.blockparty.music_custom_3": "Custom music track 3",
+  "subtitles.blockparty.music_custom_4": "Custom music track 4",
+  "subtitles.blockparty.music_custom_5": "Custom music track 5",
+  "subtitles.blockparty.music_custom_6": "Custom music track 6",
+  "subtitles.blockparty.music_custom_7": "Custom music track 7",
+  "subtitles.blockparty.music_custom_8": "Custom music track 8"
+}
