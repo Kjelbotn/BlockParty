@@ -1,69 +1,116 @@
 # BlockParty — NeoForge 1.21.1
 
-**Version 0.3.3-alpha** · Java 21 · Singleplayer-first · NeoForge 21.1.x
+**Version 0.4.0-alpha** · Java 21 · Singleplayer-first · NeoForge 21.1.x
 
-BlockParty is a Minecraft minigame inspired by classic Block Party arenas. This update focuses on the round flow, a readable in-arena target display, richer scoreboard styling, persistent player progression and a lobby leaderboard.
+BlockParty is a singleplayer-friendly Minecraft minigame inspired by classic Block Party servers. Version 0.4.0 adds the separate indoor lobby, music voting book, elevated spectator promenade, persistent player progression, and match-end presentation.
 
-## 0.3.3-alpha changes
+## What is included
 
-- The in-arena target sign now displays **only the target colour name** in large concrete letters; the word `FIND` has been removed. The arena-facing text uses the corrected mirrored drawing order.
-- Power-up beacons, when selected for a round, spawn immediately as the round starts. They remain occasional (30% chance), but no longer appear late in the countdown. A guard prevents duplicate spawn announcements.
-- The floor collapse and fall phase lasts 35 ticks, followed by a short neutral-black floor transition. The next coloured pattern appears after about 3 seconds total from the collapse. The black transition floor keeps survivors safe during the pause.
-- Sidebar styling now matches the requested look: yellow bold `BlockParty`, bold light-pink `Dancers Left`, bold aqua `Game Info`, and bold light-green `Your Stats`.
-- Personal stats show permanent world points, current rank, points remaining to the next rank, and collected power-ups.
-- Players earn **1 permanent point for every round they survive**. Points are saved per UUID in `blockparty-player-stats.properties` in the world save folder.
-- Ranks unlock at 0, 100, 250, 500, 1,000, 2,500, 5,000 and 10,000 points: Rookie, Bronze Dancer, Silver Dancer, Gold Dancer, Platinum Dancer, Diamond Dancer, Superstar and BlockParty Legend.
-- A physical top-five leaderboard appears on the right wall of the generated lobby. Players can also use `/bp leaderboard` and `/bp rank`.
-- The lobby is wider and deeper, with a framed leaderboard wall. The spectator promenade and stands have been expanded.
-- The world is set to night when a match starts and its previous time is restored when the game ends.
-- Existing 15-round timings, concrete-only floor, one-round power-ups, elimination lightning and music/effects are retained.
+- A generated indoor stadium with a large concrete dance floor (80×80 by default; 40–96 supported).
+- A continuous spectator promenade four blocks above the dance floor. It has inner and outer glass rails and no spectator stands/tribunes.
+- Eliminated players are moved to the promenade in Adventure Mode. They remain visible and can walk around the arena, but cannot enter the live floor or collect power-ups.
+- A separate indoor lobby with a large BlockParty title screen, leaderboard, and music-voting instructions.
+- Text Display entities for in-world text, rather than pixel/block lettering. The arena target is only the colour name, with no `FIND` prefix.
+- 15 rounds with the specified 10.0s → 0.5s timing progression.
+- A three-second transition: the remaining target-colour concrete stays visible while players finish falling; the next floor pattern replaces it in place. There is no black/empty intermission floor.
+- Five spaced beacon power-ups are spawned at the start of each round. They float on the block directly above five different concrete floor tiles. Effects last only until that round ends.
+- A night-time match with daylight cycle temporarily paused, then restored when the match ends.
+- A colourful sidebar scoreboard, elimination lightning, winner title, MVP broadcast, win streak, personal best, permanent points and ranks.
+- Music voting through a Book item in the inventory. Right-click the book to open clickable chat choices.
+
+## Build and install
+
+1. Build with Java 21 and Gradle 8.10.2:
+
+   ```bash
+   gradle build --no-daemon
+   ```
+
+2. The JAR is written to `build/libs/blockparty-0.4.0-alpha.jar`.
+3. Install the JAR in the `mods` folder of the NeoForge 1.21.1 profile. For singleplayer, that is the Modrinth instance's `mods` folder.
+4. Restart Minecraft after replacing older BlockParty JARs. Do not keep two BlockParty versions installed together.
+
+The GitHub Actions workflow in `.github/workflows/build.yml` runs the same build and uploads the JAR as an artifact.
 
 ## Generate and play
 
 1. Back up your world before generating a stadium.
-2. Go to a large, empty flat area. The generator clears its stadium and lobby footprint before building; do not run it beside structures you want to keep.
-3. Enable cheats in singleplayer (Esc → Open to LAN → Allow Cheats: ON → Start LAN World).
-4. Stand at the centre of the desired dance-floor area and run:
+2. Go to a large, empty area. The generator clears and rebuilds the stadium/lobby footprint around the position where you stand. Do not run it next to buildings you want to keep.
+3. Enable cheats in singleplayer if needed: Esc → Open to LAN → Allow Cheats: ON → Start LAN World.
+4. Stand at the centre of the intended dance-floor area and run:
 
-```mcfunction
-/bp generate main
+   ```mcfunction
+   /bp generate main
+   ```
+
+   This creates an 80×80 concrete floor. Choose a different size from 40 to 96 if you prefer:
+
+   ```mcfunction
+   /bp generate main 96
+   ```
+
+5. Join the lobby:
+
+   ```mcfunction
+   /bp join main
+   ```
+
+   The 60-second lobby countdown starts automatically. A Music Voting Book is placed in your inventory. Right-click it to vote. You can change your vote until the match starts.
+
+6. To start immediately instead of waiting:
+
+   ```mcfunction
+   /bp start main
+   ```
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `/bp help` | Show command help |
+| `/bp generate <id> [size]` | Generate a stadium and arena, size 40–96 (default 80) |
+| `/bp join <id>` | Join the lobby |
+| `/bp leave` | Leave the arena |
+| `/bp start <id>` | Start immediately (admin/cheats) |
+| `/bp stop <id>` | Stop the match (admin/cheats) |
+| `/bp status <id>` | Show arena status |
+| `/bp list` | List saved arenas |
+| `/bp vote <songId>` | Cast/change a music vote; normally done by clicking a song in chat |
+| `/bp leaderboard` | Show the top 10 players |
+| `/bp rank` or `/bp profile` | Show your rank, points, streaks and personal best |
+| `/bp music reload` | Reload the world's music playlist (admin/cheats) |
+
+## Music voting and custom songs
+
+The mod creates a world-local file named `blockparty-music.properties` in the active world's save folder the first time the world starts with BlockParty. In a normal Modrinth instance, this is under:
+
+`<instance>/saves/<world-name>/blockparty-music.properties`
+
+The file contains a comma-separated `tracks` list and display names. Example:
+
+```properties
+tracks=neon_beat,pixel_rush,night_drive,custom_1,custom_2,custom_3,custom_4,custom_5,custom_6,custom_7,custom_8
+name.custom_1=My Song One
+name.custom_2=My Song Two
 ```
 
-This generates an **80×80** concrete floor by default. You can choose a size from 40 to 96:
+To add your own audio:
 
-```mcfunction
-/bp generate main 96
-```
+1. Use the included `BlockParty-Custom-Music-Pack` template as a Minecraft 1.21.1 resource pack.
+2. Put your own OGG files in `assets/blockparty/sounds/music/` with these fixed names: `custom_1.ogg` through `custom_8.ogg`.
+3. Enable the resource pack in Options → Resource Packs. In singleplayer it only needs to be enabled on your local client; in multiplayer every client needs the same pack.
+4. Edit `blockparty-music.properties` in the world save folder to set song names and choose which IDs appear in voting.
+5. Run `/bp music reload` to reload the playlist. If you changed OGG files, reload resource packs (F3+T) or restart Minecraft so the client reloads the audio assets.
 
-Join and start:
+The music stops during the three-second transition and the selected winner track is played again when the next round begins. **This alpha restarts the selected track from its beginning for each round; it does not seek back to the exact audio timestamp.** Exact pause/resume at the same sample position requires a dedicated client-side audio player and is left for a later release.
 
-```mcfunction
-/bp join main
-/bp start main
-```
+## Points, streaks and ranks
 
-Joining starts the 10-second lobby countdown automatically. `/bp start main` starts immediately.
-
-## Useful commands
-
-```text
-/bp help
-/bp list
-/bp status main
-/bp join main
-/bp start main
-/bp leave
-/bp stop main
-/bp leaderboard
-/bp rank
-```
-
-- `/bp leaderboard` shows the top 10 players in chat.
-- `/bp rank` shows your permanent points, current rank and points required for the next rank.
-
-## Points and ranks
-
-A player earns one permanent point for every round they survive. Data is stored in the current world's `blockparty-player-stats.properties` file, keyed by player UUID, and survives game restarts. The generated lobby contains a top-five leaderboard board that refreshes as points are earned and when players return to the lobby.
+- Players earn one permanent point for each round they survive.
+- Points are saved per player UUID in `blockparty-player-stats.properties` in the world save folder.
+- Win streak counts consecutive rounds survived; it resets when a player is eliminated.
+- Personal Best is the highest round reached in a single match (maximum 15).
+- A match-end MVP is selected from round points, with collected power-ups as a tiebreaker.
 
 | Points | Rank |
 |---:|---|
@@ -76,30 +123,8 @@ A player earns one permanent point for every round they survive. Data is stored 
 | 5,000 | Superstar |
 | 10,000 | BlockParty Legend |
 
-## Power-ups
+## Notes and limitations
 
-- **Speed Boost:** Speed II for the remainder of the current round.
-- **Night Vision:** Night Vision for the remainder of the current round.
-- **Jump Boost:** Jump Boost II for the remainder of the current round.
-
-A beacon has a 30% chance to appear at the beginning of a round and spawns one block above an unoccupied concrete tile. It is not guaranteed every round. The power-up is removed at the end of that round.
-
-## Round flow
-
-The target concrete colour is shown on the large stadium display and in the action-bar indicator above the hotbar. Pattern types are not announced. When a round resolves, the coloured pattern collapses; after the fall sequence and a short pause, the next pattern appears. The world is set to night during the match and returned to its previous time afterward.
-
-## Build with GitHub Actions
-
-The full source project includes `.github/workflows/build.yml` at the repository root. The workflow installs Java 21 and Gradle 8.10.2, runs `gradle build --no-daemon`, and uploads the JAR artifact.
-
-1. Upload the contents of the source project to the root of a GitHub repository (not an extra nested folder).
-2. Commit to `main`.
-3. Open **Actions** and wait for a green check.
-4. Download the artifact from the successful run. It contains `blockparty-0.3.3-alpha.jar`.
-5. Close Minecraft, remove older BlockParty JARs from the Modrinth instance's `mods` folder, add the new JAR and launch NeoForge 1.21.1.
-
-For the **GitHub update ZIP**, keep your already-working `.github/workflows/build.yml` in the repository root; the update ZIP intentionally excludes the hidden `.github` folder so you do not need to upload it again.
-
-## Verification note
-
-The source changes and package structure have been checked statically. A full NeoForge compile and in-game test still need to be run by GitHub Actions and in Minecraft. The physical lobby leaderboard, colour-sign orientation and timing changes should be checked in a backup singleplayer world before using the update in your main world.
+- The source package is intended for Minecraft 1.21.1 and NeoForge 21.1.x, using Java 21.
+- The music voting book is a normal Book with a custom name; if the player's inventory is full, free a slot and rejoin the arena.
+- This release is a source build candidate. GitHub Actions must complete successfully before its JAR should be treated as build-verified. Then test arena generation and the match in a backup world.

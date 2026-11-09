@@ -7,7 +7,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="Bangerfabrikken"
-description='''A singleplayer-friendly Block Party minigame for Minecraft 1.21.1. Includes an expanded 80x80 default stadium generator, spectator promenade and stands, a two-sided block-letter target display, a persistent target HUD, 15 timed concrete-color rounds, concrete-only floor tiles, floating one-round beacon power-ups, sidebar scoreboard, elimination lightning, and original round-synchronised music and sound effects, persistent player progression, ranks and a lobby leaderboard.'''
+description='''A singleplayer-friendly BlockParty minigame for Minecraft 1.21.1. Includes an indoor lobby, elevated spectator promenade, music voting book, custom resource-pack playlist, 15 timed concrete-colour rounds, one-round power-ups, scoreboard, elimination lightning, player streaks, ranks, leaderboard and a winner presentation.'''
 
 [[dependencies.${mod_id}]]
 modId="neoforge"

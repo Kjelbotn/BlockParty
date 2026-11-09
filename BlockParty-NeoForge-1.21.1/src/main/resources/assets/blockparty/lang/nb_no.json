@@ -8,5 +8,13 @@
   "subtitles.blockparty.victory": "BlockParty-seier",
   "subtitles.blockparty.music_neon": "Neon Beat",
   "subtitles.blockparty.music_arcade": "Pixel Rush",
-  "subtitles.blockparty.music_rush": "Night Drive"
+  "subtitles.blockparty.music_rush": "Night Drive",
+  "subtitles.blockparty.music_custom_1": "Egendefinert musikkspor 1",
+  "subtitles.blockparty.music_custom_2": "Egendefinert musikkspor 2",
+  "subtitles.blockparty.music_custom_3": "Egendefinert musikkspor 3",
+  "subtitles.blockparty.music_custom_4": "Egendefinert musikkspor 4",
+  "subtitles.blockparty.music_custom_5": "Egendefinert musikkspor 5",
+  "subtitles.blockparty.music_custom_6": "Egendefinert musikkspor 6",
+  "subtitles.blockparty.music_custom_7": "Egendefinert musikkspor 7",
+  "subtitles.blockparty.music_custom_8": "Egendefinert musikkspor 8"
 }

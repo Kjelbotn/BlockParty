@@ -1,14 +1,13 @@
-BLOCKPARTY 0.3.3-ALPHA - GITHUB UPDATE
+BLOCKPARTY 0.4.0-ALPHA — GITHUB UPDATE
 
-For your existing BlockParty-Rebuild repository:
-1. Open the repository root: the page where build.gradle and src/ are visible.
-2. In this ZIP, use the src/ folder and upload it to that same repository root. Do not upload an outer project folder.
-3. Also upload gradle.properties, README.md and CHANGELOG.md to the repository root.
-4. Keep your already-working .github/workflows/build.yml. The GitHub Update ZIP intentionally omits the hidden .github directory.
-5. Commit the changes to main. GitHub Actions should start automatically.
+For the existing BlockParty-Rebuild repository:
+1. Open the repository root (the page where build.gradle and src/ are visible).
+2. In the GitHub Update ZIP, upload the src/ folder and root files to that same repository root. Do not upload an outer project folder.
+3. Upload gradle.properties, README.md, CHANGELOG.md and MUSIC-CUSTOM-TRACKS.md to the repository root.
+4. Keep the working .github/workflows/build.yml. The GitHub Update ZIP intentionally omits .github so it does not replace the workflow you already configured.
+5. Commit to main. GitHub Actions should start the build automatically.
+6. When the build is green, open Actions -> run -> Summary -> Artifacts and download the BlockParty 0.4.0 artifact. The JAR should be blockparty-0.4.0-alpha.jar.
 
-If the Actions artifact label still mentions 0.3.2, that is only the workflow's display name; the JAR produced by this source is blockparty-0.3.3-alpha.jar. You can rename the artifact label in the workflow later, but it is not required for compilation.
+Before generating the new arena, back up the world and choose an empty area. Run /bp generate main (default 80x80) or /bp generate main 96.
 
-Before generating the new arena, back up the world and choose an empty area. Use /bp generate main (default 80x80) or /bp generate main 96.
-
-Player progression is saved in blockparty-player-stats.properties in the world save folder. /bp leaderboard shows the top 10; /bp rank shows the player's points, rank and points remaining until the next rank.
+For custom music, see MUSIC-CUSTOM-TRACKS.md. The world-local playlist file is blockparty-music.properties. After editing it, run /bp music reload.
