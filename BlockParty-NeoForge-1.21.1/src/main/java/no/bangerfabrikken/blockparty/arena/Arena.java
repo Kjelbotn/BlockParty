@@ -63,7 +63,7 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, INTRO, PREPARE, FALL, INTERMISSION, FINISHING
+        WAITING, COUNTDOWN, PREPARE, FALL, INTERMISSION, FINISHING
     }
 
     private enum PowerUp {
@@ -74,8 +74,7 @@ public final class Arena {
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
-    private static final int LOBBY_COUNTDOWN_TICKS = 1200;
-    private static final int DJ_INTRO_TICKS = 120; // Six-second DJ intro before players enter the arena.
+    private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
     private static final int[] ROUND_DURATION_TICKS = {
@@ -201,10 +200,18 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Denne kampen er full (maks " + MAX_PLAYERS + " spillere).").withStyle(ChatFormatting.RED));
             return;
         }
-        if (!players.add(player.getUUID())) {
+        if (players.contains(player.getUUID())) {
             player.sendSystemMessage(Component.literal("Du er allerede med i denne arenaen.").withStyle(ChatFormatting.YELLOW));
+            teleportToLobby(player);
+            ensureLobbyItems(player);
             return;
         }
+        UUID joiningId = player.getUUID();
+        originalGameModes.putIfAbsent(joiningId, player.gameMode.getGameModeForPlayer());
+        originalHeldItems.putIfAbsent(joiningId, InventorySnapshot.capture(player));
+        player.getInventory().clearContent();
+        player.inventoryMenu.broadcastChanges();
+        players.add(joiningId);
         applyVisualUpgrade();
         teleportToLobby(player);
         ensureLobbyItems(player);
@@ -274,8 +281,6 @@ public final class Arena {
         alive.addAll(players);
         pendingEliminations.clear();
         lastEliminatedPlayer = null;
-        originalGameModes.clear();
-        originalHeldItems.clear();
         points.clear();
         powerupsCollected.clear();
         for (UUID uuid : players) {
@@ -291,50 +296,16 @@ public final class Arena {
         activeMusicId = null;
         selectedMusicTrackId = selectWinningSong();
 
-        // Save each player's complete lobby state now, but keep them in the lobby for the DJ intro.
-        for (UUID uuid : players) {
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null) {
-                originalGameModes.put(uuid, player.gameMode.getGameModeForPlayer());
-                originalHeldItems.put(uuid, InventorySnapshot.capture(player));
-            }
-        }
-
-        phase = Phase.INTRO;
-        timerTicks = DJ_INTRO_TICKS;
-        djBeatTicks = 0;
-        djPulseTicks = 0;
-        refreshDjScreen();
+        phase = Phase.COUNTDOWN;
+        timerTicks = START_COUNTDOWN_TICKS;
         hideLobbyLeaderboard();
         showScoreboard(server);
-        showDjIntro(server);
+        broadcast(Component.literal("BlockParty starter om 10 sekunder!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
         playSelectedMusic();
     }
 
-    private void showDjIntro(MinecraftServer server) {
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        Component title = Component.literal("BLOCKPARTY DJ MODE")
-                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
-        Component subtitle = track == null
-                ? Component.literal("ROUND ONE IS ABOUT TO START").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
-                : Component.literal(track.name() + "  •  " + track.artist()).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
-        for (UUID uuid : players) {
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player == null) continue;
-            player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 90, 20));
-            player.connection.send(new ClientboundSetTitleTextPacket(title));
-            player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
-        }
-        if (track != null) {
-            broadcast(Component.literal("♫ DJ INTRO: " + track.name() + " — " + track.artist())
-                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        } else {
-            broadcast(Component.literal("♫ DJ INTRO: musikken starter nå!")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        }
-    }
-
-    private void beginMatchAfterIntro(MinecraftServer server) {
+    private void beginMatch(MinecraftServer server) {
         for (UUID uuid : new ArrayList<>(alive)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) {
@@ -391,7 +362,7 @@ public final class Arena {
         }
 
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("BLOCKPARTY  •  DJ MODE").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        lines.add(Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         Track featured = selectedMusicTrackId == null ? mostVotedTrack() : MusicTrackManager.get(selectedMusicTrackId);
         if (featured == null) {
             lines.add(Component.literal("VOTE FOR THE NEXT TRACK").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
@@ -432,24 +403,8 @@ public final class Arena {
     }
 
     private void tickMusicEffects() {
-        if (activeMusicId == null || selectedMusicTrackId == null || level == null) {
-            if (djPulseTicks > 0) {
-                djPulseTicks = 0;
-                setDjLights(false);
-            }
-            return;
-        }
-        Track track = MusicTrackManager.get(selectedMusicTrackId);
-        if (track == null) return;
+        if (activeMusicId == null || selectedMusicTrackId == null || level == null) return;
         if (musicTicksUntilReplay > 0 && --musicTicksUntilReplay == 0) playSelectedMusic();
-        if (djPulseTicks > 0 && --djPulseTicks == 0) setDjLights(false);
-        int beatInterval = Math.max(8, (int) Math.round(1200.0 / track.bpm()));
-        if (++djBeatTicks >= beatInterval) {
-            djBeatTicks = 0;
-            djPulseTicks = 4;
-            setDjLights(true);
-            emitMusicParticles();
-        }
     }
 
     private void setDjLights(boolean lit) {
@@ -895,6 +850,16 @@ public final class Arena {
         player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         refreshDjScreen();
+        int requiredVotes = (players.size() + 1) / 2;
+        long validVotes = musicVotes.keySet().stream().filter(players::contains).count();
+        if (phase == Phase.WAITING && players.size() >= MIN_PLAYERS && validVotes >= requiredVotes) {
+            try {
+                start(player.serverLevel().getServer());
+                broadcast(Component.literal("Flertallet har stemt! BlockParty starter om 10 sekunder.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            } catch (IllegalStateException exception) {
+                broadcast(Component.literal("Kunne ikke starte BlockParty: " + exception.getMessage()).withStyle(ChatFormatting.RED));
+            }
+        }
         return true;
     }
 
@@ -941,42 +906,19 @@ public final class Arena {
         scoreboardTick++;
         tickMusicEffects();
         switch (phase) {
-            case WAITING -> {
-                if (players.size() >= MIN_PLAYERS) {
-                    phase = Phase.COUNTDOWN;
-                    timerTicks = LOBBY_COUNTDOWN_TICKS;
-                    broadcast(Component.literal("BlockParty starter om 60 sekunder! " + players.size() + "/" + MAX_PLAYERS + " spillere er påmeldt.").withStyle(ChatFormatting.GREEN));
-                    playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 0.85F);
-                }
-            }
+            case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
             case COUNTDOWN -> {
-                if (players.size() < MIN_PLAYERS) {
+                if (players.isEmpty()) {
                     phase = Phase.WAITING;
                     timerTicks = 0;
-                    broadcast(Component.literal("Nedtellingen er stoppet – BlockParty trenger minst 2 spillere. Administrator kan bruke /bp forcestart " + id + ".").withStyle(ChatFormatting.YELLOW));
+                    stopMusic();
                     break;
                 }
                 timerTicks--;
-                if (timerTicks % 20 == 0 && timerTicks > 0) {
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
                     broadcastActionBar(Component.literal("Spillet starter om " + (timerTicks / 20) + " sekunder").withStyle(ChatFormatting.YELLOW));
                 }
-                if (timerTicks <= 0) {
-                    try {
-                        start(server);
-                    } catch (IllegalStateException exception) {
-                        phase = Phase.WAITING;
-                        timerTicks = 0;
-                        broadcast(Component.literal("Kunne ikke starte BlockParty: " + exception.getMessage()).withStyle(ChatFormatting.RED));
-                    }
-                }
-            }
-            case INTRO -> {
-                timerTicks--;
-                if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("DJ INTRO  •  FØRSTE RUNDE OM " + (timerTicks / 20) + " SEKUNDER")
-                            .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-                }
-                if (timerTicks <= 0) beginMatchAfterIntro(server);
+                if (timerTicks <= 0) beginMatch(server);
             }
             case PREPARE -> {
                 timerTicks--;
@@ -1131,7 +1073,7 @@ public final class Arena {
         int totalPoints = profilePlayer == null ? 0 : PlayerStatsManager.getPoints(profilePlayer.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(totalPoints);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
-        String timeText = phase == Phase.INTRO ? "DJ INTRO" :
+        String timeText = phase == Phase.COUNTDOWN ? "NEDTELLING" :
                 (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
                         ? formatSeconds(ROUND_DURATION_TICKS[Math.max(0, Math.min(round - 1, MAX_ROUNDS - 1))]) + "s" : "--";
         String nextRankText = rank.isMaxRank() ? "MAX RANK" : rank.pointsToNext(totalPoints) + " pts";
@@ -1187,28 +1129,34 @@ public final class Arena {
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
-        int pattern = random.nextInt(5);
-        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(4)) % 5;
+        int pattern = random.nextInt(8);
+        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(7)) % 8;
         previousPattern = pattern;
         int offset = random.nextInt(colors.size());
-        int bandWidth = 1 + random.nextInt(3);
-        Map<Long, DyeColor> patchColors = new HashMap<>();
+        List<DyeColor> cell = new ArrayList<>(colors);
+        Collections.shuffle(cell, random);
+        int rotation = random.nextInt(4);
+        boolean mirror = random.nextBoolean();
         Set<DyeColor> used = EnumSet.noneOf(DyeColor.class);
 
         for (BlockPos pos : new ArrayList<>(originalFloorSnapshot.keySet())) {
             int x = pos.getX() - minX;
             int z = pos.getZ() - minZ;
-            DyeColor color;
-            switch (pattern) {
-                case 1 -> color = colors.get(Math.floorMod((x / bandWidth) + offset, colors.size())); // vertical bands
-                case 2 -> color = colors.get(Math.floorMod((z / bandWidth) + offset, colors.size())); // horizontal bands
-                case 3 -> {
-                    long patchKey = (((long) (x / 2)) << 32) | (z / 2 & 0xffffffffL);
-                    color = patchColors.computeIfAbsent(patchKey, ignored -> colors.get(random.nextInt(colors.size())));
-                }
-                case 4 -> color = colors.get(Math.floorMod(x + z + (x / 3) * 2 + offset, colors.size())); // diagonal mosaic
-                default -> color = colors.get(random.nextInt(colors.size())); // scattered mosaic
-            }
+            int lx = Math.floorMod(x, 4);
+            int lz = Math.floorMod(z, 4);
+            if (mirror) lx = 3 - lx;
+            for (int r = 0; r < rotation; r++) { int t = lx; lx = lz; lz = 3 - t; }
+            int local = switch (pattern) {
+                case 1 -> (lx * 4 + lz);
+                case 2 -> (lz * 4 + lx);
+                case 3 -> ((lx + lz) % 4) * 4 + ((lx - lz + 4) % 4);
+                case 4 -> ((lx ^ lz) * 4 + ((lx + lz) % 4));
+                case 5 -> ((lx * 2 + lz) % 16);
+                case 6 -> ((lz * 3 + lx * 5) % 16);
+                case 7 -> ((lx * 4 + (3 - lz)) % 16);
+                default -> random.nextInt(16);
+            };
+            DyeColor color = cell.get(Math.floorMod(local + offset, cell.size()));
             BlockState newState = BlockPartyColors.getConcrete(color).defaultBlockState();
             level.setBlock(pos, newState, 3);
             floorSnapshot.put(pos, newState);
@@ -1529,7 +1477,7 @@ public final class Arena {
     /** Refreshes the lobby-only leaderboard. Its text is hidden while players are in the arena. */
     private void refreshLobbyLeaderboard() {
         if (level == null || !lobbySet) return;
-        if (phase == Phase.INTRO || phase == Phase.PREPARE || phase == Phase.FALL
+        if (phase == Phase.COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
             hideLobbyLeaderboard();
             return;
@@ -1593,7 +1541,7 @@ public final class Arena {
     }
 
     private boolean isGameInProgress() {
-        return phase == Phase.INTRO || phase == Phase.PREPARE || phase == Phase.FALL
+        return phase == Phase.COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.INTERMISSION || phase == Phase.FINISHING;
     }
 

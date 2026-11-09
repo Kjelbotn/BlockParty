@@ -457,6 +457,8 @@ public final class ArenaGenerator {
                 Blocks.BLUE_CONCRETE, Blocks.BLACK_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE};
         for (int x = centerX - 8; x <= centerX + 8; x++) {
             for (int z = (int) Math.floor(lobbyZ) - 6; z <= (int) Math.floor(lobbyZ) + 8; z++) {
+                // Keep the dance tiles as a single floating layer; remove the old grey/terrain backing.
+                put(level, x, floorY - 1, z, Blocks.AIR);
                 put(level, x, floorY, z, danceColours[Math.floorMod(x + z, danceColours.length)]);
             }
         }

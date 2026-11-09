@@ -27,6 +27,7 @@ public final class BlockPartyCommands {
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root(String name) {
         return Commands.literal(name)
+                .executes(context -> quickJoin(context.getSource()))
                 .then(Commands.literal("generate")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -87,6 +88,21 @@ public final class BlockPartyCommands {
                                 .requires(source -> source.hasPermission(2))
                                 .executes(context -> reloadMusic(context.getSource()))))
                 .then(Commands.literal("help").executes(context -> help(context.getSource())));
+    }
+
+    private static int quickJoin(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        ArenaManager manager = ArenaManager.get();
+        Arena arena = manager.findArena(player.getUUID());
+        if (arena == null) arena = manager.findDefaultLobbyArena();
+        if (arena == null) {
+            source.sendFailure(Component.literal("Fant ingen konfigurert BlockParty-lobby. Administrator må først bruke /bp generate <id> 40."));
+            return 0;
+        }
+        Arena current = manager.findArena(player.getUUID());
+        if (current != null && current != arena) current.leave(player, false);
+        arena.join(player);
+        return 1;
     }
 
     private static int generate(CommandSourceStack source, String id, int size) throws CommandSyntaxException {

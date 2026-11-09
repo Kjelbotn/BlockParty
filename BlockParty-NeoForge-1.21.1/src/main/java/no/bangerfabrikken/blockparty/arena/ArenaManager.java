@@ -76,6 +76,12 @@ public final class ArenaManager {
         return null;
     }
 
+    /** Returns the first configured arena for the simple /bp lobby shortcut. */
+    public Arena findDefaultLobbyArena() {
+        for (Arena arena : arenas.values()) if (arena.isConfigured()) return arena;
+        return null;
+    }
+
     /** Find the closest open lobby near a player, even before they have joined the match. */
     public Arena findLobbyArenaFor(ServerPlayer player) {
         Arena closest = null;
