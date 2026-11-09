@@ -48,8 +48,7 @@ public final class BlockPartyText {
     private static String[] rows(String... rows) { return rows; }
 
     /**
-     * Draws a centred word. The origin's Y is the top pixel row. Set reverseX when the
-     * viewer looks toward -Z at the front (+Z) face of the sign, so the text reads normally.
+     * Draws a centred word. The origin's Y is the top pixel row. The callers must pass the correct X direction for their viewing side; the north-wall arena sign is not reversed.
      */
     public static void drawCentered(ServerLevel level, BlockPos origin, String text, Block foreground, int maxWidth) {
         drawCentered(level, origin, text, foreground, maxWidth, false);

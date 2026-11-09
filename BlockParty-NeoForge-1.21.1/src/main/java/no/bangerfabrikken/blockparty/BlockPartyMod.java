@@ -31,7 +31,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onRightClickBlock);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.3.0-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.3.2-alpha");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {

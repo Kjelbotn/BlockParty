@@ -50,6 +50,12 @@ public final class BlockPartyColors {
         return BLOCK_TO_COLOR.get(state.getBlock());
     }
 
+    /** True only for concrete blocks. Wool and terracotta are intentionally not accepted as arena tiles. */
+    public static boolean isConcrete(BlockState state) {
+        DyeColor color = getColor(state);
+        return color != null && COLOR_TO_CONCRETE.get(color) == state.getBlock();
+    }
+
     public static Block getConcrete(DyeColor color) {
         return COLOR_TO_CONCRETE.getOrDefault(color, Blocks.WHITE_CONCRETE);
     }

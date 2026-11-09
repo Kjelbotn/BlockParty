@@ -116,7 +116,7 @@ public final class BlockPartyCommands {
         try {
             Arena arena = ArenaManager.get().create(id, player);
             ArenaManager.get().save(source.getServer());
-            source.sendSuccess(() -> Component.literal("Opprettet arena '" + arena.getId() + "'. For automatisk bygging: /bp generate " + id + " 40.").withStyle(ChatFormatting.GREEN), true);
+            source.sendSuccess(() -> Component.literal("Opprettet arena '" + arena.getId() + "'. For automatisk bygging: /bp generate " + id + " 80.").withStyle(ChatFormatting.GREEN), true);
         } catch (IllegalArgumentException exception) {
             source.sendFailure(Component.literal(exception.getMessage()));
         }
@@ -243,7 +243,7 @@ public final class BlockPartyCommands {
 
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg stadion, concrete-gulv, spectatorgang og lobby (24–56, standard 40)"), false);
+        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg stadion, concrete-gulv, spectatorgang og lobby (40–96, standard 80)"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – oppdater lobbyspawn"), false);

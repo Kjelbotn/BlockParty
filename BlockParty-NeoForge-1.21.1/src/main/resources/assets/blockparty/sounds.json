@@ -4,7 +4,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/round_start",
-        "volume": 0.8
+        "volume": 0.52
       }
     ]
   },
@@ -13,7 +13,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/round_end",
-        "volume": 0.85
+        "volume": 0.52
       }
     ]
   },
@@ -22,7 +22,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/color_reveal",
-        "volume": 0.8
+        "volume": 0.52
       }
     ]
   },
@@ -31,7 +31,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/elimination",
-        "volume": 0.85
+        "volume": 0.58
       }
     ]
   },
@@ -40,7 +40,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/beacon_spawn",
-        "volume": 0.85
+        "volume": 0.58
       }
     ]
   },
@@ -49,7 +49,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/powerup_pickup",
-        "volume": 0.9
+        "volume": 0.58
       }
     ]
   },
@@ -58,7 +58,7 @@
     "sounds": [
       {
         "name": "blockparty:effects/victory",
-        "volume": 1.0
+        "volume": 0.52
       }
     ]
   },
@@ -68,7 +68,7 @@
       {
         "name": "blockparty:music/neon_beat",
         "stream": true,
-        "volume": 0.52
+        "volume": 0.4
       }
     ]
   },
@@ -78,7 +78,7 @@
       {
         "name": "blockparty:music/pixel_rush",
         "stream": true,
-        "volume": 0.52
+        "volume": 0.4
       }
     ]
   },
@@ -88,7 +88,7 @@
       {
         "name": "blockparty:music/night_drive",
         "stream": true,
-        "volume": 0.52
+        "volume": 0.4
       }
     ]
   }

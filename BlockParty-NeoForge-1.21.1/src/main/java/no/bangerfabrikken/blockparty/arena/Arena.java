@@ -17,6 +17,15 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.network.chat.numbers.BlankFormat;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.ObjectiveCriteria;
+import net.minecraft.world.scores.ScoreAccess;
+import net.minecraft.world.scores.ScoreHolder;
+import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvent;
@@ -48,7 +57,7 @@ public final class Arena {
     }
 
     public static final int MAX_ROUNDS = 15;
-    private static final int MAX_FLOOR_BLOCKS = 4096;
+    private static final int MAX_FLOOR_BLOCKS = 96 * 96;
     private static final int LOBBY_COUNTDOWN_TICKS = 200;
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 50;
@@ -74,6 +83,8 @@ public final class Arena {
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
     private final Map<UUID, HeldItemSnapshot> originalHeldItems = new HashMap<>();
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
+    private final Map<UUID, Integer> points = new HashMap<>();
+    private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
     private final Map<BlockPos, BlockState> originalFloorSnapshot = new HashMap<>();
     private final Map<BlockPos, BlockState> floorSnapshot = new HashMap<>();
     private final Set<DyeColor> palette = EnumSet.noneOf(DyeColor.class);
@@ -85,10 +96,15 @@ public final class Arena {
     private DyeColor targetColor;
     private DyeColor previousTargetColor;
     private int previousPattern = -1;
-    private String currentPattern = "fargemosaikk";
     private boolean soloMode;
 
+    /** The beacon block is one block above the floor tile. */
     private BlockPos activeBeaconPos;
+    private BlockPos activeBeaconFloorPos;
+    private BlockState activeBeaconOriginalState;
+    private Objective sidebarObjective;
+    private Objective previousSidebarObjective;
+    private int scoreboardTick;
     private boolean powerUpPlanned;
     private boolean powerUpSpawnedThisRound;
     private int powerUpSpawnAtRemainingTicks;
@@ -201,6 +217,12 @@ public final class Arena {
         pendingEliminations.clear();
         originalGameModes.clear();
         originalHeldItems.clear();
+        points.clear();
+        powerupsCollected.clear();
+        for (UUID uuid : players) {
+            points.put(uuid, 0);
+            powerupsCollected.put(uuid, 0);
+        }
         round = 0;
         previousTargetColor = null;
         previousPattern = -1;
@@ -208,6 +230,8 @@ public final class Arena {
         powerUpPlanned = false;
         powerUpSpawnedThisRound = false;
         activeBeaconPos = null;
+        activeBeaconFloorPos = null;
+        activeBeaconOriginalState = null;
         activeMusicId = null;
 
         for (UUID uuid : players) {
@@ -221,16 +245,23 @@ public final class Arena {
             }
         }
 
-        broadcast(Component.literal("BLOCK PARTY STARTER! Finn fargen som vises i hånden din!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        showScoreboard(server);
         beginRound(server);
     }
 
     private void updateColorDisplay() {
         if (displayCenter == null || targetColor == null || level == null) return;
-        int width = 40;
-        BlockPartyText.drawCentered(level, displayCenter, "FIND", Blocks.WHITE_CONCRETE, width, true);
-        BlockPartyText.drawCentered(level, displayCenter.below(6), BlockPartyColors.displayName(targetColor),
-                BlockPartyColors.getConcrete(targetColor), width, true);
+        int width = 60;
+        // The stadium sign is double-sided. The inner face is reversed to match the actual
+        // viewing direction seen in-game; the outer face is drawn in the opposite orientation.
+        drawTargetSignFace(displayCenter, width, true);
+        drawTargetSignFace(displayCenter.offset(0, 0, -2), width, false);
+    }
+
+    private void drawTargetSignFace(BlockPos faceCenter, int width, boolean reverseX) {
+        BlockPartyText.drawCentered(level, faceCenter, "FIND", Blocks.WHITE_CONCRETE, width, reverseX);
+        BlockPartyText.drawCentered(level, faceCenter.below(6), BlockPartyColors.displayName(targetColor),
+                BlockPartyColors.getConcrete(targetColor), width, reverseX);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
@@ -255,10 +286,12 @@ public final class Arena {
             // The effect is deliberately long in vanilla terms, then removed at this round's end.
             player.addEffect(new MobEffectInstance(effect, 20 * 60, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(player.getUUID(), ignored -> new HashSet<>()).add(effect);
+            powerupsCollected.merge(player.getUUID(), 1, Integer::sum);
             player.sendSystemMessage(Component.literal("POWER-UP: " + label + " – varer ut denne runden!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
             broadcast(Component.literal(player.getName().getString() + " plukket opp " + label + "!").withStyle(ChatFormatting.AQUA));
         }
-        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.9F, 1.0F);
+        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
+        updateScoreboard(level.getServer());
         return true;
     }
 
@@ -277,21 +310,28 @@ public final class Arena {
                     break;
                 }
             }
-            if (occupied) continue;
-            if (BlockPartyColors.getColor(level.getBlockState(candidate)) == null) continue;
-            activeBeaconPos = candidate.immutable();
+            if (occupied || !BlockPartyColors.isConcrete(level.getBlockState(candidate))) continue;
+
+            BlockPos beaconPos = candidate.above();
+            if (!level.isEmptyBlock(beaconPos)) continue;
+            activeBeaconFloorPos = candidate.immutable();
+            activeBeaconPos = beaconPos.immutable();
+            activeBeaconOriginalState = level.getBlockState(beaconPos);
             level.setBlock(activeBeaconPos, Blocks.BEACON.defaultBlockState(), 3);
-            broadcast(Component.literal("✦ EN POWER-UP HAR SPAWNET! Høyreklikk beaconen!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-            playSound(ModSounds.BEACON_SPAWN, SoundSource.PLAYERS, 0.8F, 1.0F);
+            broadcast(Component.literal("✦ EN POWER-UP HAR SPWNET! Høyreklikk beaconen!")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+            playSound(ModSounds.BEACON_SPAWN, SoundSource.PLAYERS, 0.65F, 1.0F);
             return;
         }
     }
 
     private void removeActiveBeacon() {
         if (activeBeaconPos == null || level == null) return;
-        BlockState original = floorSnapshot.get(activeBeaconPos);
-        level.setBlock(activeBeaconPos, original == null ? Blocks.AIR.defaultBlockState() : original, 3);
+        BlockState restore = activeBeaconOriginalState == null ? Blocks.AIR.defaultBlockState() : activeBeaconOriginalState;
+        level.setBlock(activeBeaconPos, restore, 3);
         activeBeaconPos = null;
+        activeBeaconFloorPos = null;
+        activeBeaconOriginalState = null;
     }
 
     private void clearActivePowerUps(MinecraftServer server) {
@@ -361,11 +401,11 @@ public final class Arena {
                 BlockPos pos = new BlockPos(x, floorY, z);
                 BlockState state = level.getBlockState(pos);
                 DyeColor color = BlockPartyColors.getColor(state);
-                if (color == null) {
+                if (color == null || !BlockPartyColors.isConcrete(state)) {
                     originalFloorSnapshot.clear();
                     floorSnapshot.clear();
                     palette.clear();
-                    throw new IllegalStateException("Gulvet må bestå av farget ull, betong eller terrakotta. Fant "
+                    throw new IllegalStateException("Dansegulvet må bestå av farget concrete (ikke ull eller terrakotta). Fant "
                             + state.getBlock().getName().getString() + " ved " + pos.toShortString() + ".");
                 }
                 originalFloorSnapshot.put(pos.immutable(), state);
@@ -377,6 +417,7 @@ public final class Arena {
     }
 
     public void tick(MinecraftServer server) {
+        scoreboardTick++;
         switch (phase) {
             case WAITING -> {
                 if (!players.isEmpty()) {
@@ -411,11 +452,7 @@ public final class Arena {
                 if (powerUpPlanned && !powerUpSpawnedThisRound && timerTicks <= powerUpSpawnAtRemainingTicks) {
                     spawnPowerUpBeacon();
                 }
-                if (timerTicks > 0 && (timerTicks % 10 == 0 || timerTicks < 10)) {
-                    broadcastActionBar(Component.literal("FINN FARGEN: " + BlockPartyColors.displayName(targetColor)
-                            + "  |  " + formatSeconds(timerTicks) + "s  |  Runde " + round + "/" + MAX_ROUNDS)
-                            .withStyle(ChatFormatting.BOLD, ChatFormatting.YELLOW));
-                }
+                if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
                 if (timerTicks <= 0) resolveRound();
             }
             case FALL -> {
@@ -450,6 +487,7 @@ public final class Arena {
                 if (timerTicks <= 0) endGame(server);
             }
         }
+        if (phase != Phase.WAITING && scoreboardTick % 5 == 0) updateScoreboard(server);
     }
 
     private void beginRound(MinecraftServer server) {
@@ -487,15 +525,99 @@ public final class Arena {
         powerUpPlanned = timerTicks >= 60 && random.nextFloat() < 0.30F;
         powerUpSpawnAtRemainingTicks = powerUpPlanned
                 ? 30 + random.nextInt(Math.max(1, timerTicks - 50)) : -1;
-        broadcast(Component.literal("Runde " + round + "/" + MAX_ROUNDS + " – FINN " + BlockPartyColors.displayName(targetColor) + "!")
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        broadcast(Component.literal("Nytt gulvmønster: " + currentPattern + ". Se fargene skifte!")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
-        broadcastActionBar(Component.literal("FINN FARGEN: " + BlockPartyColors.displayName(targetColor)
-                + "  |  " + formatSeconds(timerTicks) + "s").withStyle(ChatFormatting.BOLD, ChatFormatting.YELLOW));
+        broadcastTargetHud();
         playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 1.0F);
         playSoundRandomMusic();
-        playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
+        playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.55F, 1.0F);
+        updateScoreboard(server);
+    }
+
+    private void broadcastTargetHud() {
+        if (targetColor == null || level == null) return;
+        ChatFormatting color = switch (targetColor) {
+            case WHITE -> ChatFormatting.WHITE;
+            case ORANGE -> ChatFormatting.GOLD;
+            case MAGENTA, PINK -> ChatFormatting.LIGHT_PURPLE;
+            case LIGHT_BLUE, CYAN -> ChatFormatting.AQUA;
+            case YELLOW -> ChatFormatting.YELLOW;
+            case LIME -> ChatFormatting.GREEN;
+            case GRAY -> ChatFormatting.DARK_GRAY;
+            case LIGHT_GRAY -> ChatFormatting.GRAY;
+            case PURPLE -> ChatFormatting.DARK_PURPLE;
+            case BLUE -> ChatFormatting.BLUE;
+            case BROWN -> ChatFormatting.GOLD;
+            case GREEN -> ChatFormatting.DARK_GREEN;
+            case RED -> ChatFormatting.RED;
+            case BLACK -> ChatFormatting.BLACK;
+        };
+        Component hud = Component.literal("   ■  ").withStyle(color, ChatFormatting.BOLD)
+                .append(Component.literal(BlockPartyColors.displayName(targetColor)).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
+                .append(Component.literal("  ■   ").withStyle(color, ChatFormatting.BOLD));
+        for (UUID uuid : players) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) player.displayClientMessage(hud, true);
+        }
+    }
+
+    private void showScoreboard(MinecraftServer server) {
+        Scoreboard scoreboard = server.getScoreboard();
+        Objective current = scoreboard.getObjective("bp_match");
+        if (current == null) {
+            current = scoreboard.addObjective("bp_match", ObjectiveCriteria.DUMMY,
+                    Component.literal("BLOCKPARTY").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
+                    ObjectiveCriteria.RenderType.INTEGER, false, null);
+        }
+        if (sidebarObjective == null) {
+            previousSidebarObjective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
+            sidebarObjective = current;
+        }
+        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, sidebarObjective);
+        updateScoreboard(server);
+    }
+
+    private void updateScoreboard(MinecraftServer server) {
+        if (sidebarObjective == null) return;
+        Scoreboard scoreboard = server.getScoreboard();
+        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, sidebarObjective);
+
+        int displayedPoints = 0;
+        int displayedPowerups = 0;
+        for (UUID uuid : players) {
+            displayedPoints += points.getOrDefault(uuid, 0);
+            displayedPowerups += powerupsCollected.getOrDefault(uuid, 0);
+        }
+        double seconds = round > 0
+                ? (phase == Phase.PREPARE ? timerTicks : ROUND_DURATION_TICKS[Math.min(round - 1, MAX_ROUNDS - 1)]) / 20.0
+                : 0.0;
+        String timerText = phase == Phase.PREPARE ? String.format(Locale.ROOT, "%.1fs", Math.max(0, seconds)) : "--";
+
+        String[] ids = {"bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4", "bp_line_5", "bp_line_6", "bp_line_7"};
+        Component[] lines = {
+                Component.literal("DANCERS LEFT: " + alive.size()).withStyle(ChatFormatting.AQUA),
+                Component.literal("GAME INFO").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
+                Component.literal("ROUND: " + round + " / " + MAX_ROUNDS).withStyle(ChatFormatting.WHITE),
+                Component.literal("TIME LEFT: " + timerText).withStyle(ChatFormatting.GRAY),
+                Component.literal("YOUR STATS").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
+                Component.literal("POINTS: " + displayedPoints).withStyle(ChatFormatting.WHITE),
+                Component.literal("POWER-UPS: " + displayedPowerups).withStyle(ChatFormatting.WHITE),
+                Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY)
+        };
+        for (int i = 0; i < ids.length; i++) {
+            ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(ids[i]), sidebarObjective);
+            score.set(ids.length - i);
+            score.display(lines[i]);
+            score.numberFormatOverride(BlankFormat.INSTANCE);
+        }
+    }
+
+    private void hideScoreboard(MinecraftServer server) {
+        if (sidebarObjective == null) return;
+        Scoreboard scoreboard = server.getScoreboard();
+        if (scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR) == sidebarObjective) {
+            scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, previousSidebarObjective);
+        }
+        sidebarObjective = null;
+        previousSidebarObjective = null;
     }
 
     /** Repaints the same tile positions with a newly randomized color arrangement and pattern. */
@@ -509,13 +631,6 @@ public final class Arena {
         int pattern = random.nextInt(5);
         if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(4)) % 5;
         previousPattern = pattern;
-        currentPattern = switch (pattern) {
-            case 1 -> "vertikale striper";
-            case 2 -> "horisontale striper";
-            case 3 -> "fargefelt";
-            case 4 -> "diagonalt mosaikk";
-            default -> "spredt mosaikk";
-        };
         int offset = random.nextInt(colors.size());
         int bandWidth = 1 + random.nextInt(3);
         Map<Long, DyeColor> patchColors = new HashMap<>();
@@ -552,8 +667,8 @@ public final class Arena {
 
             player.getInventory().selected = snapshot.slot();
             ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(targetColor));
-            targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal("FINN: " + BlockPartyColors.displayName(targetColor))
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
+                    .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
             player.getInventory().setItem(snapshot.slot(), targetBlock);
         }
     }
@@ -567,18 +682,16 @@ public final class Arena {
                 continue;
             }
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            DyeColor standingColor;
-            if (activeBeaconPos != null && activeBeaconPos.equals(tile)) {
-                BlockState underlying = floorSnapshot.get(activeBeaconPos);
-                standingColor = underlying == null ? null : BlockPartyColors.getColor(underlying);
-            } else {
-                standingColor = BlockPartyColors.getColor(level.getBlockState(tile));
-            }
+            DyeColor standingColor = BlockPartyColors.getColor(level.getBlockState(tile));
             if (standingColor != targetColor) pendingEliminations.add(uuid);
         }
 
         stopMusic();
-        playSound(ModSounds.ROUND_END, SoundSource.PLAYERS, 0.9F, 1.0F);
+        for (UUID uuid : alive) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) player.displayClientMessage(Component.empty(), true);
+        }
+        playSound(ModSounds.ROUND_END, SoundSource.PLAYERS, 0.65F, 1.0F);
         removeActiveBeacon();
         clearActivePowerUps(level.getServer());
 
@@ -589,7 +702,7 @@ public final class Arena {
         }
         phase = Phase.FALL;
         timerTicks = FALL_TICKS;
-        broadcast(Component.literal("Feil farge forsvinner! Hold deg på riktig blokk!").withStyle(ChatFormatting.RED));
+        broadcastActionBar(Component.literal("FEIL FARGE FORSVINNER!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
     }
 
     private void eliminate(ServerPlayer player) {
@@ -599,17 +712,30 @@ public final class Arena {
             return;
         }
         pendingEliminations.remove(uuid);
+        // Cosmetic lightning strikes at the hole in the floor; visual-only prevents damage/fire to others.
+        if (level != null) {
+            LightningBolt bolt = new LightningBolt(EntityType.LIGHTNING_BOLT, level);
+            bolt.setVisualOnly(true);
+            bolt.setPos(player.getX(), Math.max(player.getY(), pos1.getY() - 2.0), player.getZ());
+            level.addFreshEntity(bolt);
+        }
+        broadcast(Component.literal(player.getName().getString() + " tapte konkurransen!")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
         player.setGameMode(GameType.SPECTATOR);
         player.sendSystemMessage(Component.literal("Du er ute! Følg med som spectator.").withStyle(ChatFormatting.RED));
-        playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.8F, 0.95F);
+        playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.55F, 1.0F);
     }
 
     private void finishRound() {
+        // A point is awarded for surviving a round.
+        for (UUID uuid : alive) points.merge(uuid, 1, Integer::sum);
         clearActivePowerUps(level.getServer());
+        updateScoreboard(level.getServer());
         removeActiveBeacon();
         stopMusic();
         restoreFloor();
-        broadcast(Component.literal("Runde " + round + " ferdig! " + alive.size() + " spiller(e) igjen.").withStyle(ChatFormatting.AQUA));
+        broadcastActionBar(Component.literal("RUNDE " + round + " FULLFØRT  •  " + alive.size() + " IGJEN")
+                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
 
         if (alive.isEmpty()) {
             declareWinner();
@@ -657,6 +783,11 @@ public final class Arena {
 
     private void endGame(MinecraftServer server) {
         stopMusic();
+        hideScoreboard(server);
+        for (UUID uuid : players) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) player.displayClientMessage(Component.empty(), true);
+        }
         clearActivePowerUps(server);
         removeActiveBeacon();
         restoreOriginalFloor();
@@ -673,6 +804,8 @@ public final class Arena {
         pendingEliminations.clear();
         originalGameModes.clear();
         originalHeldItems.clear();
+        points.clear();
+        powerupsCollected.clear();
         phase = Phase.WAITING;
         timerTicks = 0;
         round = 0;
