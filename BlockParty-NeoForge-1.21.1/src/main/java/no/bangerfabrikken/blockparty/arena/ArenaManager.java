@@ -106,12 +106,19 @@ public final class ArenaManager {
             lobbyItemRefreshTicks = 0;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 Arena lobbyArena = findLobbyArenaFor(player);
-                if (lobbyArena != null) lobbyArena.ensureLobbyItems(player);
+                if (lobbyArena != null) {
+                    lobbyArena.applyVisualUpgrade();
+                    lobbyArena.ensureLobbyItems(player);
+                }
             }
         }
         for (Arena arena : arenas.values()) {
             arena.tick(server);
         }
+    }
+
+    public void refreshLobbyDisplays() {
+        for (Arena arena : arenas.values()) arena.refreshLobbyDisplays();
     }
 
     public void handleLogout(ServerPlayer player) {

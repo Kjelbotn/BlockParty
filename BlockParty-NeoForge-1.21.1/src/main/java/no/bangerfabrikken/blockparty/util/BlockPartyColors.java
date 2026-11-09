@@ -16,24 +16,41 @@ public final class BlockPartyColors {
     private static final Map<Block, DyeColor> BLOCK_TO_COLOR = new HashMap<>();
     private static final Map<DyeColor, Block> COLOR_TO_CONCRETE = new EnumMap<>(DyeColor.class);
     private static final Map<DyeColor, Block> COLOR_TO_WOOL = new EnumMap<>(DyeColor.class);
+    private static final Map<DyeColor, Block> COLOR_TO_STAINED_GLASS = new EnumMap<>(DyeColor.class);
 
     static {
         add(DyeColor.WHITE, Blocks.WHITE_CONCRETE, Blocks.WHITE_WOOL, Blocks.WHITE_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.WHITE, Blocks.WHITE_STAINED_GLASS);
         add(DyeColor.ORANGE, Blocks.ORANGE_CONCRETE, Blocks.ORANGE_WOOL, Blocks.ORANGE_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.ORANGE, Blocks.ORANGE_STAINED_GLASS);
         add(DyeColor.MAGENTA, Blocks.MAGENTA_CONCRETE, Blocks.MAGENTA_WOOL, Blocks.MAGENTA_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.MAGENTA, Blocks.MAGENTA_STAINED_GLASS);
         add(DyeColor.LIGHT_BLUE, Blocks.LIGHT_BLUE_CONCRETE, Blocks.LIGHT_BLUE_WOOL, Blocks.LIGHT_BLUE_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.LIGHT_BLUE, Blocks.LIGHT_BLUE_STAINED_GLASS);
         add(DyeColor.YELLOW, Blocks.YELLOW_CONCRETE, Blocks.YELLOW_WOOL, Blocks.YELLOW_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.YELLOW, Blocks.YELLOW_STAINED_GLASS);
         add(DyeColor.LIME, Blocks.LIME_CONCRETE, Blocks.LIME_WOOL, Blocks.LIME_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.LIME, Blocks.LIME_STAINED_GLASS);
         add(DyeColor.PINK, Blocks.PINK_CONCRETE, Blocks.PINK_WOOL, Blocks.PINK_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.PINK, Blocks.PINK_STAINED_GLASS);
         add(DyeColor.GRAY, Blocks.GRAY_CONCRETE, Blocks.GRAY_WOOL, Blocks.GRAY_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.GRAY, Blocks.GRAY_STAINED_GLASS);
         add(DyeColor.LIGHT_GRAY, Blocks.LIGHT_GRAY_CONCRETE, Blocks.LIGHT_GRAY_WOOL, Blocks.LIGHT_GRAY_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.LIGHT_GRAY, Blocks.LIGHT_GRAY_STAINED_GLASS);
         add(DyeColor.CYAN, Blocks.CYAN_CONCRETE, Blocks.CYAN_WOOL, Blocks.CYAN_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.CYAN, Blocks.CYAN_STAINED_GLASS);
         add(DyeColor.PURPLE, Blocks.PURPLE_CONCRETE, Blocks.PURPLE_WOOL, Blocks.PURPLE_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.PURPLE, Blocks.PURPLE_STAINED_GLASS);
         add(DyeColor.BLUE, Blocks.BLUE_CONCRETE, Blocks.BLUE_WOOL, Blocks.BLUE_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.BLUE, Blocks.BLUE_STAINED_GLASS);
         add(DyeColor.BROWN, Blocks.BROWN_CONCRETE, Blocks.BROWN_WOOL, Blocks.BROWN_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.BROWN, Blocks.BROWN_STAINED_GLASS);
         add(DyeColor.GREEN, Blocks.GREEN_CONCRETE, Blocks.GREEN_WOOL, Blocks.GREEN_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.GREEN, Blocks.GREEN_STAINED_GLASS);
         add(DyeColor.RED, Blocks.RED_CONCRETE, Blocks.RED_WOOL, Blocks.RED_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.RED, Blocks.RED_STAINED_GLASS);
         add(DyeColor.BLACK, Blocks.BLACK_CONCRETE, Blocks.BLACK_WOOL, Blocks.BLACK_TERRACOTTA);
+        COLOR_TO_STAINED_GLASS.put(DyeColor.BLACK, Blocks.BLACK_STAINED_GLASS);
     }
 
     private BlockPartyColors() { }
@@ -62,6 +79,10 @@ public final class BlockPartyColors {
 
     public static Block getWool(DyeColor color) {
         return COLOR_TO_WOOL.getOrDefault(color, Blocks.WHITE_WOOL);
+    }
+
+    public static Block getStainedGlass(DyeColor color) {
+        return COLOR_TO_STAINED_GLASS.getOrDefault(color, Blocks.WHITE_STAINED_GLASS);
     }
 
     public static List<DyeColor> allColors() {

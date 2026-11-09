@@ -11,6 +11,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
+import net.minecraft.world.level.block.RedstoneLampBlock;
 import no.bangerfabrikken.blockparty.util.BlockPartyColors;
 import no.bangerfabrikken.blockparty.util.BlockPartyText;
 
@@ -159,9 +160,9 @@ public final class ArenaGenerator {
             }
         }
         // Open-air arena: no roof. Invisible level-15 light blocks keep the floor and walkway bright at night.
-        for (int x = outerMinX + 4; x < outerMaxX; x += 8) {
-            for (int z = outerMinZ + 4; z < outerMaxZ; z += 8) {
-                put(level, x, floorY + 10, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
+        for (int x = outerMinX + 3; x < outerMaxX; x += 6) {
+            for (int z = outerMinZ + 3; z < outerMaxZ; z += 6) {
+                put(level, x, floorY + 12, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
             }
         }
         // Visible sea-lantern accents along the upper wall band.
@@ -182,6 +183,19 @@ public final class ArenaGenerator {
             for (int x : new int[]{outerMinX, outerMaxX}) {
                 for (int y = floorY + 4; y <= floorY + WALL_HEIGHT - 3; y += 6) put(level, x, y, z, Blocks.SEA_LANTERN);
             }
+        }
+        // Redstone-lamp fixtures pulse to the selected DJ track's tempo during a match.
+        for (int x = outerMinX + 6; x <= outerMaxX - 6; x += 12) {
+            put(level, x, floorY + WALL_HEIGHT - 5, outerMinZ,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+            put(level, x, floorY + WALL_HEIGHT - 5, outerMaxZ,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+        }
+        for (int z = outerMinZ + 6; z <= outerMaxZ - 6; z += 12) {
+            put(level, outerMinX, floorY + WALL_HEIGHT - 5, z,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+            put(level, outerMaxX, floorY + WALL_HEIGHT - 5, z,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
         }
 
         // Wide south entrance through the shell, connected to a four-step ramp onto the raised walkway.
@@ -233,9 +247,9 @@ public final class ArenaGenerator {
             }
         }
         // Open-sky lobby. A grid of invisible level-15 light blocks keeps the hall readable even at night.
-        for (int x = lobbyMinX + 5; x < lobbyMaxX; x += 8) {
-            for (int z = lobbyMinZ + 5; z < lobbyMaxZ; z += 8) {
-                put(level, x, floorY + 9, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
+        for (int x = lobbyMinX + 4; x < lobbyMaxX; x += 6) {
+            for (int z = lobbyMinZ + 4; z < lobbyMaxZ; z += 6) {
+                put(level, x, floorY + 11, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
             }
         }
         // Visible wall lights make the light sources part of the architecture.
@@ -275,7 +289,7 @@ public final class ArenaGenerator {
             put(level, lobbyMaxX, floorY + 15, z, Blocks.MAGENTA_CONCRETE);
         }
 
-        // Lobby screens: title and clear item-based instructions. These are labels only, not clickable screen buttons.
+        // Dedicated DJ screen on the back wall. Arena refreshes the text with the live playlist and vote counts.
         for (int x = centerX - 12; x <= centerX + 12; x++) {
             for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
             put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
@@ -285,19 +299,51 @@ public final class ArenaGenerator {
             for (int y = floorY + 3; y <= floorY + 12; y++) put(level, lobbyMaxX, y, z, Blocks.BLACK_CONCRETE);
         }
 
-        String lobbyTag = "bp_lobby_logo_" + centerX + "_" + centerZ;
-        // The lobby screens sit on the south/back wall and face north toward the lobby spawn.
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 8.2, lobbyMaxZ - 1.2,
-                180.0F, Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 5.0F, lobbyTag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 6.6, lobbyMaxZ - 1.2,
-                180.0F, Component.literal("RIGHT-CLICK THE STAR IN YOUR HOTBAR TO JOIN")
-                        .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.25F, lobbyTag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 5.35, lobbyMaxZ - 1.2,
-                180.0F, Component.literal("RIGHT-CLICK THE BOOK TO VOTE FOR MUSIC")
-                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.15F, lobbyTag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 4.25, lobbyMaxZ - 1.2,
-                180.0F, Component.literal("2-10 PLAYERS  •  60 SECOND LOBBY COUNTDOWN")
-                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, lobbyTag);
+        // Music-reactive lamp bars flank the DJ screen.
+        for (int x : new int[]{centerX - 16, centerX + 16}) {
+            for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
+                put(level, x, y, lobbyMaxZ,
+                        Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+            }
+        }
+        // Raised DJ booth and speaker stacks; all elements remain inside the open-air lobby.
+        int boothZ = lobbyMaxZ - 8;
+        for (int x = centerX - 12; x <= centerX + 12; x++) {
+            for (int z = boothZ - 2; z <= boothZ + 2; z++) put(level, x, floorY + 1, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+        }
+        for (int x = centerX - 5; x <= centerX + 5; x++) {
+            put(level, x, floorY + 2, boothZ - 1, Blocks.BLACK_CONCRETE);
+            put(level, x, floorY + 3, boothZ - 1, Blocks.POLISHED_BLACKSTONE_SLAB);
+        }
+        put(level, centerX, floorY + 2, boothZ - 2, Blocks.NOTE_BLOCK);
+        for (int side : new int[]{-1, 1}) {
+            int speakerX = centerX + side * 10;
+            for (int y = floorY + 2; y <= floorY + 6; y++) {
+                put(level, speakerX, y, boothZ - 1, Blocks.BLACKSTONE);
+            }
+            put(level, speakerX, floorY + 3, boothZ - 2, Blocks.NOTE_BLOCK);
+            put(level, speakerX, floorY + 5, boothZ - 2, Blocks.NOTE_BLOCK);
+            put(level, speakerX, floorY + 4, boothZ - 2, Blocks.SEA_LANTERN);
+        }
+        // Compact neon dance floor between spawn and the DJ booth.
+        Block[] danceColours = {Blocks.CYAN_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.MAGENTA_CONCRETE,
+                Blocks.BLUE_CONCRETE, Blocks.BLACK_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE};
+        for (int x = centerX - 8; x <= centerX + 8; x++) {
+            for (int z = lobbyZ - 6; z <= lobbyZ + 8; z++) {
+                int colour = Math.floorMod((x + z), danceColours.length);
+                put(level, x, floorY, z, danceColours[colour]);
+            }
+        }
+        // Lounge seating and low tables on both sides of the lobby, leaving the centre aisle clear.
+        for (int side : new int[]{-1, 1}) {
+            int seatX = centerX + side * 23;
+            for (int z = lobbyZ - 7; z <= lobbyZ + 17; z += 8) {
+                put(level, seatX, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
+                put(level, seatX + side, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
+                put(level, seatX - side, floorY + 1, z, Blocks.DARK_OAK_SLAB);
+                put(level, seatX - side, floorY + 2, z, Blocks.DARK_OAK_SLAB);
+            }
+        }
 
         BlockPos first = new BlockPos(minX, floorY, minZ);
         BlockPos second = new BlockPos(maxX, floorY, maxZ);
@@ -306,6 +352,134 @@ public final class ArenaGenerator {
         double lobbyZ = lobbyMinZ + 20.0;
         // Face south toward the lobby's logo wall.
         return new Result(first, second, displayCenter, lobbyX, lobbyY, lobbyZ, 0.0F, 0.0F);
+    }
+
+    /**
+     * Non-destructively upgrades the arena lighting and lobby interior for arenas
+     * generated by older BlockParty releases. The main floor and player builds are
+     * not cleared; only the reserved lobby surfaces and stadium wall fixtures change.
+     */
+    public static boolean refreshVisuals(ServerLevel level, BlockPos first, BlockPos second,
+                                         double lobbyX, double lobbyY, double lobbyZ) {
+        if (level == null || first == null || second == null || first.getY() != second.getY()) return false;
+        int floorY = first.getY();
+        int minX = Math.min(first.getX(), second.getX());
+        int maxX = Math.max(first.getX(), second.getX());
+        int minZ = Math.min(first.getZ(), second.getZ());
+        int maxZ = Math.max(first.getZ(), second.getZ());
+        int centerX = minX + (maxX - minX + 1) / 2;
+        int outerMinX = minX - OUTER_WALL_MARGIN;
+        int outerMaxX = maxX + OUTER_WALL_MARGIN;
+        int outerMinZ = minZ - OUTER_WALL_MARGIN;
+        int outerMaxZ = maxZ + OUTER_WALL_MARGIN;
+        int lobbyMinX = centerX - LOBBY_WIDTH / 2;
+        int lobbyMaxX = centerX + LOBBY_WIDTH / 2;
+        int lobbyMinZ = (int) Math.floor(lobbyZ) - 20;
+        int lobbyMaxZ = lobbyMinZ + LOBBY_DEPTH - 1;
+        BlockPos arenaAnchor = new BlockPos(centerX, floorY + 12, minZ + (maxZ - minZ + 1) / 2);
+        BlockPos lobbyAnchor = new BlockPos(centerX, floorY + 8, lobbyMaxZ);
+        if (!level.hasChunkAt(arenaAnchor) || !level.hasChunkAt(lobbyAnchor)) return false;
+
+        // Denser invisible full-bright lighting; only air/light blocks are replaced.
+        for (int x = outerMinX + 3; x < outerMaxX; x += 6) {
+            for (int z = outerMinZ + 3; z < outerMaxZ; z += 6) {
+                putLightIfOpen(level, x, floorY + 12, z);
+            }
+        }
+        for (int x = lobbyMinX + 4; x < lobbyMaxX; x += 6) {
+            for (int z = lobbyMinZ + 4; z < lobbyMaxZ; z += 6) {
+                putLightIfOpen(level, x, floorY + 11, z);
+            }
+        }
+        for (int x = lobbyMinX + 4; x <= lobbyMaxX - 4; x += 8) {
+            put(level, x, floorY + 8, lobbyMinZ, Blocks.SEA_LANTERN);
+            put(level, x, floorY + 8, lobbyMaxZ, Blocks.SEA_LANTERN);
+        }
+        for (int z = lobbyMinZ + 4; z <= lobbyMaxZ - 4; z += 8) {
+            put(level, lobbyMinX, floorY + 8, z, Blocks.SEA_LANTERN);
+            put(level, lobbyMaxX, floorY + 8, z, Blocks.SEA_LANTERN);
+        }
+
+        // Visible brighter arena wall fixtures and tempo-reactive redstone lamps.
+        for (int x = outerMinX + 3; x <= outerMaxX - 3; x += 6) {
+            put(level, x, floorY + WALL_HEIGHT - 2, outerMinZ, Blocks.SEA_LANTERN);
+            put(level, x, floorY + WALL_HEIGHT - 2, outerMaxZ, Blocks.SEA_LANTERN);
+        }
+        for (int z = outerMinZ + 3; z <= outerMaxZ - 3; z += 6) {
+            put(level, outerMinX, floorY + WALL_HEIGHT - 2, z, Blocks.SEA_LANTERN);
+            put(level, outerMaxX, floorY + WALL_HEIGHT - 2, z, Blocks.SEA_LANTERN);
+        }
+        for (int x = outerMinX + 6; x <= outerMaxX - 6; x += 12) {
+            put(level, x, floorY + WALL_HEIGHT - 5, outerMinZ,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+            put(level, x, floorY + WALL_HEIGHT - 5, outerMaxZ,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+        }
+        for (int z = outerMinZ + 6; z <= outerMaxZ - 6; z += 12) {
+            put(level, outerMinX, floorY + WALL_HEIGHT - 5, z,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+            put(level, outerMaxX, floorY + WALL_HEIGHT - 5, z,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+        }
+
+        // Lobby DJ screen and decorative frame on the back wall.
+        for (int x = centerX - 12; x <= centerX + 12; x++) {
+            for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
+            put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
+            put(level, x, floorY + 12, lobbyMaxZ, Blocks.MAGENTA_CONCRETE);
+        }
+        for (int side : new int[]{-1, 1}) {
+            int lampX = centerX + side * 16;
+            for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
+                put(level, lampX, y, lobbyMaxZ,
+                        Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+            }
+        }
+
+        // DJ booth, note-block speakers and a neon checker dance floor.
+        int boothZ = lobbyMaxZ - 8;
+        for (int x = centerX - 12; x <= centerX + 12; x++) {
+            for (int z = boothZ - 2; z <= boothZ + 2; z++) put(level, x, floorY + 1, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+        }
+        for (int x = centerX - 5; x <= centerX + 5; x++) {
+            put(level, x, floorY + 2, boothZ - 1, Blocks.BLACK_CONCRETE);
+            put(level, x, floorY + 3, boothZ - 1, Blocks.POLISHED_BLACKSTONE_SLAB);
+        }
+        put(level, centerX, floorY + 2, boothZ - 2, Blocks.NOTE_BLOCK);
+        for (int side : new int[]{-1, 1}) {
+            int speakerX = centerX + side * 10;
+            for (int y = floorY + 2; y <= floorY + 6; y++) put(level, speakerX, y, boothZ - 1, Blocks.BLACKSTONE);
+            put(level, speakerX, floorY + 3, boothZ - 2, Blocks.NOTE_BLOCK);
+            put(level, speakerX, floorY + 5, boothZ - 2, Blocks.NOTE_BLOCK);
+            put(level, speakerX, floorY + 4, boothZ - 2, Blocks.SEA_LANTERN);
+        }
+        Block[] danceColours = {Blocks.CYAN_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.MAGENTA_CONCRETE,
+                Blocks.BLUE_CONCRETE, Blocks.BLACK_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE};
+        for (int x = centerX - 8; x <= centerX + 8; x++) {
+            for (int z = (int) Math.floor(lobbyZ) - 6; z <= (int) Math.floor(lobbyZ) + 8; z++) {
+                put(level, x, floorY, z, danceColours[Math.floorMod(x + z, danceColours.length)]);
+            }
+        }
+
+        // Lounge seats and side tables. The centre aisle remains clear.
+        for (int side : new int[]{-1, 1}) {
+            int seatX = centerX + side * 23;
+            for (int z = (int) Math.floor(lobbyZ) - 7; z <= (int) Math.floor(lobbyZ) + 17; z += 8) {
+                put(level, seatX, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
+                put(level, seatX + side, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
+                put(level, seatX - side, floorY + 1, z, Blocks.DARK_OAK_SLAB);
+                put(level, seatX - side, floorY + 2, z, Blocks.DARK_OAK_SLAB);
+            }
+        }
+        return true;
+    }
+
+    private static void putLightIfOpen(ServerLevel level, int x, int y, int z) {
+        BlockPos pos = new BlockPos(x, y, z);
+        if (!level.hasChunkAt(pos)) return;
+        if (level.getBlockState(pos).isAir() || level.getBlockState(pos).is(Blocks.LIGHT)) {
+            put(level, x, y, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
+        }
     }
 
     private static boolean isSouthEntrance(int x, int centerX) {

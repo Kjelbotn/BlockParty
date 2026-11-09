@@ -35,7 +35,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onRightClickItem);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.5.0-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.6.0-alpha");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -50,6 +50,7 @@ public final class BlockPartyMod {
         PlayerStatsManager.load(event.getServer());
         ArenaManager.get().load(event.getServer());
         MusicTrackManager.load(event.getServer());
+        ArenaManager.get().refreshLobbyDisplays();
     }
 
     private void onServerStopping(ServerStoppingEvent event) {

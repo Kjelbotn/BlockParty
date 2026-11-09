@@ -4,7 +4,7 @@ BlockParty has eight custom music slots. You do not need to rebuild the mod to c
 
 ## A. Add audio with a resource pack
 
-Use the separate `BlockParty-Custom-Music-Pack-1.21.1.zip` template. Inside the pack, place OGG audio files in:
+Use the separate `BlockParty-Custom-Music-Pack-1.21.1-v0.6.0.zip` template. Inside the pack, place OGG audio files in:
 
 `assets/blockparty/sounds/music/`
 
@@ -28,13 +28,23 @@ Start the world once with BlockParty installed. The mod creates `blockparty-musi
 Example:
 
 ```properties
-tracks=neon_beat,pixel_rush,night_drive,custom_1,custom_2,custom_3,custom_4,custom_5,custom_6,custom_7,custom_8
+tracks=neon_beat,pixel_rush,night_drive,custom_1,custom_2,custom_3
 name.custom_1=Friday Night Mix
 name.custom_2=My Chiptune Track
 name.custom_3=Final Lap
 ```
 
-`tracks` is the comma-separated list of IDs shown in the voting menu. Remove an ID from this list to hide it. The supported built-in IDs are `neon_beat`, `pixel_rush`, `night_drive`, and `custom_1` through `custom_8`.
+`tracks` is the comma-separated list of IDs shown in the voting menu. Add `custom_1` through `custom_8` when you are ready to use those slots; remove an ID from the list to hide it. The built-in IDs are `neon_beat`, `pixel_rush` and `night_drive`. A custom slot is ignored until you give it a non-placeholder song name or artist.
+
+For example, to enable three of your own songs, add their IDs to the `tracks` line, then set at least a title or artist for each slot:
+
+```properties
+tracks=neon_beat,pixel_rush,night_drive,custom_1,custom_2,custom_3
+name.custom_1=Friday Night Mix
+artist.custom_1=Kim's Playlist
+bpm.custom_1=128
+duration.custom_1=142
+```
 
 After saving the properties file, run this command in Minecraft as an admin:
 
@@ -44,9 +54,11 @@ After saving the properties file, run this command in Minecraft as an admin:
 
 Then right-click the Music Voting Book in the lobby to see the refreshed playlist.
 
-## C. Audio timing note
+## C. Audio timing and DJ effects
 
-The current alpha stops music at the end of each round and starts the selected track again for the next round. It currently restarts that song from the beginning rather than resuming at the exact same timestamp. A dedicated client-side music player is needed for exact timestamp-preserving pause/resume.
+The winning track starts during the six-second DJ intro before round one. Music continues across rounds and restarts from the beginning after the configured `duration.<id>` value. This alpha does not pause and resume at an exact audio timestamp.
+
+The `bpm.<id>` value controls the rhythm of the lobby/arena redstone-lamp pulses and particle effects. It is a tempo-based visual pulse, not audio waveform analysis, so set BPM close to the actual track tempo for the best synchronisation.
 
 
-A ready-to-fill resource-pack template is distributed separately as `BlockParty-Custom-Music-Pack-1.21.1.zip`.
+A ready-to-fill resource-pack template is distributed separately as `BlockParty-Custom-Music-Pack-1.21.1-v0.6.0.zip`.

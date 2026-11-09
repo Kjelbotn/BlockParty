@@ -304,6 +304,7 @@ public final class BlockPartyCommands {
 
     private static int reloadMusic(CommandSourceStack source) {
         MusicTrackManager.load(source.getServer());
+        ArenaManager.get().refreshLobbyDisplays();
         int loaded = MusicTrackManager.getTracks().size();
         source.sendSuccess(() -> Component.literal("Lastet inn " + loaded + " BlockParty-sanger fra blockparty-music.properties.")
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
