@@ -1,22 +1,16 @@
 # BlockParty — NeoForge 1.21.1
 
-A first playable alpha of a classic Block Party-style Minecraft minigame.
+**Version 0.2.0-alpha** — a singleplayer-friendly Block Party minigame inspired by classic Minecraft minigame servers.
 
 ## Requirements
 
 - Minecraft **1.21.1**
-- NeoForge **21.1.265** for the development build (the mod metadata accepts the 21.1.x line)
-- Java **21** JDK
+- NeoForge **21.1.x** (the development build is configured for 21.1.265)
+- Java **21**
 
-The same mod JAR is intended to be installed on the dedicated server and on every joining client. Round state and eliminations are controlled by the server; player messages use the normal Minecraft HUD/chat.
+Install the same JAR in the `mods` folder of the NeoForge profile. In singleplayer, NeoForge runs the integrated server automatically; no separate server is needed.
 
 ## Build
-
-### Automated build (GitHub Actions)
-
-The repository includes `.github/workflows/build.yml`. After the project is pushed to a GitHub repository, open the repository's **Actions** tab, select **Build BlockParty**, and run **Run workflow** (or let it run after a push). When the job succeeds, open the run and download the `blockparty-neoforge-1.21.1` artifact. It contains the compiled mod JAR.
-
-### Build locally
 
 On Windows:
 
@@ -30,74 +24,95 @@ On Linux/macOS:
 ./gradlew build
 ```
 
-The build script uses an installed Gradle if available. Otherwise, the bootstrap script downloads Gradle 8.10.2 into the local Gradle user directory. The first actual mod build also downloads the NeoForge/Minecraft development dependencies and therefore needs internet access.
+The build uses Gradle 8.10.2 and downloads Minecraft/NeoForge development dependencies on first run, so the machine building the mod needs internet access.
 
-The built mod will be at:
+The JAR is created at:
 
 ```text
-build/libs/blockparty-0.1.0-alpha.jar
+build/libs/blockparty-0.2.0-alpha.jar
 ```
 
-Copy that JAR into the `mods` folder on both the NeoForge server and each client. Restart the server after installing it.
+## Quick setup — automatic stadium generator
 
-## Create an arena
+Enable cheats in the singleplayer world (Open to LAN → Allow Cheats: ON) and stand in a large, open area. The generator replaces blocks in the arena footprint, so do not run it on top of a base or builds you want to keep.
 
-Run these commands as an operator (permission level 2). Stand on the arena floor when selecting the two corners; the command selects the block directly underneath your feet.
+If you already joined the old test arena, leave it first:
 
-1. Stand at the intended lobby spawn and run:
-   ```text
-   /bp create main
-   ```
-2. Stand on one corner block of the colored floor and run:
-   ```text
-   /bp pos1 main
-   ```
-3. Stand on the opposite corner block, at the **same Y level**, and run:
-   ```text
-   /bp pos2 main
-   ```
-4. To move the lobby spawn later, stand where players should wait and run:
-   ```text
-   /bp setlobby main
-   ```
+```text
+/bp leave
+```
 
-The selected rectangle must be completely filled with colored wool, concrete, or terracotta blocks, and it must contain at least two different dye colors. The current maximum is 4,096 floor blocks (for example, 64×64).
+Generate a full arena, dance floor and attached lobby in one command:
 
-Arena definitions are saved in `blockparty-arenas.properties` in the world save folder and loaded automatically when the server starts.
+```text
+/bp generate main 20
+```
+
+The size is the dance floor's width and depth. Allowed sizes are 12–32; if omitted, it defaults to 20. The generator builds:
+
+- a colorful wool dance floor using all 16 Minecraft colors;
+- a floating play floor with a clear fall pit underneath;
+- a dark stadium ring with purple lighting bands, pillars and an entrance arch;
+- an attached waiting lobby with a feature wall and a BP mark;
+- a saved arena definition and lobby spawn.
+
+The command moves you to the generated lobby. You do not need to place wool manually or set `pos1`/`pos2`.
 
 ## Play
 
-- Players use `/bp join main` to join.
-- The arena automatically starts a 10-second countdown when at least two players have joined.
-- An operator can force-start with `/bp start main` (useful for testing with one player).
-- Players get a short window to stand on the announced color. Other colored floor blocks disappear, players on the wrong color are eliminated into spectator mode, and the original floor is restored before the next round.
-- The time to find the color decreases as the rounds progress.
-- The final remaining player wins.
-- `/bp leave` leaves the arena. `/bp stop main` ends a running game and restores the floor.
+Join the arena:
+
+```text
+/bp join main
+```
+
+A 10-second countdown starts automatically, including when only one player is in the arena. To start immediately:
+
+```text
+/bp start main
+```
+
+The target wool block is placed in the player's currently selected hotbar slot and its item name displays the target color. At the end of the round, every non-target floor tile disappears. Players not standing on the correct color are eliminated into spectator mode.
+
+### Round timer
+
+| Round | Time | Round | Time | Round | Time |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 10.0 s | 6 | 5.0 s | 11 | 2.5 s |
+| 2 | 9.0 s | 7 | 4.5 s | 12 | 2.0 s |
+| 3 | 8.0 s | 8 | 4.0 s | 13 | 1.5 s |
+| 4 | 7.0 s | 9 | 3.5 s | 14 | 1.0 s |
+| 5 | 6.0 s | 10 | 3.0 s | 15 | 0.5 s |
+
+At the start of every round the floor receives a new shuffled color arrangement and one of several patterns (mosaic, vertical bands, horizontal bands, patches or diagonal mosaic). The target is selected from the colors present in that round.
+
+In solo play, survive all 15 rounds to win. In multiplayer, the last surviving player wins; if several players remain after round 15, all remaining players win.
+
+After the match, the mod restores the generated floor's original layout, returns players to the lobby, restores their previous game modes and puts the item they originally held back in the same hotbar slot.
 
 ## Commands
 
 | Command | Permission | Purpose |
 |---|---:|---|
-| `/bp create <id>` | OP | Create an arena; current position becomes lobby spawn |
-| `/bp pos1 <id>` | OP | Set first floor corner |
-| `/bp pos2 <id>` | OP | Set opposite floor corner |
-| `/bp setlobby <id>` | OP | Update lobby spawn |
-| `/bp join <id>` | Everyone | Join an arena |
-| `/bp leave` | Everyone | Leave the current arena |
-| `/bp start <id>` | OP | Force-start a game |
-| `/bp stop <id>` | OP | Stop a game and restore the floor |
-| `/bp list` | OP | List configured arenas |
-| `/bp status <id>` | Everyone | Show arena status |
-| `/bp remove <id>` | OP | Remove an empty arena |
-| `/bp help` | Everyone | Show quick help |
+| `/bp generate <id> [size]` | OP | Generate a complete stadium, wool floor and lobby (12–32, default 20) |
+| `/bp join <id>` | Everyone | Join the arena |
+| `/bp leave` | Everyone | Leave the arena |
+| `/bp start <id>` | OP | Start immediately (useful for solo testing) |
+| `/bp stop <id>` | OP | Stop and restore the arena |
+| `/bp status <id>` | Everyone | Show arena status and round |
+| `/bp list` | OP | List saved arenas |
+| `/bp remove <id>` | OP | Remove an unused arena definition |
+| `/bp create <id>` | OP | Create a manual arena definition |
+| `/bp pos1 <id>` / `/bp pos2 <id>` | OP | Set manual floor corners |
+| `/bp setlobby <id>` | OP | Set manual lobby spawn |
+| `/bp help` | Everyone | Show command help |
 
 The long command root `/blockparty` is also available.
 
-## Current alpha scope / known limitations
+## Notes
 
-- One active match per arena; multiple arenas can exist at once.
-- Floor blocks must be placed as a flat rectangle at one Y level.
-- The arena must be built from the 16 dye colors of wool, concrete, or terracotta. Other blocks are rejected during start validation.
-- No custom client keybind, custom GUI, cosmetics, economy, party system, or persistent player statistics yet. These are sensible next milestones after the first live server test.
-- This is an initial source release. Compile and test it against the exact NeoForge build used by the server before using it on a public production server.
+- Arena definitions are saved in `blockparty-arenas.properties` in the world save folder.
+- The generator replaces blocks inside its stadium, lobby and fall-pit footprint. Use an open build area.
+- Generated dance floors support 12×12 through 32×32 tiles.
+- Manual arenas still work; their floor must be a filled rectangle of at least two colors of wool, concrete or terracotta.
+- This is an alpha release. Test in a copy of your world before using it in a long-running save.
