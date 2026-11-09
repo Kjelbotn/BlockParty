@@ -1,13 +1,12 @@
-BLOCKPARTY 0.4.2 ALPHA - UPDATE INSTRUCTIONS
+BLOCKPARTY 0.5.0 ALPHA - UPDATE INSTRUCTIONS
 
-For the existing BlockParty-Rebuild repository:
-1. Extract this update ZIP.
-2. Open the repository root (where build.gradle and src/ are visible).
-3. Upload/replace the src/ folder and gradle.properties.
-4. Replace README.md and CHANGELOG.md if desired.
-5. Keep the existing .github/workflows/build.yml; it already builds the project.
-6. Commit the changes. GitHub Actions will run gradle build --no-daemon.
+1. Open your existing Kjelbotn/BlockParty repository.
+2. Upload the CONTENTS of this ZIP into the repository root (the same level as build.gradle).
+3. Allow GitHub to replace the matching files and folders, especially src/, gradle.properties and .github/workflows/build.yml.
+4. Commit the changes to main.
+5. Open Actions and wait for the “Build BlockParty 0.5.0” workflow to finish.
+6. Only if the workflow succeeds, download the artifact named BlockParty-NeoForge-1.21.1-0.5.0-alpha.
 
-Expected output JAR: build/libs/blockparty-0.4.2-alpha.jar
+Expected output JAR: build/libs/blockparty-0.5.0-alpha.jar
 
-Back up your Minecraft world before using /bp generate again.
+This ZIP contains source code, not a precompiled mod JAR. A full Gradle build was not run locally in this environment.

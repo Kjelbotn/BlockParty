@@ -65,13 +65,13 @@ public final class Arena {
     }
 
     private enum PowerUp {
-        SPEED, NIGHT_VISION, JUMP
+        SPEED, NIGHT_VISION, JUMP, LEAP, COLOR_TELEPORTER
     }
 
     public static final int MAX_ROUNDS = 15;
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
-    private static final int MAX_FLOOR_BLOCKS = 96 * 96;
+    private static final int MAX_FLOOR_BLOCKS = 50 * 50;
     private static final int LOBBY_COUNTDOWN_TICKS = 1200;
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
@@ -95,7 +95,7 @@ public final class Arena {
     private final Set<UUID> alive = new LinkedHashSet<>();
     private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
-    private final Map<UUID, HeldItemSnapshot> originalHeldItems = new HashMap<>();
+    private final Map<UUID, InventorySnapshot> originalHeldItems = new HashMap<>();
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
     private final Map<UUID, Integer> points = new HashMap<>();
     private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
@@ -121,6 +121,7 @@ public final class Arena {
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
     private int scoreboardTick;
+    private int lastPowerupRound = -10;
     private ResourceLocation activeMusicId;
     private long originalDayTime = Long.MIN_VALUE;
     private Boolean originalDaylightCycle;
@@ -267,6 +268,7 @@ public final class Arena {
         previousPattern = -1;
         soloMode = players.size() == 1;
         activeBeacons.clear();
+        lastPowerupRound = -10;
         activeMusicId = null;
         selectedMusicTrackId = selectWinningSong();
         musicVotes.clear();
@@ -275,9 +277,10 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
                 originalGameModes.put(uuid, player.gameMode.getGameModeForPlayer());
+                // Keep a complete copy before removing lobby controls or clearing the inventory.
+                originalHeldItems.put(uuid, InventorySnapshot.capture(player));
                 removeLobbyItemsFromInventory(player);
-                int selectedSlot = player.getInventory().selected;
-                originalHeldItems.put(uuid, new HeldItemSnapshot(selectedSlot, player.getInventory().getItem(selectedSlot).copy()));
+                player.getInventory().clearContent();
                 player.setGameMode(GameType.ADVENTURE);
                 teleportToRandomFloorTile(player);
             }
@@ -320,23 +323,56 @@ public final class Arena {
         BlockState restore = activeBeacons.remove(clickedPos);
         level.setBlock(clickedPos, restore == null ? Blocks.AIR.defaultBlockState() : restore, 3);
         PowerUp powerUp = PowerUp.values()[random.nextInt(PowerUp.values().length)];
-        Holder<MobEffect> effect;
-        int amplifier;
+        Holder<MobEffect> effect = null;
+        int amplifier = 0;
         String label;
         switch (powerUp) {
             case SPEED -> { effect = MobEffects.MOVEMENT_SPEED; amplifier = 1; label = "SPEED BOOST"; }
-            case NIGHT_VISION -> { effect = MobEffects.NIGHT_VISION; amplifier = 0; label = "NIGHT VISION"; }
+            case NIGHT_VISION -> { effect = MobEffects.NIGHT_VISION; label = "NIGHT VISION"; }
             case JUMP -> { effect = MobEffects.JUMP; amplifier = 1; label = "JUMP BOOST"; }
+            case LEAP -> label = "LEAP";
+            case COLOR_TELEPORTER -> label = "COLOR TELEPORTER";
             default -> throw new IllegalStateException("Unknown power-up");
         }
-        if (player.hasEffect(effect)) {
+
+        boolean activated = true;
+        if (powerUp == PowerUp.LEAP) {
+            // A strong upward impulse gives a clear, immediate Hive-style leap.
+            player.setDeltaMovement(player.getDeltaMovement().x, 0.95D, player.getDeltaMovement().z);
+            player.hurtMarked = true;
+        } else if (powerUp == PowerUp.COLOR_TELEPORTER) {
+            List<BlockPos> safeTiles = new ArrayList<>();
+            for (Map.Entry<BlockPos, BlockState> entry : floorSnapshot.entrySet()) {
+                if (BlockPartyColors.getColor(entry.getValue()) != targetColor) continue;
+                BlockPos tile = entry.getKey();
+                if (!level.isEmptyBlock(tile.above()) || !level.isEmptyBlock(tile.above(2))) continue;
+                boolean occupied = false;
+                for (UUID otherId : alive) {
+                    if (otherId.equals(player.getUUID())) continue;
+                    ServerPlayer other = level.getServer().getPlayerList().getPlayer(otherId);
+                    if (other != null && other.blockPosition().closerThan(tile.above(), 1.5D)) { occupied = true; break; }
+                }
+                if (!occupied) safeTiles.add(tile);
+            }
+            if (safeTiles.isEmpty()) {
+                activated = false;
+                player.sendSystemMessage(Component.literal("COLOR TELEPORTER fant ingen ledig trygg blokk i målfargen.").withStyle(ChatFormatting.YELLOW));
+            } else {
+                BlockPos destination = safeTiles.get(random.nextInt(safeTiles.size()));
+                player.teleportTo(level, destination.getX() + 0.5D, destination.getY() + 1.05D,
+                        destination.getZ() + 0.5D, player.getYRot(), player.getXRot());
+            }
+        } else if (player.hasEffect(effect)) {
+            activated = false;
             player.sendSystemMessage(Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.").withStyle(ChatFormatting.YELLOW));
         } else {
             // Removed at the end of this round; the long vanilla duration is only a safety net.
             player.addEffect(new MobEffectInstance(effect, 20 * 60, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(player.getUUID(), ignored -> new HashSet<>()).add(effect);
+        }
+        if (activated) {
             powerupsCollected.merge(player.getUUID(), 1, Integer::sum);
-            player.sendSystemMessage(Component.literal("POWER-UP: " + label + " – varer ut denne runden!")
+            player.sendSystemMessage(Component.literal("POWER-UP: " + label + "!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
             broadcast(Component.literal(player.getName().getString() + " plukket opp " + label + "!")
                     .withStyle(ChatFormatting.AQUA));
@@ -347,7 +383,10 @@ public final class Arena {
     }
 
     private void spawnPowerUpBeacons(int requested) {
+        // Power-ups are a bonus, not a guaranteed part of every round. Leave at least
+        // one complete round without beacons between spawn waves.
         if (level == null || floorSnapshot.isEmpty() || !activeBeacons.isEmpty()) return;
+        if (round - lastPowerupRound < 2 || random.nextFloat() >= 0.35F) return;
         List<BlockPos> candidates = new ArrayList<>(floorSnapshot.keySet());
         Collections.shuffle(candidates, random);
         List<BlockPos> chosenFloors = new ArrayList<>();
@@ -362,7 +401,7 @@ public final class Arena {
             if (occupied) continue;
             boolean tooClose = false;
             for (BlockPos other : chosenFloors) {
-                if (other.distSqr(candidate) < 8.0 * 8.0) { tooClose = true; break; }
+                if (other.distSqr(candidate) < 15.0 * 15.0) { tooClose = true; break; }
             }
             if (tooClose) continue;
             BlockPos beaconPos = candidate.above();
@@ -373,6 +412,7 @@ public final class Arena {
             if (chosenFloors.size() >= requested) break;
         }
         if (!chosenFloors.isEmpty()) {
+            lastPowerupRound = round;
             broadcast(Component.literal("✦ " + chosenFloors.size() + " POWER-UPS HAR SPAWNET! Høyreklikk en beacon!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
             playSound(ModSounds.BEACON_SPAWN, SoundSource.PLAYERS, 0.65F, 1.0F);
@@ -748,7 +788,7 @@ public final class Arena {
         playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 1.0F);
         playSelectedMusic();
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.55F, 1.0F);
-        // Five spaced beacons are present from the first moment of each round.
+        // Up to five widely spaced beacons may appear in a round; they are intentionally rare.
         spawnPowerUpBeacons(5);
         updateScoreboard(server);
     }
@@ -905,14 +945,14 @@ public final class Arena {
         if (targetColor == null) return;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            HeldItemSnapshot snapshot = originalHeldItems.get(uuid);
+            InventorySnapshot snapshot = originalHeldItems.get(uuid);
             if (player == null || snapshot == null) continue;
 
-            player.getInventory().selected = snapshot.slot();
+            player.getInventory().selected = snapshot.selectedSlot();
             ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(targetColor));
             targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
                     .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
-            player.getInventory().setItem(snapshot.slot(), targetBlock);
+            player.getInventory().setItem(snapshot.selectedSlot(), targetBlock);
         }
     }
 
@@ -1115,6 +1155,7 @@ public final class Arena {
         targetColor = null;
         previousTargetColor = null;
         previousPattern = -1;
+        lastPowerupRound = -10;
         soloMode = false;
         lastEliminatedPlayer = null;
         if (level != null && originalDayTime != Long.MIN_VALUE) {
@@ -1134,18 +1175,15 @@ public final class Arena {
         if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
         GameType oldMode = originalGameModes.remove(uuid);
         if (oldMode != null) player.setGameMode(oldMode);
-        HeldItemSnapshot held = originalHeldItems.remove(uuid);
-        if (held != null) {
-            player.getInventory().selected = held.slot();
-            player.getInventory().setItem(held.slot(), held.stack().copy());
-        }
+        InventorySnapshot held = originalHeldItems.remove(uuid);
+        if (held != null) held.restore(player);
     }
 
     private void restoreHeldItemOnly(ServerPlayer player) {
-        HeldItemSnapshot held = originalHeldItems.get(player.getUUID());
+        InventorySnapshot held = originalHeldItems.get(player.getUUID());
         if (held == null) return;
-        player.getInventory().selected = held.slot();
-        player.getInventory().setItem(held.slot(), held.stack().copy());
+        player.getInventory().selected = held.selectedSlot();
+        player.getInventory().setItem(held.selectedSlot(), held.main().get(held.selectedSlot()).copy());
     }
 
     private void teleportToSpectatorWalkway(ServerPlayer player) {
@@ -1280,6 +1318,27 @@ public final class Arena {
         return level.dimension().location().toString();
     }
 
-    private record HeldItemSnapshot(int slot, ItemStack stack) {
+    private record InventorySnapshot(List<ItemStack> main, List<ItemStack> armor,
+                                     List<ItemStack> offhand, int selectedSlot) {
+        private static InventorySnapshot capture(ServerPlayer player) {
+            var inventory = player.getInventory();
+            return new InventorySnapshot(
+                    inventory.items.stream().map(ItemStack::copy).toList(),
+                    inventory.armor.stream().map(ItemStack::copy).toList(),
+                    inventory.offhand.stream().map(ItemStack::copy).toList(),
+                    inventory.selected);
+        }
+
+        private void restore(ServerPlayer player) {
+            var inventory = player.getInventory();
+            for (int i = 0; i < inventory.items.size(); i++)
+                inventory.items.set(i, i < main.size() ? main.get(i).copy() : ItemStack.EMPTY);
+            for (int i = 0; i < inventory.armor.size(); i++)
+                inventory.armor.set(i, i < armor.size() ? armor.get(i).copy() : ItemStack.EMPTY);
+            for (int i = 0; i < inventory.offhand.size(); i++)
+                inventory.offhand.set(i, i < offhand.size() ? offhand.get(i).copy() : ItemStack.EMPTY);
+            inventory.selected = Math.max(0, Math.min(8, selectedSlot));
+            player.inventoryMenu.broadcastChanges();
+        }
     }
 }

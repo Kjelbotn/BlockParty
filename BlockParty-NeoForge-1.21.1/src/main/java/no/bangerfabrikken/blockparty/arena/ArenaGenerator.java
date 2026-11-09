@@ -21,9 +21,9 @@ import java.util.Random;
 
 /** Generates an open-air arena, elevated spectator promenade, and separate open lobby. */
 public final class ArenaGenerator {
-    public static final int MIN_SIZE = 40;
-    public static final int MAX_SIZE = 96;
-    public static final int DEFAULT_SIZE = 80;
+    public static final int MIN_SIZE = 24;
+    public static final int MAX_SIZE = 50;
+    public static final int DEFAULT_SIZE = 40;
     public static final int SPECTATOR_HEIGHT = 4;
 
     private static final int PIT_DEPTH = 14;
