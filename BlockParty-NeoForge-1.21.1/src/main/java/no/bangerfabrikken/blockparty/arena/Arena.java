@@ -22,7 +22,7 @@ import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.network.chat.numbers.BlankFormat;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.ObjectiveCriteria;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.minecraft.world.scores.ScoreAccess;
 import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.Scoreboard;
