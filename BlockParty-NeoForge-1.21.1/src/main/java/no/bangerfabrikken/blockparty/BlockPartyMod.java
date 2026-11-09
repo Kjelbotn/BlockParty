@@ -13,6 +13,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
+import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
 import no.bangerfabrikken.blockparty.command.BlockPartyCommands;
 import no.bangerfabrikken.blockparty.sound.ModSounds;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onRightClickBlock);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.3.2-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.3.3-alpha");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -43,12 +44,14 @@ public final class BlockPartyMod {
     }
 
     private void onServerStarted(ServerStartedEvent event) {
+        PlayerStatsManager.load(event.getServer());
         ArenaManager.get().load(event.getServer());
     }
 
     private void onServerStopping(ServerStoppingEvent event) {
         ArenaManager.get().save(event.getServer());
         ArenaManager.get().shutdown(event.getServer());
+        PlayerStatsManager.save(event.getServer());
     }
 
     private void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {

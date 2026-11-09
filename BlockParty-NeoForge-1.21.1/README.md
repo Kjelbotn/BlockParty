@@ -1,27 +1,27 @@
 # BlockParty — NeoForge 1.21.1
 
-**Version 0.3.2-alpha** · Java 21 · Singleplayer-first · NeoForge 21.1.x
+**Version 0.3.3-alpha** · Java 21 · Singleplayer-first · NeoForge 21.1.x
 
-BlockParty is a Minecraft minigame inspired by classic Block Party arenas. This update focuses on the play experience: a larger 80×80 concrete floor by default, wider stadium facilities, a two-sided target display, stable target HUD, sidebar scoreboard, elimination lightning, and a softer redesigned original soundtrack and sound-effect set.
+BlockParty is a Minecraft minigame inspired by classic Block Party arenas. This update focuses on the round flow, a readable in-arena target display, richer scoreboard styling, persistent player progression and a lobby leaderboard.
 
-## 0.3.2-alpha changes
+## 0.3.3-alpha changes
 
-- Default dance floor expanded to **80×80**. Custom sizes from **40 to 96** are supported.
-- Larger spectator promenade and stepped spectator stands around all four sides.
-- Arena colour sign is built as a two-sided display. `FIND` and the selected colour are redrawn at the beginning of every round so the target does not disappear during play.
-- A persistent action-bar target cue (`■  YELLOW  ■`) is shown above the hotbar while a round is active. The target concrete block is also placed in the selected hotbar slot.
-- Only concrete is used on the dance floor, between rounds and during play. Wool and terracotta are rejected when configuring a manual floor.
-- Random floor patterns still change each round, but their pattern names are not announced.
-- Sidebar scoreboard shows dancers left, round, time left, points and collected power-ups.
-- Elimination posts `<player> tapte konkurransen!` in chat and triggers a short visual-only lightning strike at the falling player's position.
-- Beacon power-ups float one block above a concrete tile and are collected with a right-click. Speed II, Night Vision and Jump Boost II last only until that round ends.
-- Replaced the previous music and effects with new original, softer electronic loops and cleaner tonal effects. Music starts with a round and stops at the round transition. Music voting is not included yet.
-- Solo players can complete all 15 rounds. The round timings remain 10, 9, 8, 7, 6, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1 and 0.5 seconds.
+- The in-arena target sign now displays **only the target colour name** in large concrete letters; the word `FIND` has been removed. The arena-facing text uses the corrected mirrored drawing order.
+- Power-up beacons, when selected for a round, spawn immediately as the round starts. They remain occasional (30% chance), but no longer appear late in the countdown. A guard prevents duplicate spawn announcements.
+- The floor collapse and fall phase lasts 35 ticks, followed by a short neutral-black floor transition. The next coloured pattern appears after about 3 seconds total from the collapse. The black transition floor keeps survivors safe during the pause.
+- Sidebar styling now matches the requested look: yellow bold `BlockParty`, bold light-pink `Dancers Left`, bold aqua `Game Info`, and bold light-green `Your Stats`.
+- Personal stats show permanent world points, current rank, points remaining to the next rank, and collected power-ups.
+- Players earn **1 permanent point for every round they survive**. Points are saved per UUID in `blockparty-player-stats.properties` in the world save folder.
+- Ranks unlock at 0, 100, 250, 500, 1,000, 2,500, 5,000 and 10,000 points: Rookie, Bronze Dancer, Silver Dancer, Gold Dancer, Platinum Dancer, Diamond Dancer, Superstar and BlockParty Legend.
+- A physical top-five leaderboard appears on the right wall of the generated lobby. Players can also use `/bp leaderboard` and `/bp rank`.
+- The lobby is wider and deeper, with a framed leaderboard wall. The spectator promenade and stands have been expanded.
+- The world is set to night when a match starts and its previous time is restored when the game ends.
+- Existing 15-round timings, concrete-only floor, one-round power-ups, elimination lightning and music/effects are retained.
 
 ## Generate and play
 
 1. Back up your world before generating a stadium.
-2. Go to a large, empty flat area. The generator clears the stadium and attached lobby footprint before building, so do not run it beside structures you want to keep.
+2. Go to a large, empty flat area. The generator clears its stadium and lobby footprint before building; do not run it beside structures you want to keep.
 3. Enable cheats in singleplayer (Esc → Open to LAN → Allow Cheats: ON → Start LAN World).
 4. Stand at the centre of the desired dance-floor area and run:
 
@@ -42,17 +42,39 @@ Join and start:
 /bp start main
 ```
 
-The lobby countdown starts automatically after joining. `/bp start main` starts immediately.
+Joining starts the 10-second lobby countdown automatically. `/bp start main` starts immediately.
 
-Useful commands:
+## Useful commands
 
 ```text
 /bp help
 /bp list
 /bp status main
+/bp join main
+/bp start main
 /bp leave
 /bp stop main
+/bp leaderboard
+/bp rank
 ```
+
+- `/bp leaderboard` shows the top 10 players in chat.
+- `/bp rank` shows your permanent points, current rank and points required for the next rank.
+
+## Points and ranks
+
+A player earns one permanent point for every round they survive. Data is stored in the current world's `blockparty-player-stats.properties` file, keyed by player UUID, and survives game restarts. The generated lobby contains a top-five leaderboard board that refreshes as points are earned and when players return to the lobby.
+
+| Points | Rank |
+|---:|---|
+| 0 | Rookie |
+| 100 | Bronze Dancer |
+| 250 | Silver Dancer |
+| 500 | Gold Dancer |
+| 1,000 | Platinum Dancer |
+| 2,500 | Diamond Dancer |
+| 5,000 | Superstar |
+| 10,000 | BlockParty Legend |
 
 ## Power-ups
 
@@ -60,11 +82,11 @@ Useful commands:
 - **Night Vision:** Night Vision for the remainder of the current round.
 - **Jump Boost:** Jump Boost II for the remainder of the current round.
 
-Power-ups are removed at the end of the round. A beacon is not guaranteed to spawn every round.
+A beacon has a 30% chance to appear at the beginning of a round and spawns one block above an unoccupied concrete tile. It is not guaranteed every round. The power-up is removed at the end of that round.
 
-## Audio
+## Round flow
 
-The mod contains three original electronic music cues and seven original sound effects. Music uses Minecraft's Music volume category; effects use Players. Tracks are selected randomly each round and stopped at the round transition. Music voting is reserved for a later version.
+The target concrete colour is shown on the large stadium display and in the action-bar indicator above the hotbar. Pattern types are not announced. When a round resolves, the coloured pattern collapses; after the fall sequence and a short pause, the next pattern appears. The world is set to night during the match and returned to its previous time afterward.
 
 ## Build with GitHub Actions
 
@@ -73,11 +95,11 @@ The full source project includes `.github/workflows/build.yml` at the repository
 1. Upload the contents of the source project to the root of a GitHub repository (not an extra nested folder).
 2. Commit to `main`.
 3. Open **Actions** and wait for a green check.
-4. Download the artifact from the successful run. It contains `blockparty-0.3.2-alpha.jar`.
+4. Download the artifact from the successful run. It contains `blockparty-0.3.3-alpha.jar`.
 5. Close Minecraft, remove older BlockParty JARs from the Modrinth instance's `mods` folder, add the new JAR and launch NeoForge 1.21.1.
 
-For the **GitHub update ZIP** supplied with this release, keep your already-working `.github/workflows/build.yml` in the repository root; the update ZIP intentionally focuses on the source files and build metadata so you do not need to upload the hidden `.github` folder again.
+For the **GitHub update ZIP**, keep your already-working `.github/workflows/build.yml` in the repository root; the update ZIP intentionally excludes the hidden `.github` folder so you do not need to upload it again.
 
 ## Verification note
 
-The source files and package structure have been checked, but a full NeoForge compile and in-game smoke test could not be run in this environment because Gradle is not installed and the Gradle distribution cannot be fetched here. Treat the first successful GitHub Actions build as the compile check. Test arena generation and gameplay in a backup singleplayer world before using the mod in your main world.
+The source changes and package structure have been checked statically. A full NeoForge compile and in-game test still need to be run by GitHub Actions and in Minecraft. The physical lobby leaderboard, colour-sign orientation and timing changes should be checked in a backup singleplayer world before using the update in your main world.

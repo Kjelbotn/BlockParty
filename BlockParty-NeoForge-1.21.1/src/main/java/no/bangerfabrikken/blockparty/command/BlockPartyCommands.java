@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import no.bangerfabrikken.blockparty.arena.Arena;
 import no.bangerfabrikken.blockparty.arena.ArenaGenerator;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
+import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
 
 public final class BlockPartyCommands {
     private BlockPartyCommands() {
@@ -70,6 +71,8 @@ public final class BlockPartyCommands {
                 .then(Commands.literal("status")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> status(context.getSource(), StringArgumentType.getString(context, "id")))))
+                .then(Commands.literal("leaderboard").executes(context -> leaderboard(context.getSource())))
+                .then(Commands.literal("rank").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("help").executes(context -> help(context.getSource())));
     }
 
@@ -241,6 +244,18 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int leaderboard(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PlayerStatsManager.sendLeaderboard(player);
+        return 1;
+    }
+
+    private static int rank(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PlayerStatsManager.sendPlayerRank(player);
+        return 1;
+    }
+
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
         source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg stadion, concrete-gulv, spectatorgang og lobby (40–96, standard 80)"), false);
@@ -251,6 +266,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp stop <id> – stopp"), false);
         source.sendSuccess(() -> Component.literal("15 runder, 10 til 0,5 sekunder. Concrete-farger, musikk per runde og tilfeldige power-up-beacons."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
+        source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 10 | /bp rank – se poeng, rank og avstand til neste rank"), false);
         return 1;
     }
 

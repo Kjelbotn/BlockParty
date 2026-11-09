@@ -1,13 +1,14 @@
-BLOCKPARTY 0.3.2-ALPHA — GITHUB UPDATE
+BLOCKPARTY 0.3.3-ALPHA - GITHUB UPDATE
 
-This is an update for a repository that already has a working GitHub Actions workflow at .github/workflows/build.yml.
+For your existing BlockParty-Rebuild repository:
+1. Open the repository root: the page where build.gradle and src/ are visible.
+2. In this ZIP, use the src/ folder and upload it to that same repository root. Do not upload an outer project folder.
+3. Also upload gradle.properties, README.md and CHANGELOG.md to the repository root.
+4. Keep your already-working .github/workflows/build.yml. The GitHub Update ZIP intentionally omits the hidden .github directory.
+5. Commit the changes to main. GitHub Actions should start automatically.
 
-1. Extract this ZIP.
-2. Open the ROOT of your GitHub repository (the same level as build.gradle).
-3. Use Add file -> Upload files.
-4. Upload the src folder and the root files in this ZIP. Do not upload an extra enclosing project folder.
-5. Keep the existing .github/workflows/build.yml workflow; the update ZIP omits that hidden folder on purpose.
-6. Commit changes. Actions should start a fresh build.
-7. Download the artifact and verify it contains blockparty-0.3.2-alpha.jar.
+If the Actions artifact label still mentions 0.3.2, that is only the workflow's display name; the JAR produced by this source is blockparty-0.3.3-alpha.jar. You can rename the artifact label in the workflow later, but it is not required for compilation.
 
-If a path is nested under an extra BlockParty folder, cancel the upload and go back to the repository root before uploading.
+Before generating the new arena, back up the world and choose an empty area. Use /bp generate main (default 80x80) or /bp generate main 96.
+
+Player progression is saved in blockparty-player-stats.properties in the world save folder. /bp leaderboard shows the top 10; /bp rank shows the player's points, rank and points remaining until the next rank.

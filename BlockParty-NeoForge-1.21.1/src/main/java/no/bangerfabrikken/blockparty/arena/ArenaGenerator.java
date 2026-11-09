@@ -22,8 +22,8 @@ public final class ArenaGenerator {
     public static final int MAX_SIZE = 96;
     public static final int DEFAULT_SIZE = 80;
     private static final int PIT_DEPTH = 14;
-    private static final int WALKWAY_WIDTH = 9;
-    private static final int STAND_WIDTH = 12;
+    private static final int WALKWAY_WIDTH = 11;
+    private static final int STAND_WIDTH = 16;
     private static final int OUTER_MARGIN = WALKWAY_WIDTH + STAND_WIDTH + 4;
 
     private ArenaGenerator() { }
@@ -54,9 +54,9 @@ public final class ArenaGenerator {
         int outerMinZ = minZ - OUTER_MARGIN;
         int outerMaxZ = maxZ + OUTER_MARGIN;
         int lobbyMinZ = outerMaxZ + 2;
-        int lobbyMaxZ = outerMaxZ + 16;
-        int lobbyMinX = centerX - 9;
-        int lobbyMaxX = centerX + 9;
+        int lobbyMaxZ = outerMaxZ + 22;
+        int lobbyMinX = centerX - 15;
+        int lobbyMaxX = centerX + 15;
 
         // WARNING: only clear the stadium + lobby footprint, not the entire surrounding landscape.
         clearVolume(level, outerMinX, outerMaxX, outerMinZ, lobbyMaxZ + 2, floorY + 1, floorY + 22);
@@ -165,12 +165,9 @@ public final class ArenaGenerator {
             put(level, x, floorY + 19, signZ + 2, Blocks.MAGENTA_CONCRETE);
         }
         BlockPos displayCenter = new BlockPos(centerX, floorY + 17, signZ + 2);
-        // Paint both sides of the board. The inside face uses the orientation verified against
-        // the in-game screenshot; the outside face is mirrored so both approaches read normally.
-        BlockPartyText.drawCentered(level, displayCenter, "FIND", Blocks.WHITE_CONCRETE, signWidth, true);
-        BlockPartyText.drawCentered(level, displayCenter.below(6), "READY", Blocks.LIME_CONCRETE, signWidth, true);
-        BlockPartyText.drawCentered(level, displayCenter.offset(0, 0, -2), "FIND", Blocks.WHITE_CONCRETE, signWidth, false);
-        BlockPartyText.drawCentered(level, displayCenter.offset(0, -6, -2), "READY", Blocks.LIME_CONCRETE, signWidth, false);
+        // One readable READY label before the first round; the target colour replaces it in-game.
+        BlockPartyText.drawCentered(level, displayCenter.below(4), "READY", Blocks.LIME_CONCRETE, signWidth, true);
+        BlockPartyText.drawCentered(level, displayCenter.offset(0, -4, -2), "READY", Blocks.LIME_CONCRETE, signWidth, false);
 
         // Stadium entrance arch, centered on the south wall, with a lit bridge to the lobby.
         for (int x : new int[]{centerX - 4, centerX + 4}) {
@@ -201,6 +198,28 @@ public final class ArenaGenerator {
                 }
             }
         }
+        // Lobby side walls frame the waiting area. The right wall contains a dedicated leaderboard panel.
+        int lobbyBoardCenterZ = (lobbyMinZ + lobbyMaxZ) / 2;
+        for (int z = lobbyMinZ + 1; z <= lobbyMaxZ; z++) {
+            for (int y = floorY + 1; y <= floorY + 11; y++) {
+                put(level, lobbyMinX, y, z, wallBlock(y));
+                put(level, lobbyMaxX, y, z, wallBlock(y));
+            }
+        }
+        for (int z = lobbyBoardCenterZ - 7; z <= lobbyBoardCenterZ + 7; z++) {
+            for (int y = floorY + 2; y <= floorY + 12; y++) {
+                put(level, lobbyMaxX, y, z, Blocks.BLACK_CONCRETE);
+            }
+        }
+        for (int z = lobbyBoardCenterZ - 8; z <= lobbyBoardCenterZ + 8; z++) {
+            put(level, lobbyMaxX, floorY + 1, z, Blocks.MAGENTA_CONCRETE);
+            put(level, lobbyMaxX, floorY + 13, z, Blocks.MAGENTA_CONCRETE);
+        }
+        for (int y = floorY + 1; y <= floorY + 13; y++) {
+            put(level, lobbyMaxX, y, lobbyBoardCenterZ - 8, Blocks.PURPLE_CONCRETE);
+            put(level, lobbyMaxX, y, lobbyBoardCenterZ + 8, Blocks.PURPLE_CONCRETE);
+        }
+
         int lobbyBackZ = lobbyMaxZ;
         for (int x = centerX - 8; x <= centerX + 8; x++) {
             for (int y = floorY + 2; y <= floorY + 9; y++) put(level, x, y, lobbyBackZ, Blocks.BLACK_CONCRETE);
@@ -209,9 +228,9 @@ public final class ArenaGenerator {
             put(level, x, floorY + 2, lobbyBackZ, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY + 9, lobbyBackZ, Blocks.MAGENTA_CONCRETE);
         }
-        // Two readable faces: one for players inside the lobby and one for anyone viewing from behind.
-        drawLogoLetters(level, centerX, floorY, lobbyBackZ - 1, true);
-        drawLogoLetters(level, centerX, floorY, lobbyBackZ + 1, false);
+        // Two readable faces: normal X order on the lobby-facing side, mirrored on the reverse side.
+        drawLogoLetters(level, centerX, floorY, lobbyBackZ - 1, false);
+        drawLogoLetters(level, centerX, floorY, lobbyBackZ + 1, true);
         for (int x = centerX - 6; x <= centerX + 6; x++) {
             put(level, x, floorY, lobbyMaxZ - 2, Math.floorMod(x, 2) == 0 ? Blocks.CYAN_CONCRETE : Blocks.PURPLE_CONCRETE);
         }
