@@ -69,6 +69,8 @@ public final class Arena {
     }
 
     public static final int MAX_ROUNDS = 15;
+    public static final int MIN_PLAYERS = 2;
+    public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 96 * 96;
     private static final int LOBBY_COUNTDOWN_TICKS = 1200;
     private static final int FALL_TICKS = 35;
@@ -91,7 +93,7 @@ public final class Arena {
 
     private final Set<UUID> players = new LinkedHashSet<>();
     private final Set<UUID> alive = new LinkedHashSet<>();
-    private final Set<UUID> pendingEliminations = new HashSet<>();
+    private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
     private final Map<UUID, HeldItemSnapshot> originalHeldItems = new HashMap<>();
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
@@ -109,6 +111,7 @@ public final class Arena {
     private DyeColor previousTargetColor;
     private int previousPattern = -1;
     private boolean soloMode;
+    private UUID lastEliminatedPlayer;
 
     /** Active beacon blocks are placed one block above five separate floor tiles. */
     private final Map<BlockPos, BlockState> activeBeacons = new HashMap<>();
@@ -162,6 +165,7 @@ public final class Arena {
         this.lobbyYaw = yaw;
         this.lobbyPitch = pitch;
         this.lobbySet = true;
+        refreshLobbyLeaderboard();
     }
 
     public boolean hasLobby() { return lobbySet; }
@@ -180,6 +184,10 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Denne runden har allerede startet. Vent til spillet er ferdig.").withStyle(ChatFormatting.RED));
             return;
         }
+        if (!players.contains(player.getUUID()) && players.size() >= MAX_PLAYERS) {
+            player.sendSystemMessage(Component.literal("Denne kampen er full (maks " + MAX_PLAYERS + " spillere).").withStyle(ChatFormatting.RED));
+            return;
+        }
         if (!players.add(player.getUUID())) {
             player.sendSystemMessage(Component.literal("Du er allerede med i denne arenaen.").withStyle(ChatFormatting.YELLOW));
             return;
@@ -188,8 +196,11 @@ public final class Arena {
         ensureLobbyItems(player);
         refreshLobbyLeaderboard();
         PlayerStatsManager.sendPlayerRank(player);
-        player.sendSystemMessage(Component.literal("Du ble med i BlockParty-arenaen '" + id + "'. Spillere: " + players.size()).withStyle(ChatFormatting.GREEN));
-        broadcast(Component.literal(player.getName().getString() + " ble med! (" + players.size() + ")").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Du ble med i BlockParty-arenaen '" + id + "'. Spillere: " + players.size() + "/" + MAX_PLAYERS).withStyle(ChatFormatting.GREEN));
+        if (players.size() < MIN_PLAYERS) {
+            player.sendSystemMessage(Component.literal("Venter på minst én spiller til. Administrator kan bruke /bp forcestart " + id + " for å teste alene.").withStyle(ChatFormatting.YELLOW));
+        }
+        broadcast(Component.literal(player.getName().getString() + " ble med! (" + players.size() + "/" + MAX_PLAYERS + ")").withStyle(ChatFormatting.YELLOW));
     }
 
     public void leave(ServerPlayer player, boolean teleport) {
@@ -237,11 +248,12 @@ public final class Arena {
             originalDayTime = level.getDayTime();
             originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
         }
-        level.setDayTime(18_000L);
+        level.setDayTime(6_000L);
         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
         alive.clear();
         alive.addAll(players);
         pendingEliminations.clear();
+        lastEliminatedPlayer = null;
         originalGameModes.clear();
         originalHeldItems.clear();
         points.clear();
@@ -623,17 +635,18 @@ public final class Arena {
         scoreboardTick++;
         switch (phase) {
             case WAITING -> {
-                if (!players.isEmpty()) {
+                if (players.size() >= MIN_PLAYERS) {
                     phase = Phase.COUNTDOWN;
                     timerTicks = LOBBY_COUNTDOWN_TICKS;
-                    broadcast(Component.literal("BlockParty starter om 60 sekunder! Høyreklikk Join-stjernen i hotbaren for å bli med.").withStyle(ChatFormatting.GREEN));
+                    broadcast(Component.literal("BlockParty starter om 60 sekunder! " + players.size() + "/" + MAX_PLAYERS + " spillere er påmeldt.").withStyle(ChatFormatting.GREEN));
                     playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 0.85F);
                 }
             }
             case COUNTDOWN -> {
-                if (players.isEmpty()) {
+                if (players.size() < MIN_PLAYERS) {
                     phase = Phase.WAITING;
                     timerTicks = 0;
+                    broadcast(Component.literal("Nedtellingen er stoppet – BlockParty trenger minst 2 spillere. Administrator kan bruke /bp forcestart " + id + ".").withStyle(ChatFormatting.YELLOW));
                     break;
                 }
                 timerTicks--;
@@ -657,7 +670,13 @@ public final class Arena {
             }
             case FALL -> {
                 timerTicks--;
-                for (UUID uuid : new HashSet<>(pendingEliminations)) {
+                List<UUID> fallOrder = new ArrayList<>(pendingEliminations);
+                // Lowest in the pit is processed first; the one still highest is treated as the latest fall.
+                fallOrder.sort(java.util.Comparator.comparingDouble(uuid -> {
+                    ServerPlayer candidate = server.getPlayerList().getPlayer(uuid);
+                    return candidate == null ? Double.NEGATIVE_INFINITY : candidate.getY();
+                }));
+                for (UUID uuid : fallOrder) {
                     ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                     if (player == null) {
                         pendingEliminations.remove(uuid);
@@ -667,7 +686,12 @@ public final class Arena {
                     }
                 }
                 if (timerTicks <= 0) {
-                    for (UUID uuid : new HashSet<>(pendingEliminations)) {
+                    List<UUID> remainingOrder = new ArrayList<>(pendingEliminations);
+                    remainingOrder.sort(java.util.Comparator.comparingDouble(uuid -> {
+                        ServerPlayer candidate = server.getPlayerList().getPlayer(uuid);
+                        return candidate == null ? Double.NEGATIVE_INFINITY : candidate.getY();
+                    }));
+                    for (UUID uuid : remainingOrder) {
                         ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                         if (player != null) eliminate(player);
                         else {
@@ -747,8 +771,14 @@ public final class Arena {
             case RED -> ChatFormatting.RED;
             case BLACK -> ChatFormatting.DARK_GRAY;
         };
-        Component hud = Component.literal("      ").append(Component.literal("■ " + BlockPartyColors.displayName(targetColor) + " ■")
-                .withStyle(color, ChatFormatting.BOLD));
+        int remainingSeconds = Math.max(1, Math.min(10, (timerTicks + 19) / 20));
+        String filled = "■".repeat(remainingSeconds);
+        String empty = "■".repeat(10 - remainingSeconds);
+        Component hud = Component.literal("      ").append(Component.literal(BlockPartyColors.displayName(targetColor))
+                .withStyle(color, ChatFormatting.BOLD))
+                .append(Component.literal("  " + formatSeconds(Math.max(0, timerTicks)) + "s  ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
+                .append(Component.literal(filled).withStyle(color, ChatFormatting.BOLD))
+                .append(Component.literal(empty).withStyle(ChatFormatting.DARK_GRAY));
         for (UUID uuid : players) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) player.displayClientMessage(hud, true);
@@ -786,7 +816,8 @@ public final class Arena {
         int totalPoints = profilePlayer == null ? 0 : PlayerStatsManager.getPoints(profilePlayer.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(totalPoints);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
-        String timeText = round > 0 ? formatSeconds(ROUND_DURATION_TICKS[Math.min(round - 1, MAX_ROUNDS - 1)]) + "s" : "--";
+        String timeText = (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
+                ? formatSeconds(Math.max(0, timerTicks)) + "s" : "--";
         String nextRankText = rank.isMaxRank() ? "MAX RANK" : rank.pointsToNext(totalPoints) + " pts";
 
         PlayerStatsManager.PlayerRecord profile = profilePlayer == null
@@ -919,6 +950,7 @@ public final class Arena {
 
     private void eliminate(ServerPlayer player) {
         UUID uuid = player.getUUID();
+        lastEliminatedPlayer = uuid;
         if (!alive.remove(uuid)) {
             pendingEliminations.remove(uuid);
             return;
@@ -988,6 +1020,9 @@ public final class Arena {
         if (alive.size() == 1) {
             UUID winnerId = alive.iterator().next();
             winner = level.getServer().getPlayerList().getPlayer(winnerId);
+        } else if (alive.isEmpty() && lastEliminatedPlayer != null && players.size() >= MIN_PLAYERS) {
+            // If the final two players fall in the same resolution window, the last processed fall wins.
+            winner = level.getServer().getPlayerList().getPlayer(lastEliminatedPlayer);
         } else if (round >= MAX_ROUNDS && !alive.isEmpty()) {
             winner = alive.stream().map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
                     .filter(java.util.Objects::nonNull)
@@ -1081,6 +1116,7 @@ public final class Arena {
         previousTargetColor = null;
         previousPattern = -1;
         soloMode = false;
+        lastEliminatedPlayer = null;
         if (level != null && originalDayTime != Long.MIN_VALUE) {
             level.setDayTime(originalDayTime);
             if (originalDaylightCycle != null) {
@@ -1143,56 +1179,51 @@ public final class Arena {
         floorSnapshot.putAll(originalFloorSnapshot);
     }
 
-    /** Refreshes the physical top-player board on the right-hand wall of the generated lobby. */
+    /** Refreshes a large, full-wall leaderboard built from correctly oriented Text Display entities. */
     private void refreshLobbyLeaderboard() {
         if (level == null || !lobbySet) return;
-        double boardX = lobbyX + 25.3;
-        double boardY = lobbyY + 6.0;
-        double boardZ = lobbyZ;
-        BlockPos anchor = BlockPos.containing(boardX, boardY, boardZ);
+        double boardX = lobbyX + 30.0;
+        double topY = lobbyY + 13.0;
+        double boardZ = lobbyZ + 8.0;
+        BlockPos anchor = BlockPos.containing(boardX, topY, boardZ);
         if (!level.hasChunkAt(anchor)) return;
 
         String tag = "blockparty_lb_" + id;
-        AABB area = new AABB(boardX - 5.0, boardY - 5.5, boardZ - 16.0,
-                boardX + 5.0, boardY + 4.0, boardZ + 16.0);
-        for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area, stand -> stand.getTags().contains(tag))) {
-            old.discard();
-        }
+        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, boardZ - 26.0,
+                boardX + 5.0, lobbyY + 16.0, boardZ + 26.0);
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                display -> display.getTags().contains(tag))) old.discard();
+        for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,
+                stand -> stand.getTags().contains(tag))) old.discard();
 
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        lines.add(Component.literal("TOP DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(5);
+        lines.add(Component.literal("BLOCKPARTY LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        lines.add(Component.literal("TOP 10 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(10);
         if (top.isEmpty()) {
-            lines.add(Component.literal("No scores yet").withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal("No scores yet - survive a round to score!").withStyle(ChatFormatting.GRAY));
         } else {
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 10; i++) {
                 if (i >= top.size()) {
-                    lines.add(Component.literal("-  ---").withStyle(ChatFormatting.DARK_GRAY));
+                    lines.add(Component.literal("#" + (i + 1) + "  ---").withStyle(ChatFormatting.DARK_GRAY));
                     continue;
                 }
                 PlayerStatsManager.PlayerRecord record = top.get(i);
                 PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
                 ChatFormatting placeColor = i == 0 ? ChatFormatting.GOLD : i == 1 ? ChatFormatting.WHITE
                         : i == 2 ? ChatFormatting.RED : ChatFormatting.GRAY;
-                Component row = Component.literal("#" + (i + 1) + " ").withStyle(placeColor, ChatFormatting.BOLD)
+                lines.add(Component.literal("#" + (i + 1) + "  ").withStyle(placeColor, ChatFormatting.BOLD)
                         .append(Component.literal(record.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                        .append(Component.literal("  " + record.points() + " pts").withStyle(ChatFormatting.GREEN))
-                        .append(Component.literal("  " + rank.name()).withStyle(ChatFormatting.AQUA));
-                lines.add(row);
+                        .append(Component.literal("   " + record.points() + " pts   ").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                        .append(Component.literal(rank.name()).withStyle(ChatFormatting.AQUA)));
             }
         }
         lines.add(Component.literal("/bp leaderboard  •  /bp rank").withStyle(ChatFormatting.LIGHT_PURPLE));
-
+        // The panel faces west toward the lobby interior; text entities avoid mirrored block-built letters.
         for (int i = 0; i < lines.size(); i++) {
-            ArmorStand stand = new ArmorStand(level, boardX, boardY - i * 0.48, boardZ);
-            stand.setInvisible(true);
-            stand.setNoGravity(true);
-            stand.setInvulnerable(true);
-            stand.setCustomName(lines.get(i));
-            stand.setCustomNameVisible(true);
-            stand.addTag(tag);
-            level.addFreshEntity(stand);
+            float scale = i == 0 ? 2.8F : (i == 1 ? 2.0F : (i == lines.size() - 1 ? 1.35F : 1.55F));
+            double y = topY - (i * 0.9);
+            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, 90.0F, lines.get(i), scale, tag);
         }
     }
 

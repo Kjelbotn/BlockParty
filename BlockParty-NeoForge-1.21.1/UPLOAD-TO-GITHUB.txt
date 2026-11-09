@@ -1,12 +1,13 @@
-BLOCKPARTY 0.4.1-ALPHA — UPDATE EXISTING GITHUB REPOSITORY
+BLOCKPARTY 0.4.2 ALPHA - UPDATE INSTRUCTIONS
 
-1. Open the BlockParty-Rebuild repository root (where build.gradle and src/ are visible).
-2. Upload the src/ folder and gradle.properties from this update ZIP to the same root.
-3. Upload README.md and CHANGELOG.md if you want the docs updated.
-4. Keep the existing .github/workflows/build.yml and Gradle wrapper files.
-5. Commit to main and wait for GitHub Actions.
-6. On a green build, download the artifact under Actions -> run -> Summary -> Artifacts.
+For the existing BlockParty-Rebuild repository:
+1. Extract this update ZIP.
+2. Open the repository root (where build.gradle and src/ are visible).
+3. Upload/replace the src/ folder and gradle.properties.
+4. Replace README.md and CHANGELOG.md if desired.
+5. Keep the existing .github/workflows/build.yml; it already builds the project.
+6. Commit the changes. GitHub Actions will run gradle build --no-daemon.
 
-Lobby use: right-click the turquoise BlockParty Join Game Nether Star to join.
-Right-click the BlockParty Music Vote book to open the chat voting menu.
-/bp join <id> remains as a fallback command.
+Expected output JAR: build/libs/blockparty-0.4.2-alpha.jar
+
+Back up your Minecraft world before using /bp generate again.

@@ -58,6 +58,10 @@ public final class BlockPartyCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> start(context.getSource(), StringArgumentType.getString(context, "id")))))
+                .then(Commands.literal("forcestart")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> forceStart(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("stop")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -205,6 +209,10 @@ public final class BlockPartyCommands {
     private static int start(CommandSourceStack source, String id) {
         Arena arena = getArena(source, id);
         if (arena == null) return 0;
+        if (arena.getPlayerCount() < Arena.MIN_PLAYERS) {
+            source.sendFailure(Component.literal("Vanlig start krever minst 2 spillere. Bruk /bp forcestart " + id + " for å teste alene."));
+            return 0;
+        }
         try {
             arena.start(source.getServer());
             source.sendSuccess(() -> Component.literal("Startet BlockParty-arenaen '" + id + "'.").withStyle(ChatFormatting.GREEN), true);
@@ -212,6 +220,23 @@ public final class BlockPartyCommands {
             source.sendFailure(Component.literal(exception.getMessage()));
         }
         return 1;
+    }
+
+    private static int forceStart(CommandSourceStack source, String id) {
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() != 1) {
+            source.sendFailure(Component.literal("Force-start er ment for solo-testing og krever nøyaktig én påmeldt spiller."));
+            return 0;
+        }
+        try {
+            arena.start(source.getServer());
+            source.sendSuccess(() -> Component.literal("Solo-test startet for arena '" + id + "'.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+            return 1;
+        } catch (IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
     }
 
     private static int stop(CommandSourceStack source, String id) {
@@ -293,7 +318,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – oppdater lobbyspawn"), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
-        source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp stop <id> – stopp"), false);
+        source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
         source.sendSuccess(() -> Component.literal("15 runder, 10 til 0,5 sekunder. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 10 | /bp rank eller /bp profile – se spillerprofil"), false);

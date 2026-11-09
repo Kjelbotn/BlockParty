@@ -1,15 +1,14 @@
-# BlockParty 0.4.1-alpha
+# BlockParty 0.4.2-alpha
 
-## Lobby join item and item-only lobby controls
-- Removed the decorative `MUSIC • LEADERBOARD • PLAY` pseudo-navigation line from the lobby screen.
-- The lobby wall now clearly explains the actual inventory controls: right-click the Nether Star to join and the book to vote for music.
-- Players near an open BlockParty lobby automatically receive a uniquely named **BlockParty Join Game** Nether Star and **BlockParty Music Vote** book.
-- Right-clicking the Join Star joins the nearby arena; `/bp join <id>` remains available as an admin/debug fallback.
-- Right-clicking the Music Vote book works while physically in an open lobby, even before joining the match.
-- The join star and music book are removed from participants' inventories when the match starts and returned when they return to the lobby.
-- The existing physical leaderboard remains in the lobby; no leaderboard button has been added.
-- The generator gives the creator their lobby items immediately. Lobby visitors are checked once per second to receive missing items.
+- Removed the arena and lobby roofs: both areas are open to the sky.
+- Added invisible light level 15 sources and visible Sea Lantern accents around the floor, spectator ring, walls and lobby.
+- Active matches freeze the world at daytime; the previous day time and daylight-cycle rule are restored after the match.
+- Automatic matchmaking requires 2 players and supports up to 10.
+- Admin `/bp forcestart <id>` starts a solo test with exactly one player. Regular `/bp start <id>` requires at least 2 players.
+- The round actionbar shows the target color, live seconds remaining, and a 10-segment countdown bar refreshed during the round.
+- The sidebar displays the live remaining time.
+- The lobby leaderboard is a larger wall display with the Top 10 entries, rendered using Text Display entities.
+- A tiebreak rule selects the last processed falling player if a multiplayer final elimination window leaves no one alive.
+- Existing player profiles, rank progression, streaks, personal bests, power-ups and music voting are retained from the 0.4.x source line.
 
-## Compatibility
-- Minecraft 1.21.1, NeoForge 21.1.x, Java 21.
-- No new registered item is required; vanilla Nether Star and Book items are identified by their custom names.
+This is a source update. Use GitHub Actions to compile before installing the JAR.
