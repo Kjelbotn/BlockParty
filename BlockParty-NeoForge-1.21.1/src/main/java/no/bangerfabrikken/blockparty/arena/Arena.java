@@ -113,7 +113,7 @@ public final class Arena {
     /** Active beacon blocks are placed one block above five separate floor tiles. */
     private final Map<BlockPos, BlockState> activeBeacons = new HashMap<>();
     private final Map<UUID, String> musicVotes = new HashMap<>();
-    private final Map<UUID, Integer> musicBookSlots = new HashMap<>();
+    private final Set<UUID> fullLobbyInventoryNotices = new HashSet<>();
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
@@ -185,7 +185,7 @@ public final class Arena {
             return;
         }
         teleportToLobby(player);
-        giveMusicVotingBook(player);
+        ensureLobbyItems(player);
         refreshLobbyLeaderboard();
         PlayerStatsManager.sendPlayerRank(player);
         player.sendSystemMessage(Component.literal("Du ble med i BlockParty-arenaen '" + id + "'. Spillere: " + players.size()).withStyle(ChatFormatting.GREEN));
@@ -197,10 +197,14 @@ public final class Arena {
         boolean wasMember = players.remove(uuid);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
-        removeMusicVotingBook(player);
+        removeLobbyItemsFromInventory(player);
+        fullLobbyInventoryNotices.remove(uuid);
         musicVotes.remove(uuid);
         restorePlayerState(player);
-        if (teleport && wasMember) teleportToLobby(player);
+        if (teleport && wasMember) {
+            teleportToLobby(player);
+            ensureLobbyItems(player);
+        }
 
         if (wasMember) {
             player.sendSystemMessage(Component.literal("Du forlot BlockParty-arenaen '" + id + "'.").withStyle(ChatFormatting.GRAY));
@@ -259,7 +263,7 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
                 originalGameModes.put(uuid, player.gameMode.getGameModeForPlayer());
-                removeMusicVotingBookFromInventory(player);
+                removeLobbyItemsFromInventory(player);
                 int selectedSlot = player.getInventory().selected;
                 originalHeldItems.put(uuid, new HeldItemSnapshot(selectedSlot, player.getInventory().getItem(selectedSlot).copy()));
                 player.setGameMode(GameType.ADVENTURE);
@@ -424,31 +428,92 @@ public final class Arena {
         return customName != null && "BlockParty Music Vote".equals(customName.getString());
     }
 
-    private void giveMusicVotingBook(ServerPlayer player) {
-        // Avoid duplicates if a player rejoined with the book still in their inventory.
+    /** The lobby play token is an ordinary nether star with a unique custom name. */
+    public static boolean isJoinGameItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !stack.is(Items.NETHER_STAR)) return false;
+        Component customName = stack.get(DataComponents.CUSTOM_NAME);
+        return customName != null && "BlockParty Join Game".equals(customName.getString());
+    }
+
+    /** True only while this player is physically inside this arena's lobby area. */
+    public boolean isLobbyAccessibleTo(ServerPlayer player) {
+        if (!lobbySet || level == null || player.serverLevel() != level) return false;
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return false;
+        return Math.abs(player.getX() - lobbyX) <= 36.0
+                && Math.abs(player.getZ() - lobbyZ) <= 40.0
+                && Math.abs(player.getY() - lobbyY) <= 22.0;
+    }
+
+    /** Give the non-interactive wall instructions' matching inventory items to lobby visitors. */
+    public void ensureLobbyItems(ServerPlayer player) {
+        if (!lobbySet || level == null || player.serverLevel() != level) return;
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
+        giveUniqueLobbyItem(player, createJoinGameItem(), Arena::isJoinGameItem);
+        giveMusicVotingBook(player);
+        if (hasLobbyItem(player, Arena::isJoinGameItem) && hasLobbyItem(player, Arena::isMusicVotingBook)) {
+            fullLobbyInventoryNotices.remove(player.getUUID());
+        }
+    }
+
+    private static boolean hasLobbyItem(ServerPlayer player, java.util.function.Predicate<ItemStack> matcher) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (isMusicVotingBook(player.getInventory().getItem(i))) {
-                musicBookSlots.put(player.getUUID(), i);
-                return;
-            }
+            if (matcher.test(player.getInventory().getItem(i))) return true;
         }
-        Integer knownSlot = musicBookSlots.get(player.getUUID());
-        if (knownSlot != null && knownSlot >= 0 && knownSlot < player.getInventory().getContainerSize()
-                && player.getInventory().getItem(knownSlot).isEmpty()) {
-            player.getInventory().setItem(knownSlot, createMusicVotingBook());
-            return;
-        }
+        return false;
+    }
+
+    private void giveUniqueLobbyItem(ServerPlayer player, ItemStack item,
+                                     java.util.function.Predicate<ItemStack> matcher) {
+        if (hasLobbyItem(player, matcher)) return;
         int slot = -1;
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+        // Prefer the hotbar so the join control is immediately visible, then use main inventory.
+        for (int i = 0; i < 9; i++) {
             if (player.getInventory().getItem(i).isEmpty()) { slot = i; break; }
         }
         if (slot < 0) {
-            player.sendSystemMessage(Component.literal("Inventaret er fullt – frigjør én plass for Music Voting Book.")
-                    .withStyle(ChatFormatting.YELLOW));
+            for (int i = 9; i < player.getInventory().getContainerSize(); i++) {
+                if (player.getInventory().getItem(i).isEmpty()) { slot = i; break; }
+            }
+        }
+        if (slot < 0) {
+            if (fullLobbyInventoryNotices.add(player.getUUID())) {
+                player.sendSystemMessage(Component.literal("Inventaret er fullt. Frigjør to plasser for BlockParty Join-stjernen og Music Vote-boken.")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
             return;
         }
-        player.getInventory().setItem(slot, createMusicVotingBook());
-        musicBookSlots.put(player.getUUID(), slot);
+        player.getInventory().setItem(slot, item);
+    }
+
+    private ItemStack createJoinGameItem() {
+        ItemStack star = new ItemStack(Items.NETHER_STAR);
+        star.set(DataComponents.CUSTOM_NAME, Component.literal("BlockParty Join Game")
+                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        return star;
+    }
+
+    private void giveMusicVotingBook(ServerPlayer player) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            if (isMusicVotingBook(player.getInventory().getItem(i))) return;
+        }
+        ItemStack book = createMusicVotingBook();
+        int slot = -1;
+        for (int i = 0; i < 9; i++) {
+            if (player.getInventory().getItem(i).isEmpty()) { slot = i; break; }
+        }
+        if (slot < 0) {
+            for (int i = 9; i < player.getInventory().getContainerSize(); i++) {
+                if (player.getInventory().getItem(i).isEmpty()) { slot = i; break; }
+            }
+        }
+        if (slot < 0) {
+            if (fullLobbyInventoryNotices.add(player.getUUID())) {
+                player.sendSystemMessage(Component.literal("Inventaret er fullt. Frigjør plass til Music Vote-boken.")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
+            return;
+        }
+        player.getInventory().setItem(slot, book);
     }
 
     private ItemStack createMusicVotingBook() {
@@ -458,11 +523,12 @@ public final class Arena {
         return book;
     }
 
-    private void removeMusicVotingBookFromInventory(ServerPlayer player) {
+    private void removeLobbyItemsFromInventory(ServerPlayer player) {
         int selected = player.getInventory().selected;
         boolean removedSelected = false;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (isMusicVotingBook(player.getInventory().getItem(i))) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (isMusicVotingBook(stack) || isJoinGameItem(stack)) {
                 player.getInventory().setItem(i, ItemStack.EMPTY);
                 if (i == selected) removedSelected = true;
             }
@@ -474,11 +540,6 @@ public final class Arena {
             }
             player.getInventory().selected = replacement;
         }
-    }
-
-    private void removeMusicVotingBook(ServerPlayer player) {
-        removeMusicVotingBookFromInventory(player);
-        musicBookSlots.remove(player.getUUID());
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -565,7 +626,7 @@ public final class Arena {
                 if (!players.isEmpty()) {
                     phase = Phase.COUNTDOWN;
                     timerTicks = LOBBY_COUNTDOWN_TICKS;
-                    broadcast(Component.literal("BlockParty starter om 60 sekunder! Bruk /bp start " + id + " for å starte nå.").withStyle(ChatFormatting.GREEN));
+                    broadcast(Component.literal("BlockParty starter om 60 sekunder! Høyreklikk Join-stjernen i hotbaren for å bli med.").withStyle(ChatFormatting.GREEN));
                     playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 0.85F);
                 }
             }
@@ -991,12 +1052,12 @@ public final class Arena {
         clearActivePowerUps(server);
         removeActiveBeacon();
         restoreOriginalFloor();
-        for (UUID uuid : new HashSet<>(players)) {
+        Set<UUID> returningPlayers = new HashSet<>(players);
+        for (UUID uuid : returningPlayers) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
                 restorePlayerState(player);
                 teleportToLobby(player);
-                giveMusicVotingBook(player);
                 player.sendSystemMessage(Component.literal("Takk for at du spilte BlockParty!").withStyle(ChatFormatting.GREEN));
             }
         }
@@ -1011,6 +1072,10 @@ public final class Arena {
         powerupsCollected.clear();
         phase = Phase.WAITING;
         timerTicks = 0;
+        for (UUID uuid : returningPlayers) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) ensureLobbyItems(player);
+        }
         round = 0;
         targetColor = null;
         previousTargetColor = null;

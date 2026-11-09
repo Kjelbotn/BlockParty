@@ -28,6 +28,7 @@ public final class ArenaManager {
     private static final String FILE_NAME = "blockparty-arenas.properties";
 
     private final Map<String, Arena> arenas = new LinkedHashMap<>();
+    private int lobbyItemRefreshTicks;
 
     private ArenaManager() {
     }
@@ -75,12 +76,39 @@ public final class ArenaManager {
         return null;
     }
 
+    /** Find the closest open lobby near a player, even before they have joined the match. */
+    public Arena findLobbyArenaFor(ServerPlayer player) {
+        Arena closest = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Arena arena : arenas.values()) {
+            if (!arena.isLobbyAccessibleTo(player)) continue;
+            double dx = arena.getLobbyX() - player.getX();
+            double dy = arena.getLobbyY() - player.getY();
+            double dz = arena.getLobbyZ() - player.getZ();
+            double distance = dx * dx + dy * dy + dz * dz;
+            if (distance < bestDistance) {
+                closest = arena;
+                bestDistance = distance;
+            }
+        }
+        return closest;
+    }
+
     private boolean arenaHasPlayer(Arena arena, UUID playerId) {
         // The arena exposes its membership through the manager-safe helper below.
         return arena.containsPlayer(playerId);
     }
 
     public void tick(MinecraftServer server) {
+        // Lobby visitors receive the Play star and Music Vote book automatically.
+        // Refresh once per second to avoid scanning all player inventories every tick.
+        if (++lobbyItemRefreshTicks >= 20) {
+            lobbyItemRefreshTicks = 0;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                Arena lobbyArena = findLobbyArenaFor(player);
+                if (lobbyArena != null) lobbyArena.ensureLobbyItems(player);
+            }
+        }
         for (Arena arena : arenas.values()) {
             arena.tick(server);
         }

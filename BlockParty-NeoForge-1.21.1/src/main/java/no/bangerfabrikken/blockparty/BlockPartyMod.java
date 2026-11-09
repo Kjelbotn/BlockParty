@@ -7,6 +7,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -34,7 +35,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onRightClickItem);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.4.0-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.4.1-alpha");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -59,6 +60,12 @@ public final class BlockPartyMod {
 
     private void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        ItemStack held = player.getItemInHand(event.getHand());
+        if (handleLobbyItemInteraction(player, held)) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
         if (ArenaManager.get().handleBeaconInteraction(player, event.getPos())) {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
@@ -67,17 +74,39 @@ public final class BlockPartyMod {
 
     private void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!no.bangerfabrikken.blockparty.arena.Arena.isMusicVotingBook(event.getItemStack())) return;
-        no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArena(player.getUUID());
-        if (arena != null) {
-            arena.openMusicVoting(player);
-            event.setCanceled(true);
-            event.setCancellationResult(InteractionResult.SUCCESS);
-        } else {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Bli med i en BlockParty-arena før du stemmer på musikk.").withStyle(net.minecraft.ChatFormatting.YELLOW));
+        if (handleLobbyItemInteraction(player, event.getItemStack())) {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
         }
+    }
+
+    private boolean handleLobbyItemInteraction(ServerPlayer player, ItemStack stack) {
+        if (no.bangerfabrikken.blockparty.arena.Arena.isJoinGameItem(stack)) {
+            no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArena(player.getUUID());
+            if (arena == null) arena = ArenaManager.get().findLobbyArenaFor(player);
+            if (arena == null) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "Gå til BlockParty-lobbyen og høyreklikk Join-stjernen for å bli med.")
+                        .withStyle(net.minecraft.ChatFormatting.YELLOW));
+            } else {
+                arena.join(player);
+            }
+            return true;
+        }
+
+        if (no.bangerfabrikken.blockparty.arena.Arena.isMusicVotingBook(stack)) {
+            no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findLobbyArenaFor(player);
+            if (arena == null) arena = ArenaManager.get().findArena(player.getUUID());
+            if (arena != null) {
+                arena.openMusicVoting(player);
+            } else {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "Musikkboken fungerer i BlockParty-lobbyen.")
+                        .withStyle(net.minecraft.ChatFormatting.YELLOW));
+            }
+            return true;
+        }
+        return false;
     }
 
     private void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {

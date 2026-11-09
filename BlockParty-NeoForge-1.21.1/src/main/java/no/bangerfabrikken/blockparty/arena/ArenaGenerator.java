@@ -243,7 +243,7 @@ public final class ArenaGenerator {
             }
         }
 
-        // Lobby screens: a two-line title on the back wall and an open east-wall leaderboard panel.
+        // Lobby screens: title and clear item-based instructions. These are labels only, not clickable screen buttons.
         for (int x = centerX - 12; x <= centerX + 12; x++) {
             for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
             put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
@@ -258,9 +258,11 @@ public final class ArenaGenerator {
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 8.2, lobbyMaxZ - 1.2,
                 180.0F, Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 5.0F, lobbyTag);
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 6.6, lobbyMaxZ - 1.2,
-                180.0F, Component.literal("MUSIC  •  LEADERBOARD  •  PLAY").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.8F, lobbyTag);
+                180.0F, Component.literal("RIGHT-CLICK THE STAR IN YOUR HOTBAR TO JOIN")
+                        .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.25F, lobbyTag);
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 5.35, lobbyMaxZ - 1.2,
-                180.0F, Component.literal("RIGHT-CLICK THE BOOK TO VOTE").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.25F, lobbyTag);
+                180.0F, Component.literal("RIGHT-CLICK THE BOOK TO VOTE FOR MUSIC")
+                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.15F, lobbyTag);
 
         BlockPos first = new BlockPos(minX, floorY, minZ);
         BlockPos second = new BlockPos(maxX, floorY, maxZ);

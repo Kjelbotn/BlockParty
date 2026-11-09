@@ -111,8 +111,9 @@ public final class BlockPartyCommands {
             arena.setLobby(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
             manager.save(source.getServer());
             player.teleportTo(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
+            arena.ensureLobbyItems(player);
 
-            source.sendSuccess(() -> Component.literal("Ferdig! Arena '" + id + "' er generert med concrete-gulv, opphøyd spectatorgang, fargeskjerm og innendørs lobby. Skriv /bp join " + id + " for å bli med.")
+            source.sendSuccess(() -> Component.literal("Ferdig! Arena '" + id + "' er generert. Høyreklikk den turkise Nether Star i hotbaren for å bli med; bruk boken for musikkavstemning.")
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
             source.sendSuccess(() -> Component.literal("Obs: Generatoren bygger over området rundt deg. Velg et åpent område uten bygninger du vil beholde." )
                     .withStyle(ChatFormatting.GRAY), false);
@@ -267,9 +268,10 @@ public final class BlockPartyCommands {
 
     private static int vote(CommandSourceStack source, String trackId) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        Arena arena = ArenaManager.get().findArena(player.getUUID());
+        Arena arena = ArenaManager.get().findLobbyArenaFor(player);
+        if (arena == null) arena = ArenaManager.get().findArena(player.getUUID());
         if (arena == null) {
-            source.sendFailure(Component.literal("Du må være med i en BlockParty-lobby for å stemme."));
+            source.sendFailure(Component.literal("Du må stå i en åpen BlockParty-lobby for å stemme."));
             return 0;
         }
         return arena.voteMusic(player, trackId) ? 1 : 0;
@@ -289,12 +291,12 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – oppdater lobbyspawn"), false);
-        source.sendSuccess(() -> Component.literal("/bp join <id> – bli med | /bp leave – forlat"), false);
+        source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
+        source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp stop <id> – stopp"), false);
         source.sendSuccess(() -> Component.literal("15 runder, 10 til 0,5 sekunder. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 10 | /bp rank eller /bp profile – se spillerprofil"), false);
-        source.sendSuccess(() -> Component.literal("Høyreklikk Music Voting Book i lobbyen for sangvalg | /bp vote <songId>"), false);
         source.sendSuccess(() -> Component.literal("Lobbyen teller ned fra 60 sekunder. /bp start <id> starter umiddelbart."), false);
         source.sendSuccess(() -> Component.literal("/bp music reload – last inn egendefinert spilleliste (admin)"), false);
         return 1;
