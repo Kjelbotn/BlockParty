@@ -380,7 +380,15 @@ public final class Arena {
         AABB area = new AABB(centerX - 22, lobbyY + 1, wallZ - 5,
                 centerX + 22, lobbyY + 13, wallZ + 2);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag))) old.discard();
+                entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
+
+        // Older 0.6.0 builds could leave DJ voting instructions floating over the lobby/arena entrance.
+        // Clear only text displays in the reserved entrance volume; the arena target screen is outside it.
+        AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
+                centerX + 20, lobbyY + 16, lobbyZ - 13);
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) {
+            old.discard();
+        }
 
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal("BLOCKPARTY  •  DJ MODE").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
@@ -388,7 +396,6 @@ public final class Arena {
         if (featured == null) {
             lines.add(Component.literal("VOTE FOR THE NEXT TRACK").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
             lines.add(Component.literal("No track selected yet").withStyle(ChatFormatting.GRAY));
-            lines.add(Component.literal("RIGHT-CLICK THE MUSIC BOOK TO VOTE").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         } else {
             long votes = musicVotes.values().stream().filter(featured.id()::equals).count();
             lines.add(Component.literal(selectedMusicTrackId == null ? "CURRENT VOTE LEADER" : "NOW PLAYING")
@@ -397,8 +404,6 @@ public final class Arena {
             lines.add(Component.literal("BY " + featured.artist()).withStyle(ChatFormatting.LIGHT_PURPLE));
             lines.add(Component.literal("BPM " + featured.bpm() + "  •  " + votes + " VOTES")
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-            lines.add(Component.literal("MUSIC VOTING  •  RIGHT-CLICK THE BOOK")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         }
 
         List<Track> ranked = new ArrayList<>(MusicTrackManager.getTracks());
@@ -549,7 +554,7 @@ public final class Arena {
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.15, 0.0F, text, 5.0F, tag);
+                displayCenter.getZ() + 1.15, 0.0F, text, 12.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
@@ -1128,7 +1133,7 @@ public final class Arena {
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
         String timeText = phase == Phase.INTRO ? "DJ INTRO" :
                 (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
-                        ? formatSeconds(Math.max(0, timerTicks)) + "s" : "--";
+                        ? formatSeconds(ROUND_DURATION_TICKS[Math.max(0, Math.min(round - 1, MAX_ROUNDS - 1))]) + "s" : "--";
         String nextRankText = rank.isMaxRank() ? "MAX RANK" : rank.pointsToNext(totalPoints) + " pts";
 
         PlayerStatsManager.PlayerRecord profile = profilePlayer == null
@@ -1146,7 +1151,7 @@ public final class Arena {
                 Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
                 Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
                 Component.literal("Round: " + round + " / " + MAX_ROUNDS).withStyle(ChatFormatting.WHITE),
-                Component.literal("Round Speed: " + timeText).withStyle(ChatFormatting.GRAY),
+                Component.literal("Round Length: " + timeText).withStyle(ChatFormatting.GRAY),
                 Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
                 Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
                 Component.literal("Points: " + totalPoints).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
@@ -1533,13 +1538,13 @@ public final class Arena {
         double boardX = lobbyX + 30.0;
         double topY = lobbyY + 13.0;
         // Keep the leaderboard at the far end of the lobby, away from the arena entrance.
-        double boardZ = lobbyZ + 26.0;
+        double boardZ = lobbyZ + 7.5; // Centre of the 56-block lobby wall, not the far-right edge.
         BlockPos anchor = BlockPos.containing(boardX, topY, boardZ);
         if (!level.hasChunkAt(anchor)) return;
 
         String tag = "blockparty_lb_" + id;
-        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, boardZ - 26.0,
-                boardX + 5.0, lobbyY + 16.0, boardZ + 26.0);
+        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, boardZ - 31.0,
+                boardX + 5.0, lobbyY + 16.0, boardZ + 31.0);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 display -> display.getTags().contains(tag))) old.discard();
         for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,

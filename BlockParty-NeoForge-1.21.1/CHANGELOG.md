@@ -1,4 +1,4 @@
-# BlockParty 0.6.0-alpha
+# BlockParty 0.6.1-alpha
 
 - Classic Mode remains the only available game mode; Hardcore Mode is intentionally deferred.
 - Added the Leap power-up: an immediate high jump to help players reposition during a round.
@@ -19,3 +19,9 @@
 - Kept player profiles, ranks, round scoring and the 15-round Classic Mode structure. Hardcore Mode remains deferred.
 
 This is a source update. Use GitHub Actions to compile before installing the JAR. A full NeoForge Gradle compile has not been run in this environment.
+
+## 0.6.1-alpha
+- Re-centred the lobby leaderboard on the actual centre of its display wall.
+- Increased the arena target-colour text display scale from 5x to 12x.
+- Removed DJ voting instructions from the DJ display and cleaned up stale text displays at the lobby entrance.
+- Changed the sidebar from a live countdown to the fixed duration of the current round (`Round Length`).

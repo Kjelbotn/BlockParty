@@ -1,4 +1,4 @@
-# BlockParty 0.6.0-alpha
+# BlockParty 0.6.1-alpha
 
 NeoForge mod for Minecraft 1.21.1 / Java 21. Classic BlockParty mode is the only mode in this release. Hardcore Mode is deferred.
 
@@ -51,7 +51,7 @@ The mod snapshots the full main inventory, armor, offhand and selected hotbar sl
 During an active match, the world is set to daytime with the daylight cycle paused. The previous time and daylight-cycle rule are restored when the match ends.
 
 ## GitHub update
-Upload the contents of the GitHub Update ZIP into the existing repository root (where `build.gradle` and `src/` are visible), replacing the matching files and folders. Commit the changes. GitHub Actions should produce `build/libs/blockparty-0.6.0-alpha.jar`.
+Upload the contents of the GitHub Update ZIP into the existing repository root (where `build.gradle` and `src/` are visible), replacing the matching files and folders. Commit the changes. GitHub Actions should produce `build/libs/blockparty-0.6.1-alpha.jar`.
 
 ## Validation
 The source and resource files have been reviewed and statically checked. A full NeoForge Gradle compile was not run in this environment; GitHub Actions is the authoritative compile test. Do not install the JAR unless the GitHub Actions build succeeds.

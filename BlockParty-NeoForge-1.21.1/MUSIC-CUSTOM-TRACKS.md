@@ -4,7 +4,7 @@ BlockParty has eight custom music slots. You do not need to rebuild the mod to c
 
 ## A. Add audio with a resource pack
 
-Use the separate `BlockParty-Custom-Music-Pack-1.21.1-v0.6.0.zip` template. Inside the pack, place OGG audio files in:
+Use the separate `BlockParty-Custom-Music-Pack-1.21.1-v0.6.1.zip` template. Inside the pack, place OGG audio files in:
 
 `assets/blockparty/sounds/music/`
 
@@ -61,4 +61,4 @@ The winning track starts during the six-second DJ intro before round one. Music 
 The `bpm.<id>` value controls the rhythm of the lobby/arena redstone-lamp pulses and particle effects. It is a tempo-based visual pulse, not audio waveform analysis, so set BPM close to the actual track tempo for the best synchronisation.
 
 
-A ready-to-fill resource-pack template is distributed separately as `BlockParty-Custom-Music-Pack-1.21.1-v0.6.0.zip`.
+A ready-to-fill resource-pack template is distributed separately as `BlockParty-Custom-Music-Pack-1.21.1-v0.6.1.zip`.
