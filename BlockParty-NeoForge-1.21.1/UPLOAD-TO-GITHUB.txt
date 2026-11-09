@@ -1,13 +1,12 @@
-BLOCKPARTY 0.4.0-ALPHA — GITHUB UPDATE
+BLOCKPARTY 0.4.1-ALPHA — UPDATE EXISTING GITHUB REPOSITORY
 
-For the existing BlockParty-Rebuild repository:
-1. Open the repository root (the page where build.gradle and src/ are visible).
-2. In the GitHub Update ZIP, upload the src/ folder and root files to that same repository root. Do not upload an outer project folder.
-3. Upload gradle.properties, README.md, CHANGELOG.md and MUSIC-CUSTOM-TRACKS.md to the repository root.
-4. Keep the working .github/workflows/build.yml. The GitHub Update ZIP intentionally omits .github so it does not replace the workflow you already configured.
-5. Commit to main. GitHub Actions should start the build automatically.
-6. When the build is green, open Actions -> run -> Summary -> Artifacts and download the BlockParty 0.4.0 artifact. The JAR should be blockparty-0.4.0-alpha.jar.
+1. Open the BlockParty-Rebuild repository root (where build.gradle and src/ are visible).
+2. Upload the src/ folder and gradle.properties from this update ZIP to the same root.
+3. Upload README.md and CHANGELOG.md if you want the docs updated.
+4. Keep the existing .github/workflows/build.yml and Gradle wrapper files.
+5. Commit to main and wait for GitHub Actions.
+6. On a green build, download the artifact under Actions -> run -> Summary -> Artifacts.
 
-Before generating the new arena, back up the world and choose an empty area. Run /bp generate main (default 80x80) or /bp generate main 96.
-
-For custom music, see MUSIC-CUSTOM-TRACKS.md. The world-local playlist file is blockparty-music.properties. After editing it, run /bp music reload.
+Lobby use: right-click the turquoise BlockParty Join Game Nether Star to join.
+Right-click the BlockParty Music Vote book to open the chat voting menu.
+/bp join <id> remains as a fallback command.
