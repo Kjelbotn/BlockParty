@@ -5,12 +5,16 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
 import no.bangerfabrikken.blockparty.command.BlockPartyCommands;
+import no.bangerfabrikken.blockparty.sound.ModSounds;
 import org.slf4j.Logger;
 
 @Mod(BlockPartyMod.MOD_ID)
@@ -24,8 +28,10 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLogout);
+        NeoForge.EVENT_BUS.addListener(this::onRightClickBlock);
+        ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.1.0-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.3.0-alpha");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -43,6 +49,14 @@ public final class BlockPartyMod {
     private void onServerStopping(ServerStoppingEvent event) {
         ArenaManager.get().save(event.getServer());
         ArenaManager.get().shutdown(event.getServer());
+    }
+
+    private void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (ArenaManager.get().handleBeaconInteraction(player, event.getPos())) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+        }
     }
 
     private void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {

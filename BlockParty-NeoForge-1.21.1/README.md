@@ -1,118 +1,82 @@
 # BlockParty — NeoForge 1.21.1
 
-**Version 0.2.0-alpha** — a singleplayer-friendly Block Party minigame inspired by classic Minecraft minigame servers.
+**Version 0.3.0-alpha** · Java 21 · Singleplayer-first · NeoForge 21.1.x
 
-## Requirements
+BlockParty is a Minecraft minigame inspired by classic Block Party arenas. This alpha expands the arena, changes the dance floor to concrete, adds a block-built target-colour display, random one-round beacon power-ups, and original music/SFX embedded in the mod.
 
-- Minecraft **1.21.1**
-- NeoForge **21.1.x** (the development build is configured for 21.1.265)
-- Java **21**
+## 0.3.0-alpha features
 
-Install the same JAR in the `mods` folder of the NeoForge profile. In singleplayer, NeoForge runs the integrated server automatically; no separate server is needed.
+- `/bp generate <id> [size]` builds a larger stadium, 40x40 default concrete dance floor, all-around spectator promenade, stepped spectator stands, outer walls, light pylons, target-colour display and attached lobby.
+- Floor palette uses all 16 concrete colours. The layout and pattern are randomized each round.
+- Target colour is shown as a concrete block in the selected hotbar slot and as large block lettering on the far stadium wall.
+- 15 round durations are preserved: 10, 9, 8, 7, 6, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1 and 0.5 seconds.
+- A beacon may randomly appear during some rounds. Right-click it to collect one random power-up: Speed II, Night Vision or Jump Boost II. The effect is cleared at the end of that round. There is no Second Chance power-up.
+- Three original electronic music cues are chosen at random per round. Music is stopped when the round resolves and starts again for the next round. Music voting is not included in this alpha and is reserved for a later version.
+- Original round, target-colour, elimination, beacon, pickup and victory SFX are included in the mod JAR. A separate resource pack is not required.
+- Singleplayer support: a solo player can complete all 15 rounds.
 
-## Build
+## Generate and play
 
-On Windows:
+1. Back up your world.
+2. Open a large, empty flat area. The generator clears the stadium and attached lobby footprint before constructing it, so do not run it near buildings you want to keep.
+3. Enable cheats in singleplayer (Esc → Open to LAN → Allow Cheats: ON → Start LAN World).
+4. Stand at the centre of where you want the dance floor and run:
 
-```bat
-gradlew.bat build
+```mcfunction
+/bp generate main
 ```
 
-On Linux/macOS:
+This creates a 40x40 arena by default. You can choose a size from 24 to 56:
 
-```sh
-./gradlew build
+```mcfunction
+/bp generate main 48
 ```
 
-The build uses Gradle 8.10.2 and downloads Minecraft/NeoForge development dependencies on first run, so the machine building the mod needs internet access.
+Then start playing:
 
-The JAR is created at:
-
-```text
-build/libs/blockparty-0.2.0-alpha.jar
-```
-
-## Quick setup — automatic stadium generator
-
-Enable cheats in the singleplayer world (Open to LAN → Allow Cheats: ON) and stand in a large, open area. The generator replaces blocks in the arena footprint, so do not run it on top of a base or builds you want to keep.
-
-If you already joined the old test arena, leave it first:
-
-```text
-/bp leave
-```
-
-Generate a full arena, dance floor and attached lobby in one command:
-
-```text
-/bp generate main 20
-```
-
-The size is the dance floor's width and depth. Allowed sizes are 12–32; if omitted, it defaults to 20. The generator builds:
-
-- a colorful wool dance floor using all 16 Minecraft colors;
-- a floating play floor with a clear fall pit underneath;
-- a dark stadium ring with purple lighting bands, pillars and an entrance arch;
-- an attached waiting lobby with a feature wall and a BP mark;
-- a saved arena definition and lobby spawn.
-
-The command moves you to the generated lobby. You do not need to place wool manually or set `pos1`/`pos2`.
-
-## Play
-
-Join the arena:
-
-```text
+```mcfunction
 /bp join main
 ```
 
-A 10-second countdown starts automatically, including when only one player is in the arena. To start immediately:
+The lobby countdown begins automatically. To start immediately:
 
-```text
+```mcfunction
 /bp start main
 ```
 
-The target wool block is placed in the player's currently selected hotbar slot and its item name displays the target color. At the end of the round, every non-target floor tile disappears. Players not standing on the correct color are eliminated into spectator mode.
+Useful commands:
 
-### Round timer
+```text
+/bp help
+/bp list
+/bp status main
+/bp leave
+/bp stop main
+```
 
-| Round | Time | Round | Time | Round | Time |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 10.0 s | 6 | 5.0 s | 11 | 2.5 s |
-| 2 | 9.0 s | 7 | 4.5 s | 12 | 2.0 s |
-| 3 | 8.0 s | 8 | 4.0 s | 13 | 1.5 s |
-| 4 | 7.0 s | 9 | 3.5 s | 14 | 1.0 s |
-| 5 | 6.0 s | 10 | 3.0 s | 15 | 0.5 s |
+## Power-ups
 
-At the start of every round the floor receives a new shuffled color arrangement and one of several patterns (mosaic, vertical bands, horizontal bands, patches or diagonal mosaic). The target is selected from the colors present in that round.
+- **Speed Boost:** Speed II for the remainder of the current round.
+- **Night Vision:** Night Vision for the remainder of the current round.
+- **Jump Boost:** Jump Boost II for the remainder of the current round.
 
-In solo play, survive all 15 rounds to win. In multiplayer, the last surviving player wins; if several players remain after round 15, all remaining players win.
+Power-ups are removed when the round ends. They do not persist into later rounds. A beacon is not guaranteed to spawn every round.
 
-After the match, the mod restores the generated floor's original layout, returns players to the lobby, restores their previous game modes and puts the item they originally held back in the same hotbar slot.
+## Audio
 
-## Commands
+The mod includes three original electronic music cues and seven original sound effects under `assets/blockparty/sounds`. Music uses Minecraft's Music volume category; sound effects use the Players category. The current alpha selects a random music cue for each round and stops it at the round transition. Per-song voting is planned for a later update.
 
-| Command | Permission | Purpose |
-|---|---:|---|
-| `/bp generate <id> [size]` | OP | Generate a complete stadium, wool floor and lobby (12–32, default 20) |
-| `/bp join <id>` | Everyone | Join the arena |
-| `/bp leave` | Everyone | Leave the arena |
-| `/bp start <id>` | OP | Start immediately (useful for solo testing) |
-| `/bp stop <id>` | OP | Stop and restore the arena |
-| `/bp status <id>` | Everyone | Show arena status and round |
-| `/bp list` | OP | List saved arenas |
-| `/bp remove <id>` | OP | Remove an unused arena definition |
-| `/bp create <id>` | OP | Create a manual arena definition |
-| `/bp pos1 <id>` / `/bp pos2 <id>` | OP | Set manual floor corners |
-| `/bp setlobby <id>` | OP | Set manual lobby spawn |
-| `/bp help` | Everyone | Show command help |
+## Build with GitHub Actions
 
-The long command root `/blockparty` is also available.
+The `.github/workflows/build.yml` workflow lives at the repository root. It installs Java 21 and Gradle 8.10.2, runs `gradle build --no-daemon`, and uploads the JAR as an artifact.
 
-## Notes
+1. Upload the contents of this project folder to the root of a new or existing GitHub repository (not an extra nested folder).
+2. Commit to the `main` branch.
+3. Open **Actions → Build BlockParty** and wait for a green check.
+4. Open the successful run and download `BlockParty-NeoForge-1.21.1-0.3.0-alpha` under Artifacts.
+5. Extract the artifact ZIP. It contains `blockparty-0.3.0-alpha.jar`.
+6. Close Minecraft, remove older BlockParty JARs from the Modrinth instance's `mods` folder, add the new JAR, and launch NeoForge 1.21.1.
 
-- Arena definitions are saved in `blockparty-arenas.properties` in the world save folder.
-- The generator replaces blocks inside its stadium, lobby and fall-pit footprint. Use an open build area.
-- Generated dance floors support 12×12 through 32×32 tiles.
-- Manual arenas still work; their floor must be a filled rectangle of at least two colors of wool, concrete or terracotta.
-- This is an alpha release. Test in a copy of your world before using it in a long-running save.
+## Verification note
+
+This is a source project prepared for GitHub Actions. A full NeoForge compile and in-game smoke test have not been run in this environment. Treat the first successful GitHub Actions build as the compile check, then test arena generation, power-up pickup and music transitions in a backup singleplayer world before using it in your main world.

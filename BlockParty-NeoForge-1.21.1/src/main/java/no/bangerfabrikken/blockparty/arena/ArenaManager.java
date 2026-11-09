@@ -91,6 +91,11 @@ public final class ArenaManager {
         if (arena != null) arena.handleLogout(player);
     }
 
+    public boolean handleBeaconInteraction(ServerPlayer player, BlockPos pos) {
+        Arena arena = findArena(player.getUUID());
+        return arena != null && arena.handleBeaconInteraction(player, pos);
+    }
+
     public void load(MinecraftServer server) {
         arenas.clear();
         Path file = getFile(server);
@@ -129,6 +134,8 @@ public final class ArenaManager {
                 if (!first.isBlank() && !second.isBlank()) {
                     arena.setLoadedCorners(parseBlockPos(first), parseBlockPos(second));
                 }
+                String display = properties.getProperty(prefix + "display", "");
+                if (!display.isBlank()) arena.setLoadedDisplayCenter(parseBlockPos(display));
                 String lobby = properties.getProperty(prefix + "lobby", "");
                 if (!lobby.isBlank()) {
                     String[] parts = lobby.split(",");
@@ -160,6 +167,7 @@ public final class ArenaManager {
             properties.setProperty(prefix + "dimension", arena.getDimensionId());
             if (arena.getPos1() != null) properties.setProperty(prefix + "pos1", serialize(arena.getPos1()));
             if (arena.getPos2() != null) properties.setProperty(prefix + "pos2", serialize(arena.getPos2()));
+            if (arena.getDisplayCenter() != null) properties.setProperty(prefix + "display", serialize(arena.getDisplayCenter()));
             properties.setProperty(prefix + "lobby", String.join(",",
                     Double.toString(arena.getLobbyX()),
                     Double.toString(arena.getLobbyY()),

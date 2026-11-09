@@ -1,0 +1,22 @@
+BLOCKPARTY 0.3.0-ALPHA — GITHUB UPLOAD
+
+This archive contains the project files directly at its root. Do not upload an extra enclosing folder.
+
+For the existing BlockParty-Rebuild repository:
+1. Open the repository root (the page where build.gradle and settings.gradle are visible).
+2. Choose Add file > Upload files.
+3. Upload the contents of this extracted folder so these paths remain at repository root:
+   - src/main/...
+   - build.gradle
+   - gradle.properties
+   - settings.gradle
+   - README.md
+   - LICENSE
+4. Commit the upload.
+5. Keep the existing .github/workflows/build.yml at the repository root. It already starts GitHub Actions on every push and uploads build/libs/*.jar. If you replace it with this archive's workflow, keep it at exactly .github/workflows/build.yml.
+6. Open Actions and wait for a successful build. Download the artifact and extract it; the mod JAR is blockparty-0.3.0-alpha.jar.
+
+Important:
+- Replace older BlockParty JAR files in your Modrinth instance's mods folder before installing the new one.
+- Back up your Minecraft world before running /bp generate; the generator clears and rebuilds a large rectangular volume.
+- NeoForge 1.21.1 and Java 21 are required.

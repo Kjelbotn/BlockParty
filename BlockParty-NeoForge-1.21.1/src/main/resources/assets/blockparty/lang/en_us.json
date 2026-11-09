@@ -1,0 +1,12 @@
+{
+  "subtitles.blockparty.round_start": "BlockParty round starts",
+  "subtitles.blockparty.round_end": "BlockParty round ends",
+  "subtitles.blockparty.color_reveal": "Target colour revealed",
+  "subtitles.blockparty.elimination": "Player eliminated",
+  "subtitles.blockparty.beacon_spawn": "A power-up has appeared",
+  "subtitles.blockparty.powerup_pickup": "Power-up collected",
+  "subtitles.blockparty.victory": "BlockParty victory",
+  "subtitles.blockparty.music_neon": "Neon Beat",
+  "subtitles.blockparty.music_arcade": "Pixel Rush",
+  "subtitles.blockparty.music_rush": "Night Drive"
+}
