@@ -30,3 +30,9 @@ The three built-in tracks are retained. Players should have the Music sound cate
 
 ## Build and testing
 Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21. Build with the repository's GitHub Actions workflow. This package has been statically checked, but a full Gradle build was not run in this environment.
+
+
+## 0.7.1-alpha notes
+- The pit under the dance floor is intentionally left open; there is no polished-blackstone foundation directly below it.
+- Arena redstone lamps are generated lit.
+- Music event IDs for the three built-in songs are mapped to their registered sound events. If music is still inaudible, check the client's **Music & Sounds → Music** slider and the server log for `Starting BlockParty track`.

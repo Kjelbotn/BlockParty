@@ -68,7 +68,7 @@
       {
         "name": "blockparty:music/neon_beat",
         "stream": true,
-        "volume": 0.4
+        "volume": 1.0
       }
     ]
   },
@@ -78,7 +78,7 @@
       {
         "name": "blockparty:music/pixel_rush",
         "stream": true,
-        "volume": 0.4
+        "volume": 1.0
       }
     ]
   },
@@ -88,7 +88,7 @@
       {
         "name": "blockparty:music/night_drive",
         "stream": true,
-        "volume": 0.4
+        "volume": 1.0
       }
     ]
   },

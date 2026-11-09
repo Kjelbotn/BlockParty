@@ -92,7 +92,7 @@ public final class ArenaGenerator {
                 // Only build a foundation at the very bottom; solid blocks directly under the
                 // concrete floor would stop players after a one-block drop.
                 for (int y = floorY - PIT_DEPTH; y < floorY; y++) put(level, x, y, z, Blocks.AIR);
-                put(level, x, floorY - PIT_DEPTH - 1, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+                // Leave the pit completely open below the dance floor; no polished-blackstone base.
             }
         }
         List<DyeColor> colours = BlockPartyColors.allColors();
@@ -187,15 +187,15 @@ public final class ArenaGenerator {
         // Redstone-lamp fixtures pulse to the selected DJ track's tempo during a match.
         for (int x = outerMinX + 6; x <= outerMaxX - 6; x += 12) {
             put(level, x, floorY + WALL_HEIGHT - 5, outerMinZ,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             put(level, x, floorY + WALL_HEIGHT - 5, outerMaxZ,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
         }
         for (int z = outerMinZ + 6; z <= outerMaxZ - 6; z += 12) {
             put(level, outerMinX, floorY + WALL_HEIGHT - 5, z,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             put(level, outerMaxX, floorY + WALL_HEIGHT - 5, z,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
         }
 
         // Wide south entrance through the shell, connected to a four-step ramp onto the raised walkway.
@@ -303,7 +303,7 @@ public final class ArenaGenerator {
         for (int x : new int[]{centerX - 16, centerX + 16}) {
             for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
                 put(level, x, y, lobbyMaxZ,
-                        Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                        Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             }
         }
         // Raised DJ booth and speaker stacks; all elements remain inside the open-air lobby.
@@ -411,15 +411,15 @@ public final class ArenaGenerator {
         }
         for (int x = outerMinX + 6; x <= outerMaxX - 6; x += 12) {
             put(level, x, floorY + WALL_HEIGHT - 5, outerMinZ,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             put(level, x, floorY + WALL_HEIGHT - 5, outerMaxZ,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
         }
         for (int z = outerMinZ + 6; z <= outerMaxZ - 6; z += 12) {
             put(level, outerMinX, floorY + WALL_HEIGHT - 5, z,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             put(level, outerMaxX, floorY + WALL_HEIGHT - 5, z,
-                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
         }
 
         // Lobby DJ screen and decorative frame on the back wall.
@@ -432,7 +432,7 @@ public final class ArenaGenerator {
             int lampX = centerX + side * 16;
             for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
                 put(level, lampX, y, lobbyMaxZ,
-                        Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, false));
+                        Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             }
         }
 

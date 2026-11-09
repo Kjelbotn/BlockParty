@@ -43,6 +43,7 @@ import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import no.bangerfabrikken.blockparty.BlockPartyMod;
 import no.bangerfabrikken.blockparty.util.BlockPartyColors;
 import no.bangerfabrikken.blockparty.util.BlockPartyText;
 import no.bangerfabrikken.blockparty.sound.ModSounds;
@@ -102,6 +103,10 @@ public final class Arena {
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
     private final Map<UUID, Integer> points = new HashMap<>();
     private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
+    // Last tick a player was physically standing on the announced target tile.
+    // This small grace window prevents a block-removal/tick-order race at round end.
+    private final Map<UUID, Long> lastTargetContactTick = new HashMap<>();
+    private final Map<UUID, BlockPos> lastTargetContactPos = new HashMap<>();
     private final Map<BlockPos, BlockState> originalFloorSnapshot = new HashMap<>();
     private final Map<BlockPos, BlockState> originalArenaAccentSnapshot = new HashMap<>();
     private final List<BlockPos> musicLightPositions = new ArrayList<>();
@@ -477,7 +482,7 @@ public final class Arena {
             level.setBlock(entry.getKey(), entry.getValue(), 3);
         }
         originalArenaAccentSnapshot.clear();
-        setDjLights(false);
+        setDjLights(true);
     }
 
     private void updateColorDisplay() {
@@ -676,7 +681,10 @@ public final class Arena {
         if (track == null) return;
         activeMusicId = track.soundId();
         musicTicksUntilReplay = track.durationSeconds() * 20;
-        playSound(track.sound(), SoundSource.MUSIC, 0.38F, 1.0F);
+        BlockPartyMod.LOGGER.info("Starting BlockParty track '{}' ({}) for {} player(s).",
+                track.name(), track.soundId(), players.size());
+        // Use full event gain; sounds.json controls the mix level. The MUSIC slider remains authoritative.
+        playSound(track.sound(), SoundSource.MUSIC, 1.0F, 1.0F);
     }
 
     private void stopMusic() {
@@ -921,6 +929,7 @@ public final class Arena {
                 if (timerTicks <= 0) beginMatch(server);
             }
             case PREPARE -> {
+                rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
                 if (timerTicks <= 0) resolveRound();
@@ -984,6 +993,8 @@ public final class Arena {
         clearActivePowerUps(server);
         removeActiveBeacon();
         round++;
+        lastTargetContactTick.clear();
+        lastTargetContactPos.clear();
         Set<DyeColor> roundColors = randomizeFloorForRound();
         if (roundColors.isEmpty()) {
             declareWinner();
@@ -1180,6 +1191,21 @@ public final class Arena {
         }
     }
 
+    private void rememberTargetContacts(MinecraftServer server) {
+        if (targetColor == null) return;
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
+            if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor
+                    && player.getY() >= pos1.getY() + 0.75
+                    && player.getY() <= pos1.getY() + 2.5) {
+                lastTargetContactPos.put(uuid, tile.immutable());
+                lastTargetContactTick.put(uuid, (long) scoreboardTick);
+            }
+        }
+    }
+
     private void resolveRound() {
         pendingEliminations.clear();
         for (UUID uuid : alive) {
@@ -1190,7 +1216,16 @@ public final class Arena {
             }
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
             DyeColor standingColor = BlockPartyColors.getColor(level.getBlockState(tile));
-            if (standingColor != targetColor) pendingEliminations.add(uuid);
+            boolean onTargetNow = standingColor == targetColor;
+            long lastContact = lastTargetContactTick.getOrDefault(uuid, Long.MIN_VALUE);
+            BlockPos lastTile = lastTargetContactPos.get(uuid);
+            boolean tickOrderGrace = !onTargetNow && lastTile != null
+                    && scoreboardTick - lastContact <= 3
+                    && Math.abs(player.getX() - (lastTile.getX() + 0.5)) <= 0.85
+                    && Math.abs(player.getZ() - (lastTile.getZ() + 0.5)) <= 0.85
+                    && player.getY() >= pos1.getY() + 0.55
+                    && player.getY() <= pos1.getY() + 2.5;
+            if (!onTargetNow && !tickOrderGrace) pendingEliminations.add(uuid);
         }
 
         for (UUID uuid : alive) {

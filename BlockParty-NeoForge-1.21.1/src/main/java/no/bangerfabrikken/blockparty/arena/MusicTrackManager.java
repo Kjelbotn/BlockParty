@@ -100,8 +100,14 @@ public final class MusicTrackManager {
 
     private static void add(Map<String, Track> target, String id, String name, String artist, int bpm,
                             int durationSeconds, Holder<SoundEvent> sound) {
+        String eventPath = switch (id) {
+            case "neon_beat" -> "music_neon";
+            case "pixel_rush" -> "music_arcade";
+            case "night_drive" -> "music_rush";
+            default -> "music_" + id;
+        };
         target.put(id, new Track(id, name, artist, bpm, durationSeconds, sound,
-                ResourceLocation.fromNamespaceAndPath(BlockPartyMod.MOD_ID, "music_" + id)));
+                ResourceLocation.fromNamespaceAndPath(BlockPartyMod.MOD_ID, eventPath)));
     }
 
     private static void writeTemplate(Path file) {
