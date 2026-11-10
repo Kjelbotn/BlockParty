@@ -274,7 +274,7 @@ public final class ArenaGenerator {
         }
 
         // Dedicated DJ screen on the back wall. Arena refreshes the text with the live playlist and vote counts.
-        for (int x = centerX - 27; x <= centerX + 27; x++) {
+        for (int x = centerX - 19; x <= centerX + 19; x++) {
             for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
             put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY + 12, lobbyMaxZ, Blocks.MAGENTA_CONCRETE);
@@ -284,7 +284,7 @@ public final class ArenaGenerator {
         }
 
         // Music-reactive lamp bars flank the DJ screen.
-        for (int x : new int[]{centerX - 30, centerX + 30}) {
+        for (int x : new int[]{centerX - 22, centerX + 22}) {
             for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
                 put(level, x, y, lobbyMaxZ,
                         Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
@@ -464,7 +464,7 @@ public final class ArenaGenerator {
         }
 
         // Lobby DJ screen and decorative frame on the back wall.
-        for (int x = centerX - 27; x <= centerX + 27; x++) {
+        for (int x = centerX - 19; x <= centerX + 19; x++) {
             for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
             put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY + 12, lobbyMaxZ, Blocks.MAGENTA_CONCRETE);
@@ -595,9 +595,18 @@ public final class ArenaGenerator {
                 put(level, x, roofY - 1, z, Blocks.SEA_LANTERN);
             }
         }
-        // Full-bright invisible sources at a tight spacing ensure no dark patches on the floor.
-        for (int x = minX + 2; x < maxX; x += 4) {
-            for (int z = minZ + 2; z < maxZ; z += 4) {
+        // Dense, invisible full-bright sources close to the floor. The roof-level grid
+        // provides general room light, but light loses strength with distance; this
+        // lower 3-block grid keeps the entire walkable floor evenly illuminated.
+        for (int x = minX + 1; x < maxX; x += 3) {
+            for (int z = minZ + 1; z < maxZ; z += 3) {
+                putLightIfOpen(level, x, floorY + 3, z);
+            }
+        }
+        // A second, slightly higher grid fills lounge corners and the central aisle.
+        for (int x = minX + 2; x < maxX; x += 6) {
+            for (int z = minZ + 2; z < maxZ; z += 6) {
+                putLightIfOpen(level, x, floorY + 7, z);
                 putLightIfOpen(level, x, floorY + 14, z);
             }
         }

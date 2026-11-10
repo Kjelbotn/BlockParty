@@ -576,8 +576,8 @@ public final class Arena {
         BlockPos anchor = new BlockPos(centerX, (int) Math.floor(lobbyY) + 9, wallZ - 1);
         if (!level.hasChunkAt(anchor)) return;
         String tag = "bp_dj_" + id;
-        AABB area = new AABB(centerX - 32, lobbyY + 1, wallZ - 5,
-                centerX + 32, lobbyY + 13, wallZ + 2);
+        AABB area = new AABB(centerX - 24, lobbyY + 1, wallZ - 5,
+                centerX + 24, lobbyY + 13, wallZ + 2);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
 
@@ -591,8 +591,8 @@ public final class Arena {
 
         Component heading = Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
                 .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.1, wallZ - 0.65,
-                180.0F, heading, 1.45F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.15, wallZ - 0.65,
+                180.0F, heading, 1.35F, tag);
 
         Track featured = selectedMusicTrackId == null ? mostVotedTrack() : MusicTrackManager.get(selectedMusicTrackId);
         Component status = featured == null
@@ -600,8 +600,8 @@ public final class Arena {
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
                 : Component.literal((selectedMusicTrackId == null ? "LEDENDE LÅT: " : "NÅ SPILLES: ") + featured.name())
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 9.65, wallZ - 0.65,
-                180.0F, status, 0.92F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 9.75, wallZ - 0.65,
+                180.0F, status, 1.05F, tag);
 
         List<Track> ranked = new ArrayList<>(MusicTrackManager.getTracks());
         ranked.sort((left, right) -> {
@@ -610,19 +610,19 @@ public final class Arena {
             int byVotes = Long.compare(rightVotes, leftVotes);
             return byVotes != 0 ? byVotes : left.name().compareToIgnoreCase(right.name());
         });
-        int visible = Math.min(ranked.size(), 10);
+        // Compact 3-column layout: larger, readable cards instead of tiny text spread
+        // across an oversized wall. The voting menu remains the complete catalogue.
+        int visible = Math.min(ranked.size(), 6);
         for (int i = 0; i < visible; i++) {
             Track track = ranked.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = i % 5;
-            int row = i / 5;
-            double x = centerX + 0.5 + (column - 2) * 10.5;
-            double y = lobbyY + (row == 0 ? 7.7 : 5.8);
+            int column = i % 3;
+            int row = i / 3;
+            double x = centerX + 0.5 + (column - 1) * 12.0;
+            double y = lobbyY + (row == 0 ? 7.65 : 5.45);
             ChatFormatting accent = switch (column) {
-                case 0 -> ChatFormatting.RED;
-                case 1 -> ChatFormatting.AQUA;
-                case 2 -> ChatFormatting.GREEN;
-                case 3 -> ChatFormatting.LIGHT_PURPLE;
+                case 0 -> ChatFormatting.AQUA;
+                case 1 -> ChatFormatting.LIGHT_PURPLE;
                 default -> ChatFormatting.GOLD;
             };
             Component card = Component.literal(String.format(java.util.Locale.ROOT, "%02d", i + 1) + "  ")
@@ -632,13 +632,13 @@ public final class Arena {
                     .append(Component.literal("\n" + votes + (votes == 1 ? " STEMME" : " STEMMER"))
                             .withStyle(votes > 0 ? ChatFormatting.YELLOW : ChatFormatting.DARK_GRAY));
             BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.65,
-                    180.0F, card, 0.72F, tag);
+                    180.0F, card, 1.05F, tag);
         }
         String footerText = ranked.size() > visible
                 ? "Stem på låten du vil høre!  •  " + (ranked.size() - visible) + " FLERE I AVSTEMNINGSMENYEN"
                 : "Stem på låten du vil høre!";
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 4.25, wallZ - 0.65,
-                180.0F, Component.literal(footerText).withStyle(ChatFormatting.AQUA), 0.78F, tag);
+                180.0F, Component.literal(footerText).withStyle(ChatFormatting.AQUA), 0.95F, tag);
     }
 
     private Track mostVotedTrack() {
