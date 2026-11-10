@@ -159,7 +159,7 @@ public final class BlockPartyMod {
     private boolean handleLobbyItemInteraction(ServerPlayer player, ItemStack stack) {
         if (no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
             no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
-            if (arena != null && arena.containsPlayer(player.getUUID())) {
+            if (arena != null && arena.hasReturnLocation(player.getUUID())) {
                 arena.leave(player, true);
             } else {
                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
@@ -177,8 +177,7 @@ public final class BlockPartyMod {
                         "Gå til BlockParty-lobbyen og høyreklikk Join-stjernen for å bli med.")
                         .withStyle(net.minecraft.ChatFormatting.YELLOW));
             } else {
-                arena.join(player);
-                arena.unlockMusicVotingAfterStar(player);
+                arena.registerForGame(player);
             }
             return true;
         }

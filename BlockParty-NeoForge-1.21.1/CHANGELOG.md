@@ -146,3 +146,12 @@
 - Music-vote threshold now requires at least two-thirds of joined players (rounded up): 2 players require 2 votes; 3 players require 2 votes.
 - Equal vote counts continue to select a random song from the enabled playlist.
 - Corrected the PvP damage event type to the NeoForge incoming-damage event after the previous LivingAttackEvent import failed compilation.
+
+## 0.11.6-alpha
+- /bp opens a visitor-only lobby session, gives Nether Star and redstone; Nether Star explicitly registers for the next match and unlocks music voting.
+- Visitors are excluded from participant counts and vote thresholds.
+- Replaced unwalkable full-block entrance ramp with a real stairway and protected landing.
+- Closed both side gaps between lobby and arena.
+- Removed outer tinted-glass rail while preserving the inner spectator safety glass.
+- Existing arenas receive an in-place geometry repair on first lobby visit; no arena regeneration required.
+- Music assets are unchanged and excluded from the update package.

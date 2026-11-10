@@ -132,7 +132,7 @@ public final class ArenaManager {
             lobbyItemRefreshTicks = 0;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 Arena lobbyArena = findLobbyArenaFor(player);
-                if (lobbyArena != null) {
+                if (lobbyArena != null && lobbyArena.hasReturnLocation(player.getUUID())) {
                     lobbyArena.applyVisualUpgrade();
                     lobbyArena.ensureLobbyItems(player);
                 }

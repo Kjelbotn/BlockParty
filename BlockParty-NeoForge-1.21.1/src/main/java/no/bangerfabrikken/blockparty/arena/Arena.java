@@ -288,43 +288,60 @@ public final class Arena {
     public float getLobbyYaw() { return lobbyYaw; }
     public float getLobbyPitch() { return lobbyPitch; }
 
+    /** /bp opens a lobby session; only the Nether Star enrolls the visitor in a match. */
     public void join(ServerPlayer player) {
         if (!isConfigured()) {
-            player.sendSystemMessage(Component.literal("Arenaen er ikke ferdig konfigurert. Bruk /bp generate <id> <størrelse>.").withStyle(ChatFormatting.RED));
+            player.sendSystemMessage(Component.literal("Arenaen er ikke ferdig konfigurert.").withStyle(ChatFormatting.RED));
             return;
         }
-        if (!players.contains(player.getUUID()) && players.size() >= MAX_PLAYERS) {
-            player.sendSystemMessage(Component.literal("Denne kampen er full (maks " + MAX_PLAYERS + " spillere).").withStyle(ChatFormatting.RED));
-            return;
+        UUID uuid = player.getUUID();
+        if (!returnLocations.containsKey(uuid)) {
+            originalGameModes.putIfAbsent(uuid, player.gameMode.getGameModeForPlayer());
+            returnLocations.put(uuid, new ReturnLocation(player.serverLevel(), player.getX(), player.getY(),
+                    player.getZ(), player.getYRot(), player.getXRot()));
+            originalHeldItems.putIfAbsent(uuid, InventorySnapshot.capture(player));
+            originalFoodStates.putIfAbsent(uuid, FoodSnapshot.capture(player));
+            player.stopUsingItem();
+            player.getInventory().clearContent();
+            player.inventoryMenu.broadcastChanges();
         }
-        if (players.contains(player.getUUID())) {
-            player.sendSystemMessage(Component.literal("Du er allerede med i denne arenaen.").withStyle(ChatFormatting.YELLOW));
-            teleportToLobby(player);
-            ensureLobbyItems(player);
-            return;
-        }
-        UUID joiningId = player.getUUID();
-        originalGameModes.putIfAbsent(joiningId, player.gameMode.getGameModeForPlayer());
-        returnLocations.putIfAbsent(joiningId, new ReturnLocation(player.serverLevel(), player.getX(), player.getY(),
-                player.getZ(), player.getYRot(), player.getXRot()));
-        originalHeldItems.putIfAbsent(joiningId, InventorySnapshot.capture(player));
-        originalFoodStates.putIfAbsent(joiningId, FoodSnapshot.capture(player));
-        player.getInventory().clearContent();
-        player.inventoryMenu.broadcastChanges();
-        players.add(joiningId);
         applyVisualUpgrade();
         teleportToLobby(player);
         ensureLobbyItems(player);
+        player.sendSystemMessage(Component.literal("Velkommen til BlockParty! Trykk Nether Star når du vil melde deg på.")
+                .withStyle(ChatFormatting.GREEN));
+    }
+
+    /** Explicit match registration, triggered only by the lobby Nether Star. */
+    public void registerForGame(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        if (!returnLocations.containsKey(uuid) || !isInsideBlockPartyArea(player)) {
+            player.sendSystemMessage(Component.literal("Bruk /bp for å gå til lobbyen først.").withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (players.contains(uuid)) {
+            player.sendSystemMessage(Component.literal("Du er allerede påmeldt neste BlockParty-match.")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+        if (players.size() >= MAX_PLAYERS) {
+            player.sendSystemMessage(Component.literal("Denne kampen er full (maks " + MAX_PLAYERS + " spillere).")
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
+        players.add(uuid);
+        if (phase == Phase.WAITING || phase == Phase.COUNTDOWN) {
+            unlockMusicVotingAfterStar(player);
+        } else {
+            player.sendSystemMessage(Component.literal("En kamp pågår. Du er påmeldt neste kamp og kan stemme når den er ferdig.")
+                    .withStyle(ChatFormatting.YELLOW));
+        }
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
-        player.sendSystemMessage(Component.literal("Du ble med i BlockParty-arenaen '" + id + "'. Spillere: " + players.size() + "/" + MAX_PLAYERS).withStyle(ChatFormatting.GREEN));
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
-            player.sendSystemMessage(Component.literal("En kamp pågår allerede. Du er i lobbyen og kan delta i neste kamp når denne er ferdig.").withStyle(ChatFormatting.YELLOW));
-        }
-        if (players.size() < MIN_PLAYERS) {
-            player.sendSystemMessage(Component.literal("Venter på minst én spiller til. Administrator kan bruke /bp forcestart " + id + " for å teste alene.").withStyle(ChatFormatting.YELLOW));
-        }
-        broadcast(Component.literal(player.getName().getString() + " ble med! (" + players.size() + "/" + MAX_PLAYERS + ")").withStyle(ChatFormatting.YELLOW));
+        player.sendSystemMessage(Component.literal("Du er påmeldt BlockParty! (" + players.size() + "/" + MAX_PLAYERS + ")")
+                .withStyle(ChatFormatting.GREEN));
+        broadcast(Component.literal(player.getName().getString() + " meldte seg på! (" + players.size() + "/" + MAX_PLAYERS + ")")
+                .withStyle(ChatFormatting.YELLOW));
     }
 
     public void leave(ServerPlayer player, boolean teleport) {
@@ -948,7 +965,7 @@ public final class Arena {
     /** Give the non-interactive wall instructions' matching inventory items to lobby visitors. */
     public void ensureLobbyItems(ServerPlayer player) {
         if (!lobbySet || level == null || player.serverLevel() != level) return;
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
+        if (!returnLocations.containsKey(player.getUUID())) return;
         giveUniqueLobbyItem(player, createJoinGameItem(), Arena::isJoinGameItem);
         ensureLeaveLobbyItem(player);
         if (hasLobbyItem(player, Arena::isJoinGameItem)) {
