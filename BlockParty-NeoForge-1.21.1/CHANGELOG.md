@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2-alpha
+- Fixed NeoForge/Minecraft 1.21.1 API compatibility for weather parameters and scoreboard entry cleanup.
+
+
 ## 0.10.1-alpha
 - Match-sidebar now shows session points earned in the current game, current streak, best streak and power-ups. Removed rank and next-rank progress from the in-game sidebar; persistent lifetime progression remains available in the lobby/profile/leaderboard.
 - Added admin command `/bp statsreset <player>` (permission level 2), which resets points, current/best streak, personal best, wins and MVP awards for an online or previously recorded player.

@@ -341,7 +341,7 @@ public final class Arena {
         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
         // Keep the arena dry for the entire match, then restore the world's weather-cycle rule.
         level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
-        level.setWeatherParameters(20 * 60 * 60, 0, 0, false, false);
+        level.setWeatherParameters(20 * 60 * 60, 0, false, false);
         alive.clear();
         alive.addAll(players);
         pendingEliminations.clear();
@@ -1326,8 +1326,8 @@ public final class Arena {
             score.numberFormatOverride(BlankFormat.INSTANCE);
         }
         // Remove entries from the previous 14-line layout so old rank lines cannot linger.
-        scoreboard.resetPlayerScore(ScoreHolder.forNameOnly("bp_line_12"), sidebarObjective);
-        scoreboard.resetPlayerScore(ScoreHolder.forNameOnly("bp_line_13"), sidebarObjective);
+        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_12"), sidebarObjective);
+        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_13"), sidebarObjective);
     }
 
     private void hideScoreboard(MinecraftServer server) {
