@@ -329,6 +329,7 @@ public final class ArenaGenerator {
             }
         }
 
+        buildNeonLobbyInterior(level, centerX, lobbyMinX, lobbyMaxX, lobbyMinZ, lobbyMaxZ, floorY);
         buildLobbyRoofAndLighting(level, lobbyMinX, lobbyMaxX, lobbyMinZ, lobbyMaxZ, floorY);
 
         BlockPos first = new BlockPos(minX, floorY, minZ);
@@ -347,6 +348,105 @@ public final class ArenaGenerator {
      */
     /** Repairs the lobby-to-spectator connection, including arenas built by older versions. */
     /** Restore continuous tinted-glass and purple-glass rails around the full spectator ring. */
+
+    /**
+     * Adds the club/cafe interior pass. This is deliberately block-only and safe to
+     * run both during generation and when upgrading an existing lobby in place.
+     */
+    private static void buildNeonLobbyInterior(ServerLevel level, int centerX,
+                                                int minX, int maxX, int minZ, int maxZ, int floorY) {
+        // Dark ceiling beams with repeating neon strips, inspired by a modern LAN club.
+        int ceilingY = floorY + 14;
+        for (int x = minX + 3; x <= maxX - 3; x += 8) {
+            for (int z = minZ + 3; z <= maxZ - 3; z++) {
+                put(level, x, ceilingY, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+            }
+            for (int z = minZ + 5; z <= maxZ - 5; z += 10) {
+                put(level, x, ceilingY - 1, z, Blocks.SEA_LANTERN);
+                put(level, x, ceilingY - 2, z, Blocks.MAGENTA_STAINED_GLASS);
+            }
+        }
+
+        // Tall decorative wall panels: alternating purple/magenta glass framed in blackstone.
+        for (int z = minZ + 7; z <= maxZ - 7; z += 12) {
+            for (int y = floorY + 3; y <= floorY + 9; y++) {
+                put(level, minX, y, z, Blocks.BLACK_CONCRETE);
+                put(level, minX, y, z + 1, (z / 12) % 2 == 0 ? Blocks.MAGENTA_STAINED_GLASS : Blocks.PURPLE_STAINED_GLASS);
+                put(level, maxX, y, z, Blocks.BLACK_CONCRETE);
+                put(level, maxX, y, z + 1, (z / 12) % 2 == 0 ? Blocks.PURPLE_STAINED_GLASS : Blocks.MAGENTA_STAINED_GLASS);
+            }
+            put(level, minX + 1, floorY + 2, z, Blocks.CYAN_CONCRETE);
+            put(level, maxX - 1, floorY + 2, z, Blocks.CYAN_CONCRETE);
+        }
+
+        // Cafe counter and display wall on the west side; keep the centre route open.
+        int cafeX = centerX - 24;
+        int cafeZ = minZ + 7;
+        for (int x = cafeX - 5; x <= cafeX + 5; x++) {
+            put(level, x, floorY + 1, cafeZ, Blocks.SMOOTH_QUARTZ);
+            put(level, x, floorY + 2, cafeZ, Blocks.QUARTZ_SLAB);
+            put(level, x, floorY + 3, cafeZ - 1, Blocks.BOOKSHELF);
+        }
+        for (int x = cafeX - 6; x <= cafeX + 6; x++) {
+            put(level, x, floorY + 4, cafeZ - 2, Blocks.BLACK_CONCRETE);
+            put(level, x, floorY + 5, cafeZ - 2, Blocks.MAGENTA_STAINED_GLASS);
+            put(level, x, floorY + 6, cafeZ - 2, Blocks.PURPLE_STAINED_GLASS);
+        }
+        for (int x : new int[]{cafeX - 4, cafeX, cafeX + 4}) {
+            put(level, x, floorY + 5, cafeZ - 3, Blocks.SEA_LANTERN);
+            put(level, x, floorY + 6, cafeZ - 3, Blocks.CYAN_STAINED_GLASS);
+        }
+
+        // Lounge booths on the opposite side, with low tables and warm accent lighting.
+        int loungeX = centerX + 24;
+        for (int z = minZ + 9; z <= maxZ - 12; z += 13) {
+            for (int x = loungeX - 4; x <= loungeX + 4; x++) {
+                put(level, x, floorY + 1, z, Blocks.DARK_OAK_PLANKS);
+                put(level, x, floorY + 1, z + 1, Blocks.DARK_OAK_STAIRS);
+                put(level, x, floorY + 1, z - 1, Blocks.DARK_OAK_STAIRS);
+            }
+            for (int x = loungeX - 1; x <= loungeX + 1; x++) {
+                put(level, x, floorY + 1, z - 4, Blocks.POLISHED_BLACKSTONE_SLAB);
+            }
+            put(level, loungeX, floorY + 2, z - 4, Blocks.SEA_LANTERN);
+            put(level, loungeX, floorY + 3, z - 4, Blocks.PURPLE_STAINED_GLASS);
+        }
+
+        // Neon floor borders and cyan guide lights around the dance area.
+        for (int x = centerX - 10; x <= centerX + 10; x++) {
+            put(level, x, floorY, minZ + 13, Blocks.PURPLE_CONCRETE);
+            put(level, x, floorY, minZ + 29, Blocks.MAGENTA_CONCRETE);
+        }
+        for (int z = minZ + 13; z <= minZ + 29; z++) {
+            put(level, centerX - 10, floorY, z, Blocks.CYAN_CONCRETE);
+            put(level, centerX + 10, floorY, z, Blocks.CYAN_CONCRETE);
+        }
+
+        // Speaker towers and light columns frame the dancefloor without blocking movement.
+        for (int side : new int[]{-1, 1}) {
+            int x = centerX + side * 13;
+            int z = minZ + 20;
+            for (int y = floorY + 1; y <= floorY + 6; y++) {
+                put(level, x, y, z, Blocks.BLACKSTONE);
+                put(level, x, y, z - 1, Blocks.BLACK_CONCRETE);
+            }
+            for (int y : new int[]{floorY + 2, floorY + 4, floorY + 6}) {
+                put(level, x, y, z - 2, Blocks.SEA_LANTERN);
+                put(level, x, y, z - 3, Blocks.MAGENTA_STAINED_GLASS);
+            }
+        }
+
+        // Extra indirect lighting at the rear wall and over the cafe/lounge areas.
+        for (int x = minX + 6; x <= maxX - 6; x += 6) {
+            put(level, x, floorY + 10, maxZ - 1, Blocks.SEA_LANTERN);
+            put(level, x, floorY + 11, maxZ - 1, Blocks.PURPLE_STAINED_GLASS);
+        }
+        for (int x : new int[]{cafeX - 5, cafeX + 5, loungeX - 4, loungeX + 4}) {
+            put(level, x, floorY + 8, minZ + 10, Blocks.END_ROD);
+            put(level, x, floorY + 9, minZ + 10, Blocks.SEA_LANTERN);
+        }
+    }
+
     private static void restoreSpectatorRails(ServerLevel level, int minX, int maxX, int minZ, int maxZ, int floorY) {
         int walkwayY = floorY + SPECTATOR_HEIGHT;
         for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
@@ -514,6 +614,7 @@ public final class ArenaGenerator {
                 put(level, seatX - side, floorY + 2, z, Blocks.DARK_OAK_SLAB);
             }
         }
+        buildNeonLobbyInterior(level, centerX, lobbyMinX, lobbyMaxX, lobbyMinZ, lobbyMaxZ, floorY);
         buildLobbyRoofAndLighting(level, lobbyMinX, lobbyMaxX, lobbyMinZ, lobbyMaxZ, floorY);
         restoreSpectatorRails(level, minX, maxX, minZ, maxZ, floorY);
         removeLegacyEntranceStairs(level, (minX + maxX) / 2, floorY, maxZ);

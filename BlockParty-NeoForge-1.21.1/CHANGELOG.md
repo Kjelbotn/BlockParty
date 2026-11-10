@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.0-alpha
+- Expanded the lobby into a neon club/cafe interior inspired by the supplied reference images.
+- Added dark ceiling beams, magenta/purple glass wall panels, cyan accent lighting, and additional architectural light strips.
+- Added a quartz cafe counter and display wall on one side of the lobby.
+- Added lounge booth seating, low tables, and decorative lighting on the opposite side.
+- Framed the dance floor with neon borders and added speaker/light towers.
+- Applied the interior pass both to newly generated lobbies and to existing arenas through the in-place visual refresh.
+
 ## 0.16.0-alpha
 - Revamped lobby DJ screen with a two-column playlist and a larger live-vote leader panel.
 - Added six rotating visual patterns to the lobby dance floor while the lobby is idle.
