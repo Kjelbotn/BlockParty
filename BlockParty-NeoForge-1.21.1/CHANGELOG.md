@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1-alpha — CI compile fixes
+- Removed the unavailable DistExecutor reference from the clientbound music payload handler.
+- Updated protected-item toss handling to use ItemTossEvent#getEntity() and getPlayer(); restore the protected stack to the player's inventory and discard the dropped entity.
+- Removed the deprecated explicit EventBusSubscriber bus argument; client tick/logout handlers remain on the game event bus.
+
+
 ## 0.9.1-alpha
 - Added a client-side BlockParty music controller with explicit PLAY, PAUSE, RESUME and STOP network commands.
 - Pauses the active OpenAL channel for the selected music sound, preserving its playback cursor through the floor-fall phase.

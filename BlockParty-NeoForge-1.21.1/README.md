@@ -76,3 +76,11 @@ If music is still silent, first test with the BlockParty mod installed on both s
 **Client requirement:** BlockParty must be installed on both the server and every participating client. The client must have the Records/Jukebox sound category enabled.
 
 **Implementation note:** the client controller accesses Minecraft 1.21.1's active sound-channel map through NeoForge's obfuscation-aware reflection helper and pauses only the BlockParty music channel. If a future Minecraft update changes the sound engine internals, this small adapter may need updating.
+
+
+### 0.9.1-alpha CI follow-up
+The follow-up source archive fixes the initial GitHub Actions compile errors:
+- No longer imports the unavailable `net.neoforged.fml.DistExecutor`.
+- Uses the 1.21.1 `ItemTossEvent` API correctly: `getEntity()` for the dropped item entity and `getPlayer()` for the player inventory.
+- Cancels the protected toss, restores the stack to the tossing player's inventory, and discards the item entity to prevent duplication.
+- Removes the deprecated explicit event-bus selector while retaining client-only event subscription.

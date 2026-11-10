@@ -3,11 +3,8 @@ package no.bangerfabrikken.blockparty;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.DistExecutor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
-import no.bangerfabrikken.blockparty.client.ClientMusicController;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -47,10 +44,11 @@ public final class BlockPartyMod {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
+        // This is a server-to-client payload. Its receiver is only invoked on the
+        // physical client, where the client-only controller is present.
         event.registrar("1").playToClient(MusicControlPayload.TYPE, MusicControlPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
-                        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                                () -> () -> ClientMusicController.handle(payload))));
+                        no.bangerfabrikken.blockparty.client.ClientMusicController.handle(payload)));
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -126,13 +124,16 @@ public final class BlockPartyMod {
     }
 
     private void onItemToss(ItemTossEvent event) {
-        ItemStack stack = event.getEntityItem().getItem();
-        if (no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack)) {
-            // The toss path has already split the stack from the inventory when this
-            // event fires, so put it back before cancelling the world drop.
-            event.getEntity().getInventory().placeItemBackInInventory(stack.copy());
-            event.setCanceled(true);
+        ItemStack stack = event.getEntity().getItem();
+        if (!no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack)) return;
+
+        // ItemTossEvent exposes the tossed ItemEntity through getEntity() and
+        // the player whose inventory lost the stack through getPlayer().
+        if (event.getPlayer() instanceof ServerPlayer player) {
+            player.getInventory().placeItemBackInInventory(stack.copy());
         }
+        event.setCanceled(true);
+        event.getEntity().discard();
     }
 
     private void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {

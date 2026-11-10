@@ -29,7 +29,7 @@ import java.util.Map;
  * individual OpenAL channel, rather than stopping/restarting the event, so the
  * decoder and playback cursor remain alive at the exact sample position.
  */
-@EventBusSubscriber(modid = BlockPartyMod.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = BlockPartyMod.MOD_ID, value = Dist.CLIENT)
 public final class ClientMusicController {
     private static SoundInstance currentSound;
     private static boolean paused;
