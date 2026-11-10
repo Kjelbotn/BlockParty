@@ -11,7 +11,7 @@ import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
-import net.neoforged.neoforge.event.entity.living.LivingAttackEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
@@ -74,7 +74,7 @@ public final class BlockPartyMod {
     }
 
     /** Disable player-versus-player damage anywhere inside a BlockParty lobby or arena. */
-    private void onLivingAttack(LivingAttackEvent event) {
+    private void onLivingAttack(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer victim)) return;
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
         if (ArenaManager.get().isInsideAnyProtectedArea(victim)

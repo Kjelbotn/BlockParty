@@ -1144,7 +1144,7 @@ public final class Arena {
         player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         refreshDjScreen();
-        int requiredVotes = (players.size() + 1) / 2;
+        int requiredVotes = Math.max(2, (players.size() * 2 + 2) / 3);
         long validVotes = musicVotes.keySet().stream().filter(players::contains).count();
         if (phase == Phase.WAITING && players.size() >= MIN_PLAYERS && validVotes >= requiredVotes) {
             try {

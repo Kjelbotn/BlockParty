@@ -141,3 +141,8 @@
 ## 0.11.4-alpha
 - Improved the BlockParty exit cleanup: stop any active item use, restore Survival mode and saved hunger/inventory, explicitly refresh player abilities, inventory menus and selected hotbar slot.
 - This targets the issue where food and other right-click interactions could remain unavailable immediately after leaving BlockParty.
+
+## 0.11.5-alpha
+- Music-vote threshold now requires at least two-thirds of joined players (rounded up): 2 players require 2 votes; 3 players require 2 votes.
+- Equal vote counts continue to select a random song from the enabled playlist.
+- Corrected the PvP damage event type to the NeoForge incoming-damage event after the previous LivingAttackEvent import failed compilation.
