@@ -1,4 +1,14 @@
 {
+  "music_bangerfabrikken": {
+    "subtitle": "subtitles.blockparty.music_bangerfabrikken",
+    "sounds": [
+      {
+        "name": "blockparty:music/bangerfabrikken",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  },
   "round_start": {
     "subtitle": "subtitles.blockparty.round_start",
     "sounds": [

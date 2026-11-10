@@ -1,4 +1,4 @@
-# BlockParty 0.7.0-alpha
+# BlockParty 0.9.0-alpha
 
 NeoForge mod for Minecraft 1.21.1 / Java 21.
 
@@ -54,3 +54,12 @@ If music is still silent, first test with the BlockParty mod installed on both s
 - `/bp leave` checks both arena membership and the stored return-location session.
 - Music event IDs for the three bundled tracks now match the registered sound event names exactly.
 - Music uses Minecraft's **Records/Jukebox** volume category. In Options → Music & Sounds, raise **Jukebox/Note Blocks** (label may vary by client language). The server sends the registered sound event; the client must have BlockParty installed as a mod, not only as a resource pack.
+
+
+## 0.9.0-alpha
+- Prevented dropping the BlockParty Join star and Music Vote book.
+- Music now starts when the first round begins, not during the pre-match countdown.
+- Stops the selected track while the floor is removed, then starts it again when the next round's floor is ready.
+- Added **BlockParty — Bangerfabrikken** as the first music-voting option, bundled as `sounds/music/bangerfabrikken.ogg` (3:36).
+
+**Music pause limitation:** this release stops and restarts the track from its beginning after the floor-fall phase. Minecraft's ordinary server sound packets do not expose a seek/pause position for streamed OGG playback, so exact continuation at the previous timestamp requires a custom client-side audio implementation and is not claimed here.

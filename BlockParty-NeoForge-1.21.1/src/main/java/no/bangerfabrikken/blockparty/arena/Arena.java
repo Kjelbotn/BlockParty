@@ -315,7 +315,6 @@ public final class Arena {
         hideLobbyLeaderboard();
         broadcast(Component.literal("BlockParty starter om 10 sekunder!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
-        playSelectedMusic();
     }
 
     private void beginMatch(MinecraftServer server) {
@@ -714,6 +713,11 @@ public final class Arena {
         musicTicksUntilReplay = 0;
     }
 
+    /** Lobby utility items are bound to the player and cannot be dropped or duplicated. */
+    public static boolean isProtectedLobbyItem(ItemStack stack) {
+        return isMusicVotingBook(stack) || isJoinGameItem(stack);
+    }
+
     public static boolean isMusicVotingBook(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !stack.is(Items.BOOK)) return false;
         Component customName = stack.get(DataComponents.CUSTOM_NAME);
@@ -1028,6 +1032,7 @@ public final class Arena {
         updateColorDisplay();
         timerTicks = ROUND_DURATION_TICKS[round - 1];
         phase = Phase.PREPARE;
+        if (activeMusicId == null) playSelectedMusic();
         broadcastTargetHud();
         playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 1.0F);
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.55F, 1.0F);
@@ -1279,6 +1284,7 @@ public final class Arena {
             DyeColor color = BlockPartyColors.getColor(entry.getValue());
             if (color != targetColor) level.setBlock(entry.getKey(), Blocks.AIR.defaultBlockState(), 3);
         }
+        stopMusic();
         phase = Phase.FALL;
         timerTicks = FALL_TICKS;
         broadcastActionBar(Component.literal("FEIL FARGE FORSVINNER!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));

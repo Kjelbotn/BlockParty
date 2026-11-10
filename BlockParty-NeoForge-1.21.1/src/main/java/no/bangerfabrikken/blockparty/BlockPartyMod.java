@@ -6,6 +6,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,9 +34,10 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onPlayerLogout);
         NeoForge.EVENT_BUS.addListener(this::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(this::onRightClickItem);
+        NeoForge.EVENT_BUS.addListener(this::onItemToss);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.6.1-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.9.0-alpha");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -108,6 +110,16 @@ public final class BlockPartyMod {
             return true;
         }
         return false;
+    }
+
+    private void onItemToss(ItemTossEvent event) {
+        ItemStack stack = event.getEntityItem().getItem();
+        if (no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack)) {
+            // The toss path has already split the stack from the inventory when this
+            // event fires, so put it back before cancelling the world drop.
+            event.getEntity().getInventory().placeItemBackInInventory(stack.copy());
+            event.setCanceled(true);
+        }
     }
 
     private void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {

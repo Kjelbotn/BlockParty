@@ -42,6 +42,8 @@ public final class MusicTrackManager {
         Map<String, Track> all = defaults();
         String configured = properties.getProperty("tracks", "neon_beat,pixel_rush,night_drive");
         List<String> enabled = new ArrayList<>();
+        // Always feature the supplied Bangerfabrikken theme first, including on existing worlds.
+        enabled.add("bangerfabrikken");
         for (String raw : configured.split(",")) {
             String id = raw.trim().toLowerCase(java.util.Locale.ROOT);
             Track track = all.get(id);
@@ -69,7 +71,7 @@ public final class MusicTrackManager {
             }
             bpm = Math.max(60, Math.min(180, bpm));
             durationSeconds = Math.max(5, Math.min(600, durationSeconds));
-            enabled.add(id);
+            if (!enabled.contains(id)) enabled.add(id);
             all.put(id, new Track(id, name, artist, bpm, durationSeconds, track.sound(), track.soundId()));
         }
         TRACKS.clear();
@@ -84,6 +86,7 @@ public final class MusicTrackManager {
 
     private static Map<String, Track> defaults() {
         Map<String, Track> tracks = new LinkedHashMap<>();
+        add(tracks, "bangerfabrikken", "BlockParty", "Bangerfabrikken", 128, 216, ModSounds.MUSIC_BANGERFABRIKKEN);
         add(tracks, "neon_beat", "Neon Beat", "BlockParty OST", 128, 17, ModSounds.MUSIC_NEON);
         add(tracks, "pixel_rush", "Pixel Rush", "BlockParty OST", 140, 16, ModSounds.MUSIC_ARCADE);
         add(tracks, "night_drive", "Night Drive", "BlockParty OST", 112, 18, ModSounds.MUSIC_RUSH);
@@ -101,6 +104,7 @@ public final class MusicTrackManager {
     private static void add(Map<String, Track> target, String id, String name, String artist, int bpm,
                             int durationSeconds, Holder<SoundEvent> sound) {
         String eventPath = switch (id) {
+            case "bangerfabrikken" -> "music_bangerfabrikken";
             case "neon_beat" -> "music_neon";
             case "pixel_rush" -> "music_arcade";
             case "night_drive" -> "music_rush";

@@ -1,6 +1,4 @@
-# Changelog
-
-## 0.8.2-alpha
+# Changelog\n\n## 0.9.0-alpha\n- Protected the Join star and Music Vote book from being dropped.\n- Delayed music playback until the first round starts.\n- Stops music during the falling-floor phase and restarts it when the next round begins (restart from track beginning; exact seek/resume is not supported by vanilla streamed sound playback).\n- Added Bangerfabrikken's 3:36 track as the first playlist entry.\n\n## 0.8.2-alpha
 - Fixed two Java compilation errors in the spiral and radial floor-pattern calculations reported by GitHub Actions.
 
 # Changelog
