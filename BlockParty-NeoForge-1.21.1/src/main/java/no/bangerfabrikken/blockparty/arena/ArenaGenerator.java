@@ -147,7 +147,7 @@ public final class ArenaGenerator {
         for (int x = outerMinX; x <= outerMaxX; x++) {
             for (int y = floorY + 1; y <= floorY + WALL_HEIGHT; y++) {
                 put(level, x, y, outerMinZ, shellBlock(y));
-                if (!isSouthEntrance(x, centerX) || y > floorY + 8) put(level, x, y, outerMaxZ, shellBlock(y));
+                put(level, x, y, outerMaxZ, shellBlock(y));
             }
         }
         for (int z = outerMinZ; z <= outerMaxZ; z++) {
@@ -249,10 +249,7 @@ public final class ArenaGenerator {
             put(level, lobbyMaxX, floorY + 8, z, Blocks.SEA_LANTERN);
         }
 
-        // Entrance opening from lobby to the arena bridge.
-        for (int x = centerX - 4; x <= centerX + 4; x++) {
-            for (int y = floorY + 1; y <= floorY + 8; y++) put(level, x, y, lobbyMinZ, Blocks.AIR);
-        }
+        // Lobby and arena remain separate; match transitions use teleportation, not a bridge.
         for (int x = lobbyMinX + 1; x < lobbyMaxX; x++) {
             put(level, x, floorY + 12, lobbyMinZ, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY + 12, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
@@ -517,6 +514,19 @@ public final class ArenaGenerator {
         }
         restoreSpectatorRails(level, minX, maxX, minZ, maxZ, floorY);
         removeLegacyEntranceStairs(level, (minX + maxX) / 2, floorY, maxZ);
+
+        // Close the old arena-to-lobby bridge opening and any missing centre wall sections.
+        // The lobby and arena are separate teleport destinations, so no physical gap is needed.
+        for (int x = outerMinX; x <= outerMaxX; x++) {
+            for (int y = floorY + 1; y <= floorY + WALL_HEIGHT; y++) {
+                put(level, x, y, outerMaxZ, shellBlock(y));
+            }
+        }
+        for (int x = lobbyMinX; x <= lobbyMaxX; x++) {
+            for (int y = floorY + 1; y <= floorY + 14; y++) {
+                put(level, x, y, lobbyMinZ, Blocks.POLISHED_BLACKSTONE_BRICKS);
+            }
+        }
         return true;
     }
 
