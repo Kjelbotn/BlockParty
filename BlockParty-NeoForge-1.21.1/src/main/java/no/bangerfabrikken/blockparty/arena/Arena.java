@@ -643,50 +643,52 @@ public final class Arena {
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
 
-        // Remove obsolete instruction holograms from the reserved entrance volume only.
+        // Clean up obsolete instruction holograms in the old entrance volume.
         AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
                 centerX + 20, lobbyY + 16, lobbyZ - 13);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) {
-            old.discard();
-        }
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
 
-        // Two-column playlist with a large live leader panel.
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.15, wallZ - 0.65,
+        // High-contrast layout: 10 readable entries, generous vertical spacing and a separate vote-leader panel.
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.2, wallZ - 0.72,
                 180.0F, Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
-                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.35F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 13.0, lobbyY + 9.45, wallZ - 0.65,
-                180.0F, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.0F, tag);
+                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.65F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX - 14.0, lobbyY + 9.45, wallZ - 0.72,
+                180.0F, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.35F, tag);
         List<Track> catalogue = MusicTrackManager.getTracks();
-        int visible = Math.min(catalogue.size(), 14);
+        int visible = Math.min(catalogue.size(), 10);
         for (int i = 0; i < visible; i++) {
             Track track = catalogue.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = i / 7;
-            int row = i % 7;
+            int column = i / 5;
+            int row = i % 5;
             Component line = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                    .append(Component.literal("\n" + track.artist() + "  •  " + votes + " stemmer").withStyle(ChatFormatting.GRAY));
-            BlockPartyText.spawnTextDisplay(level, centerX - 13.0 + column * 11.0,
-                    lobbyY + 8.15 - row * 0.82, wallZ - 0.65, 180.0F, line, 0.67F, tag);
+                    .append(Component.literal("\\n" + track.artist() + "  •  " + votes + " stemmer")
+                            .withStyle(ChatFormatting.GRAY));
+            BlockPartyText.spawnTextDisplay(level, centerX - 14.0 + column * 11.0,
+                    lobbyY + 8.0 - row * 1.15, wallZ - 0.72, 180.0F, line, 0.98F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 13.0, lobbyY + 2.25, wallZ - 0.65,
-                    180.0F, Component.literal("+" + (catalogue.size() - visible) + " låter i HUB-menyen")
-                            .withStyle(ChatFormatting.GRAY), 0.65F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX - 14.0, lobbyY + 2.0, wallZ - 0.72,
+                    180.0F, Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB")
+                            .withStyle(ChatFormatting.GRAY), 0.9F, tag);
         }
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, centerX + 10.0, lobbyY + 9.0, wallZ - 0.65,
-                180.0F, Component.literal("FOLKETS FAVORITT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.05F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 10.0, lobbyY + 6.8, wallZ - 0.65,
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 9.0, wallZ - 0.72,
+                180.0F, Component.literal("FOLKETS FAVORITT")
+                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.45F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 6.7, wallZ - 0.72,
                 180.0F, Component.literal(leader == null || leaderVotes == 0 ? "INGEN LEDER ENNÅ" : leader.name())
-                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.15F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 10.0, lobbyY + 5.25, wallZ - 0.65,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "Åpne HUB og stem!"
-                        : leader.artist() + "  •  " + leaderVotes + " stemmer").withStyle(ChatFormatting.YELLOW), 0.8F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 10.0, lobbyY + 3.65, wallZ - 0.65,
-                180.0F, Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
+                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.25F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 5.0, wallZ - 0.72,
+                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "ÅPNE HUB OG STEM"
+                        : leader.artist() + "  •  " + leaderVotes + " STEMMER")
+                        .withStyle(ChatFormatting.YELLOW), 0.95F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 3.35, wallZ - 0.72,
+                180.0F, Component.literal("HØYREKLIKK KOMPASSET FOR HUB")
+                        .withStyle(ChatFormatting.AQUA), 0.8F, tag);
     }
 
     private Track mostVotedTrack() {
@@ -707,7 +709,7 @@ public final class Arena {
         // Stadium lighting is permanent; music effects must never black out the arena.
         for (BlockPos pos : musicLightPositions) {
             BlockState state = level.getBlockState(pos);
-            if (state.is(Blocks.REDSTONE_LAMP) && !state.getValue(RedstoneLampBlock.LIT)) {
+            if (state.is(Blocks.REDSTONE_LAMP)) {
                 level.setBlock(pos, state.setValue(RedstoneLampBlock.LIT, true), 3);
             }
         }

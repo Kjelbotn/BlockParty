@@ -1,4 +1,4 @@
-# Changelog
+# BlockParty 0.17.2-alpha\n\n- Combined the previous DJ-screen/lobby fixes with this arena and lobby polish pass.\n- Removed accidental blocks beneath the spectator ring, both on fresh generation and in-place upgrades.\n- Restored a coherent neon feature wall on the far side of the arena.\n- Forced tracked redstone lamps to remain lit and added adjacent sea-lantern lighting.\n- Reworked lobby decor into a consistent, symmetrical club layout with a compact cafe, mirrored lounge bays, aligned wall panels and speaker towers.\n\n# Changelog
 
 ## 0.17.0-alpha
 - Expanded the lobby into a neon club/cafe interior inspired by the supplied reference images.

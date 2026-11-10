@@ -106,6 +106,19 @@ public final class ArenaGenerator {
             }
         }
 
+        // Remove legacy/accidental support blocks beneath the spectator ring.
+        // Keep the arena's outer shell intact; the walkway itself is intentionally cantilevered.
+        for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
+            for (int z = minZ - WALKWAY_OUTER_MARGIN; z <= maxZ + WALKWAY_OUTER_MARGIN; z++) {
+                boolean innerVoid = x >= minX - WALKWAY_INNER_GAP && x <= maxX + WALKWAY_INNER_GAP
+                        && z >= minZ - WALKWAY_INNER_GAP && z <= maxZ + WALKWAY_INNER_GAP;
+                boolean outerShell = x == outerMinX || x == outerMaxX || z == outerMinZ || z == outerMaxZ;
+                if (!innerVoid && !outerShell) {
+                    for (int y = floorY + 1; y < walkwayY; y++) put(level, x, y, z, Blocks.AIR);
+                }
+            }
+        }
+
         // Spectator path: a continuous raised ring, four blocks above the floor, without seating/stands.
         for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
             for (int z = minZ - WALKWAY_OUTER_MARGIN; z <= maxZ + WALKWAY_OUTER_MARGIN; z++) {
@@ -156,6 +169,21 @@ public final class ArenaGenerator {
                 put(level, outerMaxX, y, z, shellBlock(y));
             }
         }
+        // Back-wall feature treatment: symmetrical neon ribs, framed panels and always-lit lamps.
+        for (int x = outerMinX + 4; x <= outerMaxX - 4; x += 8) {
+            for (int y = floorY + 3; y <= floorY + WALL_HEIGHT - 3; y++) {
+                put(level, x, y, outerMaxZ, (Math.floorMod(x / 8, 2) == 0)
+                        ? Blocks.PURPLE_STAINED_GLASS : Blocks.MAGENTA_STAINED_GLASS);
+            }
+            put(level, x, floorY + 2, outerMaxZ, Blocks.CYAN_CONCRETE);
+            put(level, x, floorY + WALL_HEIGHT - 2, outerMaxZ, Blocks.MAGENTA_CONCRETE);
+        }
+        for (int x = outerMinX + 6; x <= outerMaxX - 6; x += 12) {
+            put(level, x, floorY + WALL_HEIGHT - 5, outerMaxZ,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
+            put(level, x, floorY + WALL_HEIGHT - 6, outerMaxZ - 1, Blocks.SEA_LANTERN);
+        }
+
         // Open-air arena: no roof. Dense invisible level-15 lights keep every tile vivid at night.
         for (int x = outerMinX + 2; x < outerMaxX; x += 4) {
             for (int z = outerMinZ + 2; z < outerMaxZ; z += 4) {
@@ -242,11 +270,9 @@ public final class ArenaGenerator {
         // Visible wall lights make the light sources part of the architecture.
         for (int x = lobbyMinX + 4; x <= lobbyMaxX - 4; x += 8) {
             put(level, x, floorY + 8, lobbyMinZ, Blocks.SEA_LANTERN);
-            put(level, x, floorY + 8, lobbyMaxZ, Blocks.SEA_LANTERN);
         }
         for (int z = lobbyMinZ + 4; z <= lobbyMaxZ - 4; z += 8) {
             put(level, lobbyMinX, floorY + 8, z, Blocks.SEA_LANTERN);
-            put(level, lobbyMaxX, floorY + 8, z, Blocks.SEA_LANTERN);
         }
 
         // Lobby and arena remain separate; match transitions use teleportation, not a bridge.
@@ -355,64 +381,84 @@ public final class ArenaGenerator {
      */
     private static void buildNeonLobbyInterior(ServerLevel level, int centerX,
                                                 int minX, int maxX, int minZ, int maxZ, int floorY) {
-        // Dark ceiling beams with repeating neon strips, inspired by a modern LAN club.
+        // Restrained club palette: blackstone, charcoal, magenta, purple and cyan.
+        // Ceiling ribs run in parallel and never hang low over player movement.
         int ceilingY = floorY + 14;
-        for (int x = minX + 3; x <= maxX - 3; x += 8) {
+        for (int x = minX + 4; x <= maxX - 4; x += 10) {
             for (int z = minZ + 3; z <= maxZ - 3; z++) {
                 put(level, x, ceilingY, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
             }
-            for (int z = minZ + 5; z <= maxZ - 5; z += 10) {
+            for (int z = minZ + 6; z <= maxZ - 6; z += 12) {
                 put(level, x, ceilingY - 1, z, Blocks.SEA_LANTERN);
-                put(level, x, ceilingY - 2, z, Blocks.MAGENTA_STAINED_GLASS);
+                put(level, x, ceilingY - 2, z, Blocks.PURPLE_STAINED_GLASS);
             }
         }
 
-        // Tall decorative wall panels: alternating purple/magenta glass framed in blackstone.
-        for (int z = minZ + 7; z <= maxZ - 7; z += 12) {
-            for (int y = floorY + 3; y <= floorY + 9; y++) {
+        // Matching framed wall panels on both long sides, aligned at regular intervals.
+        for (int z = minZ + 8; z <= maxZ - 8; z += 14) {
+            for (int y = floorY + 3; y <= floorY + 8; y++) {
                 put(level, minX, y, z, Blocks.BLACK_CONCRETE);
-                put(level, minX, y, z + 1, (z / 12) % 2 == 0 ? Blocks.MAGENTA_STAINED_GLASS : Blocks.PURPLE_STAINED_GLASS);
+                put(level, minX, y, z + 1, Blocks.PURPLE_STAINED_GLASS);
                 put(level, maxX, y, z, Blocks.BLACK_CONCRETE);
-                put(level, maxX, y, z + 1, (z / 12) % 2 == 0 ? Blocks.PURPLE_STAINED_GLASS : Blocks.MAGENTA_STAINED_GLASS);
+                put(level, maxX, y, z + 1, Blocks.MAGENTA_STAINED_GLASS);
             }
             put(level, minX + 1, floorY + 2, z, Blocks.CYAN_CONCRETE);
             put(level, maxX - 1, floorY + 2, z, Blocks.CYAN_CONCRETE);
         }
 
-        // Cafe counter and display wall on the west side; keep the centre route open.
+        // Clear the footprint of the previous experimental cafe and lounge builds first.
+        // This removes orphaned rods, floating glass and misplaced shelves from existing lobbies.
+        int oldCafeX = centerX - 24;
+        for (int x = oldCafeX - 7; x <= oldCafeX + 7; x++) {
+            for (int z = minZ + 5; z <= minZ + 13; z++) {
+                for (int y = floorY + 1; y <= floorY + 7; y++) put(level, x, y, z, Blocks.AIR);
+            }
+        }
+        for (int side : new int[]{-1, 1}) {
+            int oldLoungeX = centerX + side * 24;
+            for (int x = oldLoungeX - 6; x <= oldLoungeX + 6; x++) {
+                for (int z = minZ + 7; z <= maxZ - 10; z += 13) {
+                    for (int zz = z - 5; zz <= z + 5; zz++) {
+                        for (int y = floorY + 1; y <= floorY + 9; y++) {
+                            BlockPos legacy = new BlockPos(x, y, zz);
+                            Block block = level.getBlockState(legacy).getBlock();
+                            if (block == Blocks.SEA_LANTERN || block == Blocks.END_ROD
+                                    || block == Blocks.PURPLE_STAINED_GLASS || block == Blocks.CYAN_STAINED_GLASS
+                                    || block == Blocks.MAGENTA_STAINED_GLASS || block == Blocks.BOOKSHELF) {
+                                put(level, x, y, zz, Blocks.AIR);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Compact cafe counter at the west/rear side, with a clear approach and no floating decor.
         int cafeX = centerX - 24;
-        int cafeZ = minZ + 7;
-        for (int x = cafeX - 5; x <= cafeX + 5; x++) {
+        int cafeZ = minZ + 8;
+        for (int x = cafeX - 4; x <= cafeX + 4; x++) {
             put(level, x, floorY + 1, cafeZ, Blocks.SMOOTH_QUARTZ);
             put(level, x, floorY + 2, cafeZ, Blocks.QUARTZ_SLAB);
             put(level, x, floorY + 3, cafeZ - 1, Blocks.BOOKSHELF);
         }
-        for (int x = cafeX - 6; x <= cafeX + 6; x++) {
-            put(level, x, floorY + 4, cafeZ - 2, Blocks.BLACK_CONCRETE);
-            put(level, x, floorY + 5, cafeZ - 2, Blocks.MAGENTA_STAINED_GLASS);
-            put(level, x, floorY + 6, cafeZ - 2, Blocks.PURPLE_STAINED_GLASS);
-        }
-        for (int x : new int[]{cafeX - 4, cafeX, cafeX + 4}) {
-            put(level, x, floorY + 5, cafeZ - 3, Blocks.SEA_LANTERN);
-            put(level, x, floorY + 6, cafeZ - 3, Blocks.CYAN_STAINED_GLASS);
+        for (int x : new int[]{cafeX - 3, cafeX, cafeX + 3}) {
+            put(level, x, floorY + 4, cafeZ - 2, Blocks.SEA_LANTERN);
+            put(level, x, floorY + 5, cafeZ - 2, Blocks.CYAN_STAINED_GLASS);
         }
 
-        // Lounge booths on the opposite side, with low tables and warm accent lighting.
-        int loungeX = centerX + 24;
-        for (int z = minZ + 9; z <= maxZ - 12; z += 13) {
-            for (int x = loungeX - 4; x <= loungeX + 4; x++) {
-                put(level, x, floorY + 1, z, Blocks.DARK_OAK_PLANKS);
-                put(level, x, floorY + 1, z + 1, Blocks.DARK_OAK_STAIRS);
-                put(level, x, floorY + 1, z - 1, Blocks.DARK_OAK_STAIRS);
+        // Two mirrored lounge bays: benches face inward toward low tables.
+        for (int side : new int[]{-1, 1}) {
+            int loungeX = centerX + side * 24;
+            for (int z = minZ + 17; z <= maxZ - 13; z += 14) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    put(level, loungeX + dx, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
+                }
+                put(level, loungeX, floorY + 1, z + 3, Blocks.POLISHED_BLACKSTONE_SLAB);
+                put(level, loungeX, floorY + 2, z + 3, Blocks.SEA_LANTERN);
             }
-            for (int x = loungeX - 1; x <= loungeX + 1; x++) {
-                put(level, x, floorY + 1, z - 4, Blocks.POLISHED_BLACKSTONE_SLAB);
-            }
-            put(level, loungeX, floorY + 2, z - 4, Blocks.SEA_LANTERN);
-            put(level, loungeX, floorY + 3, z - 4, Blocks.PURPLE_STAINED_GLASS);
         }
 
-        // Neon floor borders and cyan guide lights around the dance area.
+        // Thin neon borders define the dance area; no decorative blocks intrude onto its surface.
         for (int x = centerX - 10; x <= centerX + 10; x++) {
             put(level, x, floorY, minZ + 13, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY, minZ + 29, Blocks.MAGENTA_CONCRETE);
@@ -422,28 +468,17 @@ public final class ArenaGenerator {
             put(level, centerX + 10, floorY, z, Blocks.CYAN_CONCRETE);
         }
 
-        // Speaker towers and light columns frame the dancefloor without blocking movement.
+        // Speaker towers sit outside the dancefloor corners and use matching mirrored shapes.
         for (int side : new int[]{-1, 1}) {
             int x = centerX + side * 13;
             int z = minZ + 20;
-            for (int y = floorY + 1; y <= floorY + 6; y++) {
+            for (int y = floorY + 1; y <= floorY + 4; y++) {
                 put(level, x, y, z, Blocks.BLACKSTONE);
-                put(level, x, y, z - 1, Blocks.BLACK_CONCRETE);
             }
-            for (int y : new int[]{floorY + 2, floorY + 4, floorY + 6}) {
-                put(level, x, y, z - 2, Blocks.SEA_LANTERN);
-                put(level, x, y, z - 3, Blocks.MAGENTA_STAINED_GLASS);
+            for (int y : new int[]{floorY + 2, floorY + 4}) {
+                put(level, x, y, z - 1, Blocks.SEA_LANTERN);
+                put(level, x, y + 1, z - 1, Blocks.PURPLE_STAINED_GLASS);
             }
-        }
-
-        // Extra indirect lighting at the rear wall and over the cafe/lounge areas.
-        for (int x = minX + 6; x <= maxX - 6; x += 6) {
-            put(level, x, floorY + 10, maxZ - 1, Blocks.SEA_LANTERN);
-            put(level, x, floorY + 11, maxZ - 1, Blocks.PURPLE_STAINED_GLASS);
-        }
-        for (int x : new int[]{cafeX - 5, cafeX + 5, loungeX - 4, loungeX + 4}) {
-            put(level, x, floorY + 8, minZ + 10, Blocks.END_ROD);
-            put(level, x, floorY + 9, minZ + 10, Blocks.SEA_LANTERN);
         }
     }
 
@@ -504,6 +539,21 @@ public final class ArenaGenerator {
         BlockPos arenaAnchor = new BlockPos(centerX, floorY + 12, minZ + (maxZ - minZ + 1) / 2);
         BlockPos lobbyAnchor = new BlockPos(centerX, floorY + 8, lobbyMaxZ);
         if (!level.hasChunkAt(arenaAnchor) || !level.hasChunkAt(lobbyAnchor)) return false;
+        // Clean up legacy blocks hanging below the spectator ring on existing arenas.
+        for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
+            for (int z = minZ - WALKWAY_OUTER_MARGIN; z <= maxZ + WALKWAY_OUTER_MARGIN; z++) {
+                boolean innerVoid = x >= minX - WALKWAY_INNER_GAP && x <= maxX + WALKWAY_INNER_GAP
+                        && z >= minZ - WALKWAY_INNER_GAP && z <= maxZ + WALKWAY_INNER_GAP;
+                boolean outerShell = x == outerMinX || x == outerMaxX || z == outerMinZ || z == outerMaxZ;
+                if (!innerVoid && !outerShell) {
+                    for (int y = floorY + 1; y < walkwayY; y++) {
+                        BlockPos under = new BlockPos(x, y, z);
+                        if (level.hasChunkAt(under)) put(level, x, y, z, Blocks.AIR);
+                    }
+                }
+            }
+        }
+
         // Restore the outer tinted-glass guardrail around the full ring for arenas
         // touched by the previous buggy update. The entrance helper then reopens
         // only the centered doorway at the south side.
@@ -534,11 +584,24 @@ public final class ArenaGenerator {
         }
         for (int x = lobbyMinX + 4; x <= lobbyMaxX - 4; x += 8) {
             put(level, x, floorY + 8, lobbyMinZ, Blocks.SEA_LANTERN);
-            put(level, x, floorY + 8, lobbyMaxZ, Blocks.SEA_LANTERN);
         }
         for (int z = lobbyMinZ + 4; z <= lobbyMaxZ - 4; z += 8) {
             put(level, lobbyMinX, floorY + 8, z, Blocks.SEA_LANTERN);
-            put(level, lobbyMaxX, floorY + 8, z, Blocks.SEA_LANTERN);
+        }
+
+        // Back-wall decoration on the far side of the arena, restored for existing worlds.
+        for (int x = outerMinX + 4; x <= outerMaxX - 4; x += 8) {
+            for (int y = floorY + 3; y <= floorY + WALL_HEIGHT - 3; y++) {
+                put(level, x, y, outerMaxZ, (Math.floorMod(x / 8, 2) == 0)
+                        ? Blocks.PURPLE_STAINED_GLASS : Blocks.MAGENTA_STAINED_GLASS);
+            }
+            put(level, x, floorY + 2, outerMaxZ, Blocks.CYAN_CONCRETE);
+            put(level, x, floorY + WALL_HEIGHT - 2, outerMaxZ, Blocks.MAGENTA_CONCRETE);
+        }
+        for (int x = outerMinX + 6; x <= outerMaxX - 6; x += 12) {
+            put(level, x, floorY + WALL_HEIGHT - 5, outerMaxZ,
+                    Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
+            put(level, x, floorY + WALL_HEIGHT - 6, outerMaxZ - 1, Blocks.SEA_LANTERN);
         }
 
         // Visible brighter arena wall fixtures and tempo-reactive redstone lamps.
@@ -561,6 +624,15 @@ public final class ArenaGenerator {
                     Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
             put(level, outerMaxX, floorY + WALL_HEIGHT - 5, z,
                     Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
+        }
+
+        for (int x = centerX - 19; x <= centerX + 19; x++) {
+            for (int y = floorY + 4; y <= floorY + 11; y++) {
+                BlockPos screenBlock = new BlockPos(x, y, lobbyMaxZ);
+                if (level.getBlockState(screenBlock).is(Blocks.SEA_LANTERN)) {
+                    put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
+                }
+            }
         }
 
         // Lobby DJ screen and decorative frame on the back wall.
