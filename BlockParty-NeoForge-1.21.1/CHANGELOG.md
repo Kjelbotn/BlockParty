@@ -1,3 +1,10 @@
+# BlockParty 0.19.3-alpha
+
+- Added difficulty and match-duration details to each song's voting-menu tooltip.
+- Difficulty bands: EASY (3:00–3:30), MEDIUM (2:00–2:59), HARD (1:30–1:59), EXPERT (under 1:30).
+- Displayed duration is the playable match duration, capped at 3:30 even when the audio file is longer.
+- Difficulty colors: green, aqua, gold and red respectively.
+
 # BlockParty 0.19.2-alpha
 
 - Every match has a maximum of 20 rounds, regardless of song length.
