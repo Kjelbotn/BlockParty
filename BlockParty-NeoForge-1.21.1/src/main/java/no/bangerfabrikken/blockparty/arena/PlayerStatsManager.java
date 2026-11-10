@@ -97,15 +97,13 @@ public final class PlayerStatsManager {
         }
     }
 
-    /** Adds one permanent point for each round survived and updates streak/personal best. */
+    /** Adds one permanent point for each round survived and updates the personal round record. */
     public static synchronized int recordRoundSurvived(MinecraftServer server, ServerPlayer player, int round) {
         PlayerRecord old = getOrCreate(player);
         int points = old.points() + 1;
-        int streak = old.currentStreak() + 1;
-        int bestStreak = Math.max(old.bestStreak(), streak);
         int personalBest = Math.max(old.personalBest(), round);
         PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
-                points, streak, bestStreak, personalBest, old.wins(), old.mvpAwards()));
+                points, old.currentStreak(), old.bestStreak(), personalBest, old.wins(), old.mvpAwards()));
         save(server);
         return points;
     }
@@ -120,8 +118,10 @@ public final class PlayerStatsManager {
 
     public static synchronized void recordWin(MinecraftServer server, ServerPlayer player) {
         PlayerRecord old = getOrCreate(player);
+        int winStreak = old.currentStreak() + 1;
+        int bestWinStreak = Math.max(old.bestStreak(), winStreak);
         PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
-                old.points(), old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins() + 1, old.mvpAwards()));
+                old.points(), winStreak, bestWinStreak, old.personalBest(), old.wins() + 1, old.mvpAwards()));
         save(server);
     }
 
@@ -206,8 +206,8 @@ public final class PlayerStatsManager {
         player.sendSystemMessage(Component.literal("YOUR BLOCKPARTY PROFILE").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         player.sendSystemMessage(Component.literal("Points: " + record.points()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         player.sendSystemMessage(Component.literal("Rank: " + rank.name()).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("Current streak: " + record.currentStreak()).withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("Best streak: " + record.bestStreak()).withStyle(ChatFormatting.LIGHT_PURPLE));
+        player.sendSystemMessage(Component.literal("Win streak: " + record.currentStreak()).withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("Best win streak: " + record.bestStreak()).withStyle(ChatFormatting.LIGHT_PURPLE));
         player.sendSystemMessage(Component.literal("Personal best: " + record.personalBest() + "/15 rounds").withStyle(ChatFormatting.WHITE));
         player.sendSystemMessage(Component.literal("Wins: " + record.wins() + "  |  MVP awards: " + record.mvpAwards()).withStyle(ChatFormatting.GRAY));
         if (rank.isMaxRank()) player.sendSystemMessage(Component.literal("Du har nådd høyeste rank!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));

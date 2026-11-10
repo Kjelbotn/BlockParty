@@ -7,7 +7,7 @@ NeoForge mod for Minecraft 1.21.1 / Java 21.
 - Player inventory, armor, offhand, selected slot and original game mode are captured when joining, before lobby items are granted. The minigame uses its own inventory and restores the saved state when the player leaves or the match ends.
 - The match uses a simple 10-second countdown. `/bp forcestart <id>` is still the admin solo-test command.
 - With 2+ players, the automatic countdown begins when at least half of the joined players have voted for a track (rounded up). Ties are resolved randomly among the tied tracks.
-- Existing built-in tracks remain: Neon Beat, Pixel Rush and Night Drive. Music playback uses the registered BlockParty music events and repeats at the configured track duration.
+- The official music vote contains exactly two Bangerfabrikken tracks: **BlockParty** and **Odin er en alkis - Moon Edition**. Previous development/test tracks have been removed.
 - Floor patterns now use varied 4x4 mosaics, with all available palette colours represented in each tile group when the palette has 16 colours.
 - Sound effects can be replaced with a resource pack; see `BlockParty-Sound-Pack-Template-1.21.1.zip`.
 

@@ -330,7 +330,7 @@ public final class BlockPartyCommands {
             return 0;
         }
         source.sendSuccess(() -> Component.literal("BlockParty-statistikken til " + playerName
-                + " er nullstilt: poeng, streak, best streak, personlig rekord, seire og MVP-priser.")
+                + " er nullstilt: poeng, win streak, best win streak, personlig rekord, seire og MVP-priser.")
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
         return 1;
     }

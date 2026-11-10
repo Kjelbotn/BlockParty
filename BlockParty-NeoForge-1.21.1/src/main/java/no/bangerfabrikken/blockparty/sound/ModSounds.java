@@ -21,17 +21,7 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> POWERUP_PICKUP = sound("powerup_pickup");
     public static final DeferredHolder<SoundEvent, SoundEvent> VICTORY = sound("victory");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_BANGERFABRIKKEN = sound("music_bangerfabrikken");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_NEON = sound("music_neon");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ARCADE = sound("music_arcade");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_RUSH = sound("music_rush");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_1 = sound("music_custom_1");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_2 = sound("music_custom_2");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_3 = sound("music_custom_3");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_4 = sound("music_custom_4");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_5 = sound("music_custom_5");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_6 = sound("music_custom_6");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_7 = sound("music_custom_7");
-    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_CUSTOM_8 = sound("music_custom_8");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ODIN_MOON = sound("music_odin_moon");
 
     private ModSounds() { }
 

@@ -1315,8 +1315,8 @@ public final class Arena {
                 Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
                 Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
                 Component.literal("Points: " + matchPoints).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
-                Component.literal("Streak: " + currentStreak).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-                Component.literal("Best Streak: " + bestStreak).withStyle(ChatFormatting.LIGHT_PURPLE),
+                Component.literal("Win Streak: " + currentStreak).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
+                Component.literal("Best Win Streak: " + bestStreak).withStyle(ChatFormatting.LIGHT_PURPLE),
                 Component.literal("Powerups: " + personalPowerups).withStyle(ChatFormatting.GRAY)
         };
         for (int i = 0; i < ids.length; i++) {
@@ -1597,6 +1597,13 @@ public final class Arena {
         }
 
         matchWinnerId = winner == null ? null : winner.getUUID();
+        // A win streak counts consecutive match victories, never rounds survived.
+        // Every participant other than the declared winner has lost this match.
+        for (UUID participantId : players) {
+            if (winner == null || !participantId.equals(winner.getUUID())) {
+                PlayerStatsManager.breakStreak(level.getServer(), participantId);
+            }
+        }
         if (winner != null) {
             PlayerStatsManager.recordWin(level.getServer(), winner);
             level.sendParticles(ParticleTypes.FIREWORK, winner.getX(), winner.getY() + 1.5, winner.getZ(),
@@ -1657,9 +1664,9 @@ public final class Arena {
         restoreOriginalFloor();
         restoreOriginalArenaAccents();
 
-        // Nobody is sent home automatically. All participants remain in the arena session
-        // and can roam the spectator walkway until they explicitly use /bp leave or the
-        // redstone-dust leave item. Their original survival snapshots remain intact.
+        // The match is fully over: return every participant, including the winner and
+        // eliminated spectators, to the BlockParty lobby. They remain in the session
+        // until they explicitly use /bp leave or the redstone-dust leave item.
         for (UUID uuid : new HashSet<>(players)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
@@ -1672,8 +1679,8 @@ public final class Arena {
             player.getInventory().setItem(1, createMusicVotingBook());
             player.getInventory().setItem(8, createLeaveLobbyItem());
             player.inventoryMenu.broadcastChanges();
-            teleportToSpectatorWalkway(player);
-            player.sendSystemMessage(Component.literal("Kampen er ferdig! Du kan følge banen fra spectatorgangen. Bruk /bp leave eller redstone dust for å dra hjem.")
+            teleportToLobby(player);
+            player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
                     .withStyle(ChatFormatting.GREEN));
         }
 

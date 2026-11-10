@@ -1,4 +1,15 @@
+## 0.10.5-alpha
+- Removed all development/test songs from the music voting playlist and packaged resources.
+- Added **Odin er en alkis - Moon Edition** by Bangerfabrikken as the second official voting option.
+- The music vote now contains only **BlockParty** and **Odin er en alkis - Moon Edition**.
+
 # Changelog
+
+## 0.10.4-alpha
+- After a match ends, all participants (winner and eliminated spectators) are teleported back to the BlockParty lobby instead of the spectator walkway. Players remain in the BlockParty session until they use `/bp leave` or the redstone-dust leave item.
+
+## 0.10.3-alpha
+- Replaced round streak display with consecutive match wins (Win Streak) and best consecutive match wins (Best Win Streak).
 
 ## 0.10.2-alpha
 - Fixed NeoForge/Minecraft 1.21.1 API compatibility for weather parameters and scoreboard entry cleanup.
