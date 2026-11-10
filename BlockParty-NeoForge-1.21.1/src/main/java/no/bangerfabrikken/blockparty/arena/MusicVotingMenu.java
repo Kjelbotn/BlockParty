@@ -43,7 +43,7 @@ final class MusicVotingMenu extends ChestMenu {
     }
 
     private static int getDisplayedMatchSeconds(MusicTrackManager.Track track) {
-        return Math.max(1, track.durationSeconds());
+        return Math.max(1, (int) Math.round(track.durationSeconds()));
     }
 
     private static String formatDuration(int seconds) {
