@@ -558,7 +558,6 @@ public final class ArenaGenerator {
         // Restore the outer tinted-glass guardrail around the full ring for arenas
         // touched by the previous buggy update. The entrance helper then reopens
         // only the centered doorway at the south side.
-        int walkwayY = floorY + SPECTATOR_HEIGHT;
         for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
             for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
                 put(level, x, y, minZ - WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);

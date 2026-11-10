@@ -1,3 +1,8 @@
+# BlockParty 0.17.5-alpha
+
+- Fixed the remaining duplicate walkwayY declaration in ArenaGenerator.refreshVisuals.
+- Keeps the early declaration used by the spectator cleanup loop and removes the later duplicate.
+
 # BlockParty 0.17.4-alpha
 
 - Fixed the compile error in ArenaGenerator.refreshVisuals: walkwayY is now declared before the spectator-walkway cleanup loop.
