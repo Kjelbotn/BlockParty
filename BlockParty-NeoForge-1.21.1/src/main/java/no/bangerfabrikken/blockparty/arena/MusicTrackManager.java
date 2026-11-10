@@ -33,6 +33,10 @@ public final class MusicTrackManager {
                 ModSounds.MUSIC_HJULENE_OLLI, "music_hjulene_pa_bussen_olli");
         add("odin_terrorist", "Odin er en terrorist", "Bangerfabrikken", 0, 177,
                 ModSounds.MUSIC_ODIN_TERRORIST, "music_odin_terrorist");
+        add("exige_2014_launchpad_mix", "2014 Launchpad Mix", "Exige", 0, 364,
+                ModSounds.MUSIC_EXIGE_2014_LAUNCHPAD_MIX, "music_exige_2014_launchpad_mix");
+        add("hau_hau_hau", "Hau Hau Hau", "Bangerfabrikken", 0, 111,
+                ModSounds.MUSIC_HAU_HAU_HAU, "music_hau_hau_hau");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 

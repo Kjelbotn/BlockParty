@@ -1,3 +1,10 @@
+# BlockParty 0.15.3-alpha
+
+- Fixed the match sidebar being displayed to every player on the server.
+- The BlockParty sidebar is now sent only to players registered in the active match.
+- Non-participants keep their normal sidebar and do not receive BlockParty match display updates.
+- This is a display-only fix: BlockParty points are still awarded only through match gameplay to registered participants.
+
 # BlockParty 0.15.2-alpha
 
 - Redesigned the lobby DJ screen into a split layout: the complete existing song catalogue is listed on the left in its original playlist order.
@@ -17,3 +24,8 @@
 ## 0.15.0-alpha
 - Added covered lobby roof and interior lighting.
 - Expanded lobby DJ display and horizontal voting presentation.
+
+## 0.15.4-alpha
+- Added “2014 Launchpad Mix” by Exige.
+- Added “Hau Hau Hau” by Bangerfabrikken.
+- Existing tracks and voting behavior retained.

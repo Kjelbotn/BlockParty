@@ -111,5 +111,25 @@
         "volume": 1.0
       }
     ]
+  },
+  "music_exige_2014_launchpad_mix": {
+    "subtitle": "subtitles.blockparty.music_exige_2014_launchpad_mix",
+    "sounds": [
+      {
+        "name": "blockparty:music/exige_2014_launchpad_mix",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  },
+  "music_hau_hau_hau": {
+    "subtitle": "subtitles.blockparty.music_hau_hau_hau",
+    "sounds": [
+      {
+        "name": "blockparty:music/hau_hau_hau",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
   }
 }

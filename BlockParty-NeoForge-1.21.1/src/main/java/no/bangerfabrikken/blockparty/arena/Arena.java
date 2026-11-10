@@ -16,6 +16,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.world.item.DyeColor;
@@ -1625,17 +1626,28 @@ public final class Arena {
             current.setDisplayName(Component.literal("BlockParty").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         }
         if (sidebarObjective == null) {
-            previousSidebarObjective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
+            Objective globalSidebar = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
+            // Older BlockParty versions assigned this objective globally. Do not preserve
+            // that as the previous sidebar; clear it for everyone before targeting players.
+            previousSidebarObjective = globalSidebar == current ? null : globalSidebar;
             sidebarObjective = current;
         }
-        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, sidebarObjective);
+        if (scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR) == sidebarObjective) {
+            scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, previousSidebarObjective);
+        }
+        // Display the shared match objective only to players registered in this match.
+        for (UUID uuid : players) {
+            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
+            if (participant != null) {
+                participant.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, sidebarObjective));
+            }
+        }
         updateScoreboard(server);
     }
 
     private void updateScoreboard(MinecraftServer server) {
         if (sidebarObjective == null) return;
         Scoreboard scoreboard = server.getScoreboard();
-        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, sidebarObjective);
 
         ServerPlayer profilePlayer = null;
         for (UUID uuid : players) {
@@ -1686,6 +1698,14 @@ public final class Arena {
         Scoreboard scoreboard = server.getScoreboard();
         if (scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR) == sidebarObjective) {
             scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, previousSidebarObjective);
+        }
+        // Explicitly restore each participant's display slot as well. Non-participants
+        // never receive the BlockParty display objective.
+        for (UUID uuid : players) {
+            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
+            if (participant != null) {
+                participant.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, previousSidebarObjective));
+            }
         }
         sidebarObjective = null;
         previousSidebarObjective = null;
