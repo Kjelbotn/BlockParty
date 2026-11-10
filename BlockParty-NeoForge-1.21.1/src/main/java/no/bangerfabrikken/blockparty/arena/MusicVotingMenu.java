@@ -25,6 +25,7 @@ final class MusicVotingMenu extends ChestMenu {
     private static final int FIRST_ROW = 2;
     private static final int MAX_COLUMNS = 7;
     private static final int MAX_VISIBLE_TRACKS = 14;
+    private static final int MAX_MATCH_SECONDS = 210;
 
     private final Arena arena;
     private final SimpleContainer songContainer;
@@ -41,6 +42,30 @@ final class MusicVotingMenu extends ChestMenu {
         this.viewerId = viewerId;
         this.songContainer = container;
         refreshContents();
+    }
+
+    private static int getDisplayedMatchSeconds(MusicTrackManager.Track track) {
+        return Math.min(Math.max(1, track.durationSeconds()), MAX_MATCH_SECONDS);
+    }
+
+    private static String formatDuration(int seconds) {
+        return String.format(java.util.Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
+    }
+
+    private static String getDifficulty(int matchSeconds) {
+        if (matchSeconds >= 180) return "EASY";
+        if (matchSeconds >= 120) return "MEDIUM";
+        if (matchSeconds >= 90) return "HARD";
+        return "EXPERT";
+    }
+
+    private static ChatFormatting getDifficultyColor(String difficulty) {
+        return switch (difficulty) {
+            case "EASY" -> ChatFormatting.GREEN;
+            case "MEDIUM" -> ChatFormatting.AQUA;
+            case "HARD" -> ChatFormatting.GOLD;
+            default -> ChatFormatting.RED;
+        };
     }
 
     void refreshContents() {
@@ -71,9 +96,14 @@ final class MusicVotingMenu extends ChestMenu {
             boolean selected = track.id().equals(selectedTrack);
             icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA, ChatFormatting.BOLD));
+
             long votes = arena.getTrackVoteCount(track.id());
+            int matchSeconds = getDisplayedMatchSeconds(track);
+            String difficulty = getDifficulty(matchSeconds);
             icon.set(DataComponents.LORE, new ItemLore(List.of(
                     Component.literal("Artist: " + track.artist()).withStyle(ChatFormatting.GRAY),
+                    Component.literal(difficulty + " | " + formatDuration(matchSeconds))
+                            .withStyle(getDifficultyColor(difficulty), ChatFormatting.BOLD),
                     Component.literal("Stemmer: " + votes).withStyle(ChatFormatting.YELLOW),
                     Component.literal(selected ? "DITT NÅVÆRENDE VALG" : "Klikk for å stemme eller bytte valg")
                             .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW)
