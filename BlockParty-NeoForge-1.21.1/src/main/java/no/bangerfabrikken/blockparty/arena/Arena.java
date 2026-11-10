@@ -6,8 +6,6 @@ import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +19,7 @@ import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -482,6 +481,12 @@ public final class Arena {
                     .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         }
 
+        for (UUID uuid : players) {
+            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
+            if (participant != null && participant.containerMenu instanceof MusicVotingMenu) {
+                participant.closeContainer();
+            }
+        }
         phase = Phase.COUNTDOWN;
         timerTicks = START_COUNTDOWN_TICKS;
         hideLobbyLeaderboard();
@@ -1185,22 +1190,27 @@ public final class Arena {
                     .withStyle(ChatFormatting.RED));
             return;
         }
-        player.sendSystemMessage(Component.literal("BLOCKPARTY MUSIC VOTING").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("Klikk på en sang for å stemme. Du kan endre stemmen frem til kampen starter.")
-                .withStyle(ChatFormatting.GRAY));
-        String currentVote = musicVotes.get(player.getUUID());
-        for (Track track : MusicTrackManager.getTracks()) {
-            long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            Component choice = Component.literal("▶ " + track.name() + " — " + track.artist() + " (" + votes + " votes)")
-                    .withStyle(style -> style.withColor(0x55DDE5).withBold(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/bp vote " + track.id()))
-                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                                    Component.literal("Klikk for å stemme på " + track.name() + " av " + track.artist()))));
-            if (track.id().equals(currentVote)) choice = choice.copy().append(Component.literal("  ✓ DIN STEMME")
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-            player.sendSystemMessage(choice);
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, menuPlayer) -> new MusicVotingMenu(containerId, inventory, this, (ServerPlayer) menuPlayer),
+                Component.literal("BlockParty – Sangvalg")));
+    }
+
+    long getTrackVoteCount(String trackId) {
+        return musicVotes.values().stream().filter(trackId::equals).count();
+    }
+
+    private void refreshOpenMusicVotingMenus() {
+        if (level == null || level.getServer() == null) return;
+        for (UUID uuid : players) {
+            ServerPlayer viewer = level.getServer().getPlayerList().getPlayer(uuid);
+            if (viewer != null && viewer.containerMenu instanceof MusicVotingMenu menu) {
+                menu.refreshContents();
+            }
         }
-        if (currentVote == null) player.sendSystemMessage(Component.literal("Du har ikke stemt ennå.").withStyle(ChatFormatting.GRAY));
+    }
+
+    String getPlayerMusicVote(UUID playerId) {
+        return musicVotes.get(playerId);
     }
 
     public boolean voteMusic(ServerPlayer player, String trackId) {
@@ -1222,6 +1232,7 @@ public final class Arena {
         musicVotes.put(player.getUUID(), track.id());
         player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        refreshOpenMusicVotingMenus();
         refreshDjScreen();
         int requiredVotes = Math.max(2, (players.size() * 2 + 2) / 3);
         long validVotes = musicVotes.keySet().stream().filter(players::contains).count();
