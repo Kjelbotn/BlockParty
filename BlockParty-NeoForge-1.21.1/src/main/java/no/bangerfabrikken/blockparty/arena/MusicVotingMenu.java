@@ -25,8 +25,6 @@ final class MusicVotingMenu extends ChestMenu {
     private static final int FIRST_ROW = 2;
     private static final int MAX_COLUMNS = 7;
     private static final int MAX_VISIBLE_TRACKS = 14;
-    private static final int MAX_MATCH_SECONDS = 210;
-
     private final Arena arena;
     private final SimpleContainer songContainer;
     private final UUID viewerId;
@@ -45,7 +43,7 @@ final class MusicVotingMenu extends ChestMenu {
     }
 
     private static int getDisplayedMatchSeconds(MusicTrackManager.Track track) {
-        return Math.min(Math.max(1, track.durationSeconds()), MAX_MATCH_SECONDS);
+        return Math.max(1, track.durationSeconds());
     }
 
     private static String formatDuration(int seconds) {
