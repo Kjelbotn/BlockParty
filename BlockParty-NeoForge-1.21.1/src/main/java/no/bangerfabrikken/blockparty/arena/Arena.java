@@ -160,6 +160,7 @@ public final class Arena {
     public Phase getPhase() { return phase; }
     public int getPlayerCount() { return players.size(); }
     public boolean containsPlayer(UUID playerId) { return players.contains(playerId); }
+    public boolean hasReturnLocation(UUID playerId) { return returnLocations.containsKey(playerId); }
 
     public boolean isConfigured() {
         return level != null && pos1 != null && pos2 != null && lobbySet;
@@ -695,7 +696,7 @@ public final class Arena {
         for (UUID uuid : players) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) {
-                player.playNotifySound(track.sound().value(), SoundSource.MUSIC, 1.0F, 1.0F);
+                player.playNotifySound(track.sound().value(), SoundSource.RECORDS, 1.0F, 1.0F);
             }
         }
     }
@@ -707,7 +708,7 @@ public final class Arena {
         }
         for (UUID uuid : players) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-            if (player != null) player.connection.send(new ClientboundStopSoundPacket(activeMusicId, SoundSource.MUSIC));
+            if (player != null) player.connection.send(new ClientboundStopSoundPacket(activeMusicId, SoundSource.RECORDS));
         }
         activeMusicId = null;
         musicTicksUntilReplay = 0;
@@ -1154,38 +1155,43 @@ public final class Arena {
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int width = Math.abs(pos2.getX() - pos1.getX()) + 1;
+        int depth = Math.abs(pos2.getZ() - pos1.getZ()) + 1;
+        int centerX = width / 2;
+        int centerZ = depth / 2;
         int pattern = random.nextInt(12);
         if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(11)) % 12;
         previousPattern = pattern;
         int offset = random.nextInt(colors.size());
-        List<DyeColor> cell = new ArrayList<>(colors);
-        Collections.shuffle(cell, random);
-        int rotation = random.nextInt(4);
-        boolean mirror = random.nextBoolean();
+        int twist = random.nextInt(4);
         Set<DyeColor> used = EnumSet.noneOf(DyeColor.class);
 
         for (BlockPos pos : new ArrayList<>(originalFloorSnapshot.keySet())) {
             int x = pos.getX() - minX;
             int z = pos.getZ() - minZ;
-            int lx = Math.floorMod(x, 4);
-            int lz = Math.floorMod(z, 4);
-            if (mirror) lx = 3 - lx;
-            for (int r = 0; r < rotation; r++) { int t = lx; lx = lz; lz = 3 - t; }
-            int local = switch (pattern) {
-                case 1 -> (lx * 4 + lz);
-                case 2 -> (lz * 4 + lx);
-                case 3 -> ((lx + lz) % 4) * 4 + ((lx - lz + 4) % 4);
-                case 4 -> ((lx ^ lz) * 4 + ((lx + lz) % 4));
-                case 5 -> ((lx * 2 + lz) % 16);
-                case 6 -> ((lz * 3 + lx * 5) % 16);
-                case 7 -> ((lx * 4 + (3 - lz)) % 16);
-                case 8 -> ((lx * 7 + lz * 3 + ((lx * lz) % 4)) % 16);
-                case 9 -> (((lx + lz) % 4) * 4 + ((lx * 2 + lz * 3) % 4));
-                case 10 -> (((lx * lx + 3 * lz + lx * lz) % 4) * 4 + ((lz * lz + lx) % 4));
-                case 11 -> ((Integer.rotateLeft(lx * 4 + lz, 1) + lx + 2 * lz) % 16);
-                default -> random.nextInt(16);
-            };
-            DyeColor color = cell.get(Math.floorMod(local + offset, cell.size()));
+            int dx = x - centerX;
+            int dz = z - centerZ;
+            int ax = Math.abs(dx);
+            int az = Math.abs(dz);
+            int ring = Math.max(ax, az);
+            int distance = ax + az;
+            int diagonal = x + z;
+            int index;
+            switch (pattern) {
+                case 0 -> index = (ring / 2 + twist) % colors.size(); // broad concentric squares
+                case 1 -> index = (int) Math.floorMod(Math.atan2(dz, dx) * 4.0 + Math.sqrt(dx * dx + dz * dz) / 2.5 + twist, colors.size()); // spiral
+                case 2 -> index = ((x / 3) + (z / 3) + twist) % colors.size(); // checkerboard
+                case 3 -> index = (int) Math.floorMod((diagonal / 3) + twist, colors.size()); // diagonal bands
+                case 4 -> index = ((x / 4) % 2 == 0 ? z / 2 : (depth - 1 - z) / 2) + twist; // woven lanes
+                case 5 -> index = (distance / 3 + twist) % colors.size(); // diamond rings
+                case 6 -> index = (int) Math.floorMod(Math.atan2(dz, dx) * colors.size() / (Math.PI * 2.0) + twist, colors.size()); // radial color wheel
+                case 7 -> index = ((ax / 3) * 3 + (az / 3) + twist) % colors.size(); // nested blocks
+                case 8 -> index = (ax <= 2 || az <= 2 ? 0 : (ring / 3 + twist)) % colors.size(); // cross with outer bands
+                case 9 -> index = ((int) Math.floor((Math.sin(x / 3.0 + twist) + Math.cos(z / 3.0) + 2.0) * 3.0) + twist) % colors.size(); // flowing waves
+                case 10 -> index = ((dx * dz >= 0 ? 0 : colors.size() / 2) + (ring / 3) + twist) % colors.size(); // pinwheel quadrants
+                default -> index = ((x / 5) % 2 == 0 ? z / 3 : (depth - 1 - z) / 3) + (x / 5) + twist; // interlocking maze
+            }
+            DyeColor color = colors.get(Math.floorMod(index + offset, colors.size()));
             BlockState newState = BlockPartyColors.getConcrete(color).defaultBlockState();
             level.setBlock(pos, newState, 3);
             floorSnapshot.put(pos, newState);

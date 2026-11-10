@@ -1,4 +1,6 @@
-BlockParty 0.8.0-alpha
+BlockParty 0.8.1-alpha
 Upload the contents of this folder to the root of your GitHub repository and allow GitHub Actions to build.
 
-For pack-down: run /bp demolish <id> as an operator. WARNING: this clears the generated stadium footprint to air. Any terrain overwritten during generation cannot be recovered automatically.
+Music: the three bundled tracks use the Records/Jukebox volume category. Raise the Jukebox/Note Blocks slider in Music & Sounds. The BlockParty mod must be installed on both server and client.
+
+Pattern generation and /bp leave session lookup have been revised.

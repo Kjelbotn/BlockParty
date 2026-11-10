@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.1-alpha
+- Reworked floor generation into 12 recognizable geometric patterns: concentric squares, spiral, checkerboard, diagonal bands, woven lanes, diamonds, radial wheel, nested blocks, cross, waves, pinwheel and maze.
+- `/bp leave` now locates an active return session as well as normal arena membership, preventing false "not in arena" responses.
+- Corrected the built-in music event IDs (`music_neon`, `music_arcade`, `music_rush`).
+- Music is now sent through the Records/Jukebox sound category at full event volume. Check the Records/Jukebox slider in Music & Sounds.
+- Kept 20 rounds and the adjusted late-round timings from 0.8.0-alpha.
+
+# Changelog
+
 ## 0.8.0-alpha
 - Added exact return-location restoration for `/bp leave` and after match completion.
 - Added administrator command `/bp demolish <id>` to remove a generated arena footprint and its BlockParty displays.

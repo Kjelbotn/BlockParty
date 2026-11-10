@@ -47,3 +47,10 @@ Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21. Build with the repository's GitH
 - The match sidebar appears when players enter the dance floor, not while waiting in the lobby.
 
 If music is still silent, first test with the BlockParty mod installed on both server and client, and temporarily disable other resource packs to rule out an override of `assets/blockparty/sounds.json` or the music OGG files. The server-side `Starting BlockParty track` log confirms only that the server sent the sound request, not that the client successfully loaded the sound.
+
+
+## 0.8.1-alpha troubleshooting and changes
+- Floor patterns are now designed as recognizable geometric motifs rather than a repeating 4x4 tile formula.
+- `/bp leave` checks both arena membership and the stored return-location session.
+- Music event IDs for the three bundled tracks now match the registered sound event names exactly.
+- Music uses Minecraft's **Records/Jukebox** volume category. In Options → Music & Sounds, raise **Jukebox/Note Blocks** (label may vary by client language). The server sends the registered sound event; the client must have BlockParty installed as a mod, not only as a resource pack.

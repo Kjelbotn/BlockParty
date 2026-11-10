@@ -101,8 +101,9 @@ public final class ArenaManager {
     }
 
     private boolean arenaHasPlayer(Arena arena, UUID playerId) {
-        // The arena exposes its membership through the manager-safe helper below.
-        return arena.containsPlayer(playerId);
+        // A return location is also an active BlockParty session, even if a previous
+        // phase transition temporarily removed the UUID from the live-player set.
+        return arena.containsPlayer(playerId) || arena.hasReturnLocation(playerId);
     }
 
     public void tick(MinecraftServer server) {
