@@ -83,42 +83,44 @@ public final class Arena {
     private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds in lobby
     private static final int TELEPORT_COUNTDOWN_TICKS = 100; // 5 seconds after teleport
     private static final long TELEPORT_SUNSET_END = 13_500L;
-    private static final int FALL_TICKS = 35; // baseline, scaled to fit the selected track
-    private static final int INTERMISSION_TICKS = 25; // baseline, scaled with the selected track
-    // 25 rounds: start at 10 seconds and gradually tighten the time window.
-    // The final rounds remain playable rather than dropping to near-instant timings.
+    // These transition phases pause the music, so they are deliberately not
+    // included in the song-time budget. They remain fixed gameplay transitions.
+    private static final int FALL_TICKS = 35;
+    private static final int INTERMISSION_TICKS = 25;
+    // Twenty round timers are proportionally distributed across the complete track.
     private static final int[] ROUND_DURATION_TICKS = {
             200, 190, 180, 170, 160, 150, 140, 130, 120, 110,
             100, 92, 84, 76, 68, 60, 54, 48, 42, 36
     };
+    private static final int TOTAL_BASE_ROUND_TICKS =
+            java.util.Arrays.stream(ROUND_DURATION_TICKS).sum();
 
-    /** Shorter songs get tighter round timers; every song still has exactly 20 rounds. */
+    /**
+     * Distribute the track's exact playback tick budget across all 20 rounds.
+     * Cumulative rounding guarantees that the sum of all round timers is exactly
+     * durationSeconds * 20, without losing ticks to per-round rounding.
+     */
     private int getRoundDurationTicks(int roundNumber) {
         int index = Math.max(0, Math.min(roundNumber - 1, MAX_ROUNDS - 1));
-        int baseTicks = ROUND_DURATION_TICKS[index];
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        if (track == null) return baseTicks;
-        // A match has at most 20 rounds and fits inside one play of the song.
-        // 3:30 is the hard cap; shorter tracks compress the round timers and transitions,
-        // making the game faster and harder without reducing the round count.
-        double factor = getMatchTimingFactor();
-        return Math.max(8, (int) Math.round(baseTicks * factor));
-    }
-    private double getMatchTimingFactor() {
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        int songSeconds = track == null ? 120 : Math.max(1, Math.min(track.durationSeconds(), 210));
-        // Baseline schedule: all 20 round timers plus 19 fall/intermission transitions.
-        int baselineTicks = java.util.Arrays.stream(ROUND_DURATION_TICKS).sum()
-                + (MAX_ROUNDS - 1) * (FALL_TICKS + INTERMISSION_TICKS);
-        return (songSeconds * 20.0) / baselineTicks;
+        if (track == null) return ROUND_DURATION_TICKS[index];
+
+        long totalSongTicks = Math.max(1, track.durationSeconds()) * 20L;
+        int baseTicksBefore = 0;
+        for (int i = 0; i < index; i++) baseTicksBefore += ROUND_DURATION_TICKS[i];
+        int baseTicksThrough = baseTicksBefore + ROUND_DURATION_TICKS[index];
+
+        long startTick = Math.round(baseTicksBefore * (double) totalSongTicks / TOTAL_BASE_ROUND_TICKS);
+        long endTick = Math.round(baseTicksThrough * (double) totalSongTicks / TOTAL_BASE_ROUND_TICKS);
+        return Math.max(1, (int) (endTick - startTick));
     }
 
     private int getFallDurationTicks() {
-        return Math.max(4, (int) Math.round(FALL_TICKS * getMatchTimingFactor()));
+        return FALL_TICKS;
     }
 
     private int getIntermissionDurationTicks() {
-        return Math.max(3, (int) Math.round(INTERMISSION_TICKS * getMatchTimingFactor()));
+        return INTERMISSION_TICKS;
     }
 
     private static final int TARGET_BLOCK_SLOT = 4; // middle hotbar slot (1-based slot 5)
@@ -1157,7 +1159,7 @@ public final class Arena {
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (track == null) return;
         activeMusicId = track.soundId();
-        musicTicksRemaining = Math.min(Math.max(1, track.durationSeconds()), 210) * 20;
+        musicTicksRemaining = Math.max(1, track.durationSeconds()) * 20;
         musicFinished = false;
         musicPaused = false;
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
