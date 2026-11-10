@@ -210,3 +210,17 @@
 - Moved “GJØR DEG KLAR!” to the final 3-second countdown in the lobby, before teleportation.
 - Removed “STARTER SNART” from the post-teleport countdown; the arena countdown now displays only 5–1.
 - Clears the pre-teleport subtitle when players arrive in the arena.
+
+
+## 0.13.5-alpha
+- Fixed world time changing during the lobby countdown, including force-starts; the original Survival time and gamerules are now captured only after all players have been teleported to the dance floor.
+- Added a five-second sunset animation on the dance floor, smoothly advancing the sky from dusk to 13,500 before the first round starts.
+- Prevented lobby Join/Leave/Vote controls from being refreshed after teleportation.
+- Enforced a clean match inventory: active players may only carry the target-colour concrete in its dedicated hotbar slot; eliminated players carry no items.
+- Blocked all item drops during a match; the target-colour block is restored to its fixed slot and other items are discarded.
+
+
+## 0.13.6-alpha
+- Fixed eliminated players briefly regaining their pre-match held item after elimination.
+- Eliminated players now have their entire inventory cleared immediately and remain empty throughout the ongoing match.
+- Lobby controls (Join Nether Star and Leave Redstone Dust, plus the vote book for enrolled players) are granted again only when the match ends and participants return to the lobby.

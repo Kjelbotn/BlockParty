@@ -169,8 +169,12 @@ public final class BlockPartyMod {
     private boolean handleLobbyItemInteraction(ServerPlayer player, ItemStack stack) {
         if (no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
             no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
-            if (arena != null && arena.hasReturnLocation(player.getUUID())) {
+            if (arena != null && arena.hasReturnLocation(player.getUUID()) && arena.isLobbyControlPhase()) {
                 arena.leave(player, true);
+            } else if (arena != null && arena.hasReturnLocation(player.getUUID())) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "Du kan ikke forlate matchen med lobbykontrollene. Bruk vanlig spillflyt.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
             } else {
                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                         "Du er ikke registrert som deltaker i en BlockParty-arena.")
@@ -226,19 +230,20 @@ public final class BlockPartyMod {
         boolean concreteDuringMatch = inActiveMatch
                 && no.bangerfabrikken.blockparty.util.BlockPartyColors.isConcrete(
                 net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState());
-        boolean protectedMatchItem = inActiveMatch && (
-                concreteDuringMatch
-                || no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack)
-                || no.bangerfabrikken.blockparty.arena.Arena.isLeapFeather(stack));
+        // During a match, no inventory item may be dropped. The target block is
+        // restored to its fixed slot; any other item is discarded as an invalid item.
+        boolean protectedMatchItem = inActiveMatch;
 
         // Crucially, do not globally protect Nether Stars, Books or Redstone Dust:
         // in survival outside an active lobby/match they must be droppable as normal.
         if (!protectedLobbyControl && !protectedMatchItem) return;
 
-        if (inActiveMatch && (no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack)
-                || concreteDuringMatch)) {
-            // Keep the target block in its fixed centre hotbar slot, never slot 1.
-            matchArena.restoreTossedTargetBlock(player, stack);
+        if (inActiveMatch) {
+            if (no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack) || concreteDuringMatch) {
+                // Keep the target block in its fixed centre hotbar slot, never slot 1.
+                matchArena.restoreTossedTargetBlock(player, stack);
+            }
+            // All other match-time drops (including lobby controls) are discarded.
         } else if (inLobby && no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
             // Keep the lobby exit control anchored in hotbar slot 9.
             player.getInventory().setItem(8, stack.copy());

@@ -81,6 +81,8 @@ public final class Arena {
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
     private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds in lobby
     private static final int TELEPORT_COUNTDOWN_TICKS = 100; // 5 seconds after teleport
+    private static final long TELEPORT_SUNSET_START = 12_000L;
+    private static final long TELEPORT_SUNSET_END = 13_500L;
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
     // 25 rounds: start at 10 seconds and gradually tighten the time window.
@@ -105,6 +107,8 @@ public final class Arena {
     private float lobbyPitch;
     private boolean lobbySet;
     private boolean visualUpgradeApplied;
+    private long teleportSunsetStartTime = Long.MIN_VALUE;
+    private long teleportSunsetEndTime = Long.MIN_VALUE;
 
     private final Set<UUID> players = new LinkedHashSet<>();
     private final Set<UUID> alive = new LinkedHashSet<>();
@@ -255,6 +259,23 @@ public final class Arena {
             if (food.getFoodLevel() != 20) food.setFoodLevel(20);
             if (food.getSaturationLevel() != 20.0F) food.setSaturation(20.0F);
             if (food.getExhaustionLevel() != 0.0F) food.setExhaustion(0.0F);
+
+            // Once the match starts, the only permitted inventory item for active
+            // dancers is the named target-colour concrete in its fixed centre slot.
+            if (phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
+                    || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
+                boolean changed = false;
+                for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                    ItemStack stack = player.getInventory().getItem(slot);
+                    boolean keepTarget = alive.contains(uuid) && slot == TARGET_BLOCK_SLOT
+                            && isTargetColorBlock(stack);
+                    if (!stack.isEmpty() && !keepTarget) {
+                        player.getInventory().setItem(slot, ItemStack.EMPTY);
+                        changed = true;
+                    }
+                }
+                if (changed) player.inventoryMenu.broadcastChanges();
+            }
         }
     }
 
@@ -278,6 +299,11 @@ public final class Arena {
 
     public boolean isRunning() {
         return phase != Phase.WAITING;
+    }
+
+    /** Lobby controls are usable only before participants are teleported to the floor. */
+    public boolean isLobbyControlPhase() {
+        return phase == Phase.WAITING || phase == Phase.COUNTDOWN;
     }
 
     public void setCorner(int corner, BlockPos pos) {
@@ -431,11 +457,6 @@ public final class Arena {
         int screenFloorY = pos1.getY();
         int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
         displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
-        if (originalDayTime == Long.MIN_VALUE) {
-            originalDayTime = level.getDayTime();
-            originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
-            originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
-        }
         alive.clear();
         alive.addAll(players);
         pendingEliminations.clear();
@@ -489,9 +510,20 @@ public final class Arena {
             declareWinner();
             return;
         }
-        // Switch to night lighting exactly when the players arrive in the arena.
-        level.setDayTime(13_500L);
+        // Snapshot the actual Survival-world time only after everyone has arrived.
+        // The lobby countdown therefore never changes or rewinds the world clock.
+        if (originalDayTime == Long.MIN_VALUE) {
+            originalDayTime = level.getDayTime();
+            originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+            originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
+        }
+        long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
+        teleportSunsetStartTime = dayStart + TELEPORT_SUNSET_START;
+        teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
+        // Freeze natural time progression, then manually animate sunset during the
+        // five-second arena countdown so players can watch the sky darken.
         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+        level.setDayTime(teleportSunsetStartTime);
         level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
         level.setWeatherParameters(20 * 60 * 60, 0, false, false);
 
@@ -984,7 +1016,8 @@ public final class Arena {
     /** True only while this player is physically inside this arena's lobby area. */
     public boolean isLobbyAccessibleTo(ServerPlayer player) {
         if (!lobbySet || level == null || player.serverLevel() != level) return false;
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) return false;
+        // Lobby controls must never be refreshed after participants have been teleported.
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return false;
         return Math.abs(player.getX() - lobbyX) <= 36.0
                 && Math.abs(player.getZ() - lobbyZ) <= 40.0
                 && Math.abs(player.getY() - lobbyY) <= 22.0;
@@ -993,6 +1026,7 @@ public final class Arena {
     /** Give the non-interactive wall instructions' matching inventory items to lobby visitors. */
     public void ensureLobbyItems(ServerPlayer player) {
         if (!lobbySet || level == null || player.serverLevel() != level) return;
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
         if (!returnLocations.containsKey(player.getUUID())) return;
         giveUniqueLobbyItem(player, createJoinGameItem(), Arena::isJoinGameItem);
         ensureLeaveLobbyItem(player);
@@ -1254,9 +1288,12 @@ public final class Arena {
                 }
             }
         }
-        if (phase != Phase.WAITING && level != null) {
-            // Keep the match lighting fixed even if another command changes the time mid-game.
-            if (level.getDayTime() != 13_500L) level.setDayTime(13_500L);
+        if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION
+                || phase == Phase.FINISHING) && level != null) {
+            // After the sunset countdown, keep the arena at its final night setting.
+            if (teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
+                level.setDayTime(teleportSunsetEndTime);
+            }
         }
         if (scoreboardTick % 20 == 0) removeMobsFromProtectedArea();
         if (isGameInProgress()) {
@@ -1314,6 +1351,11 @@ public final class Arena {
                     break;
                 }
                 timerTicks--;
+                long sunsetProgress = TELEPORT_COUNTDOWN_TICKS - Math.max(0, timerTicks);
+                long sunsetTime = teleportSunsetStartTime
+                        + ((teleportSunsetEndTime - teleportSunsetStartTime) * sunsetProgress)
+                        / TELEPORT_COUNTDOWN_TICKS;
+                if (level.getDayTime() != sunsetTime) level.setDayTime(sunsetTime);
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
                     int secondsLeft = timerTicks / 20;
                     for (UUID uuid : alive) {
@@ -1816,7 +1858,11 @@ public final class Arena {
         broadcast(Component.literal(player.getName().getString() + " tapte konkurransen!")
                 .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
         PlayerStatsManager.breakStreak(level.getServer(), uuid);
-        restoreHeldItemOnly(player);
+        // Eliminated players must have an entirely empty inventory until the match
+        // ends. In particular, never restore their pre-match selected item here: it
+        // could be a Nether Star or Redstone Dust and expose lobby controls mid-match.
+        player.getInventory().clearContent();
+        player.inventoryMenu.broadcastChanges();
         player.setGameMode(GameType.ADVENTURE);
         teleportToSpectatorWalkway(player);
         player.sendSystemMessage(Component.literal("Du er ute! Du kan følge kampen fra spectatorgangen.")
@@ -2016,6 +2062,8 @@ public final class Arena {
                 level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(originalWeatherCycle, server);
             }
             originalDayTime = Long.MIN_VALUE;
+            teleportSunsetStartTime = Long.MIN_VALUE;
+            teleportSunsetEndTime = Long.MIN_VALUE;
             originalDaylightCycle = null;
             originalWeatherCycle = null;
         }
@@ -2054,12 +2102,6 @@ public final class Arena {
                 player.getInventory().selected));
     }
 
-    private void restoreHeldItemOnly(ServerPlayer player) {
-        InventorySnapshot held = originalHeldItems.get(player.getUUID());
-        if (held == null) return;
-        player.getInventory().selected = held.selectedSlot();
-        player.getInventory().setItem(held.selectedSlot(), held.main().get(held.selectedSlot()).copy());
-    }
 
     private void teleportToSpectatorWalkway(ServerPlayer player) {
         if (level == null || pos1 == null || pos2 == null) return;
