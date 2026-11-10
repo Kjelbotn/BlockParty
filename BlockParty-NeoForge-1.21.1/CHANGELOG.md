@@ -69,3 +69,9 @@
 - LEAP BOOST feathers now persist across rounds until used, instead of being removed at the end of each round.
 - Unused feathers are cleared only when the match ends; the feather remains protected from dropping.
 - Increased the match limit to 25 rounds. The round timer starts at 10 seconds and gradually decreases to 3.5 seconds by round 25.
+
+
+## 0.9.5-alpha
+- Added a redstone-dust Leave Lobby control fixed to hotbar slot 9. Right-clicking it performs the same leave flow as `/bp leave`.
+- The leave control is protected against dropping and is removed when leaving the arena.
+- Leaving now returns only to the saved pre-join survival location; missing return data produces a warning instead of teleporting to the lobby.

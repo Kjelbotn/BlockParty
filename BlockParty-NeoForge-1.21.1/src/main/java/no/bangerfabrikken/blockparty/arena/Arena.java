@@ -170,6 +170,27 @@ public final class Arena {
     public boolean containsPlayer(UUID playerId) { return players.contains(playerId); }
     public boolean hasReturnLocation(UUID playerId) { return returnLocations.containsKey(playerId); }
 
+    /** Fallback for /bp leave if a session UUID was lost: only match players physically near this running arena. */
+    public boolean canLocatePlayerForLeave(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        if (players.contains(uuid) || returnLocations.containsKey(uuid)
+                || originalHeldItems.containsKey(uuid) || originalGameModes.containsKey(uuid)) return true;
+        if (!isGameInProgress() || level == null || player.serverLevel() != level || pos1 == null || pos2 == null) return false;
+        double minX = Math.min(pos1.getX(), pos2.getX()) - 35.0;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 35.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 35.0;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 35.0;
+        double minY = Math.min(pos1.getY(), pos2.getY()) - 90.0;
+        double maxY = Math.max(pos1.getY(), pos2.getY()) + 55.0;
+        return player.getX() >= minX && player.getX() <= maxX
+                && player.getZ() >= minZ && player.getZ() <= maxZ
+                && player.getY() >= minY && player.getY() <= maxY;
+    }
+
+    public boolean isMatchParticipant(ServerPlayer player) {
+        return isGameInProgress() && (players.contains(player.getUUID()) || canLocatePlayerForLeave(player));
+    }
+
     public boolean isConfigured() {
         return level != null && pos1 != null && pos2 != null && lobbySet;
     }
@@ -246,7 +267,11 @@ public final class Arena {
 
     public void leave(ServerPlayer player, boolean teleport) {
         UUID uuid = player.getUUID();
-        boolean wasMember = players.contains(uuid);
+        // Treat any retained session snapshot as membership too. This protects /bp leave
+        // if the live-player set ever gets out of sync during a phase transition.
+        boolean wasMember = players.contains(uuid) || returnLocations.containsKey(uuid)
+                || originalHeldItems.containsKey(uuid) || originalGameModes.containsKey(uuid)
+                || canLocatePlayerForLeave(player);
         if (wasMember && activeMusicId != null) {
             PacketDistributor.sendToPlayer(player,
                     new MusicControlPayload(activeMusicId, MusicControlPayload.STOP));
@@ -260,7 +285,12 @@ public final class Arena {
         restorePlayerState(player);
         if (teleport && wasMember) {
             ReturnLocation origin = returnLocations.remove(uuid);
-            if (origin != null) player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
+            if (origin != null) {
+                player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
+            } else {
+                player.sendSystemMessage(Component.literal("Returposisjonen din ble ikke funnet. Du er ikke teleportert til lobbyen.")
+                        .withStyle(ChatFormatting.RED));
+            }
         } else if (wasMember && !teleport) {
             returnLocations.remove(uuid);
         }
@@ -291,6 +321,7 @@ public final class Arena {
             throw new IllegalStateException("Ingen tilkoblede spillere er med i arenaen.");
         }
 
+        applyVisualUpgrade();
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
@@ -302,7 +333,8 @@ public final class Arena {
             originalDayTime = level.getDayTime();
             originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
         }
-        level.setDayTime(6_000L);
+        // Stadium lighting is designed for night play; 13500 is dusk/nightfall, not midnight.
+        level.setDayTime(13_500L);
         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
         alive.clear();
         alive.addAll(players);
@@ -782,7 +814,8 @@ public final class Arena {
 
     /** Lobby utility items are bound to the player and cannot be dropped or duplicated. */
     public static boolean isProtectedLobbyItem(ItemStack stack) {
-        return isMusicVotingBook(stack) || isJoinGameItem(stack) || isTargetColorBlock(stack) || isLeapFeather(stack);
+        return isMusicVotingBook(stack) || isJoinGameItem(stack) || isLeaveLobbyItem(stack)
+                || isTargetColorBlock(stack) || isLeapFeather(stack);
     }
 
     public static boolean isMusicVotingBook(ItemStack stack) {
@@ -796,6 +829,13 @@ public final class Arena {
         if (stack == null || stack.isEmpty() || !stack.is(Items.NETHER_STAR)) return false;
         Component customName = stack.get(DataComponents.CUSTOM_NAME);
         return customName != null && "BlockParty Join Game".equals(customName.getString());
+    }
+
+    /** Redstone dust in hotbar slot 9 returns a lobby participant to their saved survival location. */
+    public static boolean isLeaveLobbyItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !stack.is(Items.REDSTONE)) return false;
+        Component customName = stack.get(DataComponents.CUSTOM_NAME);
+        return customName != null && "BlockParty Leave Lobby".equals(customName.getString());
     }
 
     /** True only while this player is physically inside this arena's lobby area. */
@@ -813,9 +853,30 @@ public final class Arena {
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
         giveUniqueLobbyItem(player, createJoinGameItem(), Arena::isJoinGameItem);
         giveMusicVotingBook(player);
+        ensureLeaveLobbyItem(player);
         if (hasLobbyItem(player, Arena::isJoinGameItem) && hasLobbyItem(player, Arena::isMusicVotingBook)) {
             fullLobbyInventoryNotices.remove(player.getUUID());
         }
+    }
+
+    private void ensureLeaveLobbyItem(ServerPlayer player) {
+        // Lobby inventories are cleared on join, so slot 9 is reserved for the leave control.
+        // Remove any stale copies first to prevent duplication if ensureLobbyItems runs repeatedly.
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            if (i != 8 && isLeaveLobbyItem(player.getInventory().getItem(i))) {
+                player.getInventory().setItem(i, ItemStack.EMPTY);
+            }
+        }
+        if (!isLeaveLobbyItem(player.getInventory().getItem(8))) {
+            player.getInventory().setItem(8, createLeaveLobbyItem());
+        }
+    }
+
+    private ItemStack createLeaveLobbyItem() {
+        ItemStack dust = new ItemStack(Items.REDSTONE);
+        dust.set(DataComponents.CUSTOM_NAME, Component.literal("BlockParty Leave Lobby")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        return dust;
     }
 
     private static boolean hasLobbyItem(ServerPlayer player, java.util.function.Predicate<ItemStack> matcher) {
@@ -891,7 +952,7 @@ public final class Arena {
         boolean removedSelected = false;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (isMusicVotingBook(stack) || isJoinGameItem(stack)) {
+            if (isMusicVotingBook(stack) || isJoinGameItem(stack) || isLeaveLobbyItem(stack)) {
                 player.getInventory().setItem(i, ItemStack.EMPTY);
                 if (i == selected) removedSelected = true;
             }
@@ -1073,8 +1134,31 @@ public final class Arena {
     private void enforceTargetHotbar(MinecraftServer server) {
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player == null || hasLeapFeather(player)) continue;
-            if (player.getInventory().selected != TARGET_BLOCK_SLOT) {
+            if (player == null) continue;
+
+            // The target concrete always belongs in slot 5. If a toss or inventory action
+            // displaced it, recover the existing stack before creating a replacement.
+            ItemStack centre = player.getInventory().getItem(TARGET_BLOCK_SLOT);
+            if (!isTargetColorBlock(centre)) {
+                ItemStack recovered = ItemStack.EMPTY;
+                for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                    if (slot == TARGET_BLOCK_SLOT) continue;
+                    ItemStack candidate = player.getInventory().getItem(slot);
+                    if (isTargetColorBlock(candidate)) {
+                        recovered = candidate.copy();
+                        player.getInventory().setItem(slot, ItemStack.EMPTY);
+                        break;
+                    }
+                }
+                if (recovered.isEmpty() && targetColor != null) {
+                    recovered = new ItemStack(BlockPartyColors.getConcrete(targetColor));
+                    recovered.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
+                            .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+                }
+                if (!recovered.isEmpty()) player.getInventory().setItem(TARGET_BLOCK_SLOT, recovered);
+            }
+
+            if (!hasLeapFeather(player) && player.getInventory().selected != TARGET_BLOCK_SLOT) {
                 player.getInventory().selected = TARGET_BLOCK_SLOT;
                 player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
             }
@@ -1254,8 +1338,12 @@ public final class Arena {
         int depth = Math.abs(pos2.getZ() - pos1.getZ()) + 1;
         int centerX = width / 2;
         int centerZ = depth / 2;
-        int pattern = random.nextInt(12);
-        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(11)) % 12;
+        // Early rounds use broad readable shapes; later rounds introduce finer, more fragmented layouts.
+        int minPattern = round <= 5 ? 0 : round <= 10 ? 2 : round <= 15 ? 4 : round <= 20 ? 7 : 10;
+        int maxPattern = round <= 5 ? 5 : round <= 10 ? 9 : round <= 15 ? 12 : round <= 20 ? 14 : 15;
+        int patternCount = maxPattern - minPattern + 1;
+        int pattern = minPattern + random.nextInt(patternCount);
+        if (pattern == previousPattern) pattern = minPattern + ((pattern - minPattern + 1 + random.nextInt(patternCount - 1)) % patternCount);
         previousPattern = pattern;
         int offset = random.nextInt(colors.size());
         int twist = random.nextInt(4);
@@ -1284,7 +1372,14 @@ public final class Arena {
                 case 8 -> index = (ax <= 2 || az <= 2 ? 0 : (ring / 3 + twist)) % colors.size(); // cross with outer bands
                 case 9 -> index = ((int) Math.floor((Math.sin(x / 3.0 + twist) + Math.cos(z / 3.0) + 2.0) * 3.0) + twist) % colors.size(); // flowing waves
                 case 10 -> index = ((dx * dz >= 0 ? 0 : colors.size() / 2) + (ring / 3) + twist) % colors.size(); // pinwheel quadrants
-                default -> index = ((x / 5) % 2 == 0 ? z / 3 : (depth - 1 - z) / 3) + (x / 5) + twist; // interlocking maze
+                case 11 -> index = ((x / 5) % 2 == 0 ? z / 3 : (depth - 1 - z) / 3) + (x / 5) + twist; // interlocking maze
+                case 12 -> index = x + 2 * z + twist; // tight diagonal stripes
+                case 13 -> index = (x ^ z ^ twist); // one-tile checker pattern
+                case 14 -> index = x * 3 + z * 5 + (x * z) % 7 + twist; // fractured mosaic
+                default -> {
+                    int cell = round >= 21 ? 1 : round >= 16 ? 2 : 3;
+                    index = (x / cell) + (z / cell) * 2 + ((x % cell == 0 || z % cell == 0) ? twist : 0);
+                } // tight interlocking micro-grid
             }
             DyeColor color = colors.get(Math.floorMod(index + offset, colors.size()));
             BlockState newState = BlockPartyColors.getConcrete(color).defaultBlockState();
@@ -1314,13 +1409,26 @@ public final class Arena {
 
     /** A named target concrete block is a protected match item, not a throwable item. */
     public static boolean isTargetColorBlock(ItemStack stack) {
-        if (stack == null || stack.isEmpty() || !BlockPartyColors.isConcrete(net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState())) return false;
+        if (stack == null || stack.isEmpty()
+                || !BlockPartyColors.isConcrete(net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState())) return false;
         Component name = stack.get(DataComponents.CUSTOM_NAME);
         if (name == null) return false;
         for (DyeColor color : DyeColor.values()) {
             if (BlockPartyColors.displayName(color).equals(name.getString())) return true;
         }
         return false;
+    }
+
+    /** Restore a tossed target block to its dedicated centre hotbar slot, never the first free slot. */
+    public void restoreTossedTargetBlock(ServerPlayer player, ItemStack stack) {
+        if (targetColor == null || !players.contains(player.getUUID())) return;
+        ItemStack restored = new ItemStack(BlockPartyColors.getConcrete(targetColor));
+        restored.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
+                .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+        player.getInventory().setItem(TARGET_BLOCK_SLOT, restored);
+        player.getInventory().selected = TARGET_BLOCK_SLOT;
+        player.inventoryMenu.broadcastChanges();
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
     }
 
     private void rememberTargetContacts(MinecraftServer server) {
@@ -1539,7 +1647,12 @@ public final class Arena {
             if (player != null) {
                 restorePlayerState(player);
                 ReturnLocation origin = returnLocations.remove(uuid);
-                if (origin != null) player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
+                if (origin != null) {
+                player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
+            } else {
+                player.sendSystemMessage(Component.literal("Returposisjonen din ble ikke funnet. Du er ikke teleportert til lobbyen.")
+                        .withStyle(ChatFormatting.RED));
+            }
                 player.sendSystemMessage(Component.literal("Takk for at du spilte BlockParty!").withStyle(ChatFormatting.GREEN));
             }
         }

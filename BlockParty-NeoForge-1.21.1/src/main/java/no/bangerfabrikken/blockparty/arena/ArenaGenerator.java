@@ -159,9 +159,10 @@ public final class ArenaGenerator {
                 put(level, outerMaxX, y, z, shellBlock(y));
             }
         }
-        // Open-air arena: no roof. Invisible level-15 light blocks keep the floor and walkway bright at night.
-        for (int x = outerMinX + 3; x < outerMaxX; x += 6) {
-            for (int z = outerMinZ + 3; z < outerMaxZ; z += 6) {
+        // Open-air arena: no roof. Dense invisible level-15 lights keep every tile vivid at night.
+        for (int x = outerMinX + 2; x < outerMaxX; x += 4) {
+            for (int z = outerMinZ + 2; z < outerMaxZ; z += 4) {
+                put(level, x, floorY + 8, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
                 put(level, x, floorY + 12, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
             }
         }
@@ -380,9 +381,10 @@ public final class ArenaGenerator {
         BlockPos lobbyAnchor = new BlockPos(centerX, floorY + 8, lobbyMaxZ);
         if (!level.hasChunkAt(arenaAnchor) || !level.hasChunkAt(lobbyAnchor)) return false;
 
-        // Denser invisible full-bright lighting; only air/light blocks are replaced.
-        for (int x = outerMinX + 3; x < outerMaxX; x += 6) {
-            for (int z = outerMinZ + 3; z < outerMaxZ; z += 6) {
+        // Dense invisible full-bright lighting above the dance floor; only air/light blocks are replaced.
+        for (int x = outerMinX + 2; x < outerMaxX; x += 4) {
+            for (int z = outerMinZ + 2; z < outerMaxZ; z += 4) {
+                putLightIfOpen(level, x, floorY + 8, z);
                 putLightIfOpen(level, x, floorY + 12, z);
             }
         }

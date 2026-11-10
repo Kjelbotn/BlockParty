@@ -76,6 +76,25 @@ public final class ArenaManager {
         return null;
     }
 
+    /** Recovery lookup used only by /bp leave when a player's session bookkeeping is stale. */
+    public Arena findArenaForLeave(ServerPlayer player) {
+        Arena registered = findArena(player.getUUID());
+        if (registered != null) return registered;
+        Arena nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (Arena arena : arenas.values()) {
+            if (!arena.canLocatePlayerForLeave(player)) continue;
+            double dx = arena.getPos1().getX() - player.getX();
+            double dz = arena.getPos1().getZ() - player.getZ();
+            double distance = dx * dx + dz * dz;
+            if (distance < nearestDistance) {
+                nearest = arena;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
     /** Returns the first configured arena for the simple /bp lobby shortcut. */
     public Arena findDefaultLobbyArena() {
         for (Arena arena : arenas.values()) if (arena.isConfigured()) return arena;

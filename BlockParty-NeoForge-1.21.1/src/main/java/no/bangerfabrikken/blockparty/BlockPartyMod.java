@@ -40,7 +40,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.9.2-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.9.5-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -101,6 +101,18 @@ public final class BlockPartyMod {
     }
 
     private boolean handleLobbyItemInteraction(ServerPlayer player, ItemStack stack) {
+        if (no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
+            no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
+            if (arena != null && arena.containsPlayer(player.getUUID())) {
+                arena.leave(player, true);
+            } else {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "Du er ikke registrert som deltaker i en BlockParty-arena.")
+                        .withStyle(net.minecraft.ChatFormatting.YELLOW));
+            }
+            return true;
+        }
+
         if (no.bangerfabrikken.blockparty.arena.Arena.isJoinGameItem(stack)) {
             no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArena(player.getUUID());
             if (arena == null) arena = ArenaManager.get().findLobbyArenaFor(player);
@@ -131,12 +143,30 @@ public final class BlockPartyMod {
 
     private void onItemToss(ItemTossEvent event) {
         ItemStack stack = event.getEntity().getItem();
-        if (!no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack)) return;
-
-        // ItemTossEvent exposes the tossed ItemEntity through getEntity() and
-        // the player whose inventory lost the stack through getPlayer().
         if (event.getPlayer() instanceof ServerPlayer player) {
-            player.getInventory().placeItemBackInInventory(stack.copy());
+            no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
+            boolean concreteDuringMatch = arena != null && arena.isMatchParticipant(player)
+                    && no.bangerfabrikken.blockparty.util.BlockPartyColors.isConcrete(
+                    net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState());
+            boolean protectedMatchConcrete = concreteDuringMatch
+                    || (no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack)
+                    && arena != null && arena.isMatchParticipant(player));
+            if (!no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack) && !protectedMatchConcrete) return;
+
+            if (protectedMatchConcrete) {
+                // Never use placeItemBackInInventory here: that would put the target block
+                // in the first free slot (usually hotbar slot 1), not its fixed centre slot.
+                arena.restoreTossedTargetBlock(player, stack);
+            } else if (no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
+                // Keep the lobby exit control anchored in hotbar slot 9.
+                player.getInventory().setItem(8, stack.copy());
+                player.inventoryMenu.broadcastChanges();
+            } else {
+                player.getInventory().placeItemBackInInventory(stack.copy());
+                player.inventoryMenu.broadcastChanges();
+            }
+        } else if (!no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack)) {
+            return;
         }
         event.setCanceled(true);
         event.getEntity().discard();

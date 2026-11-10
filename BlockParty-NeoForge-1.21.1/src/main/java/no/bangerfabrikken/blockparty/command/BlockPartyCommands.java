@@ -218,9 +218,9 @@ public final class BlockPartyCommands {
 
     private static int leave(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        Arena arena = ArenaManager.get().findArena(player.getUUID());
+        Arena arena = ArenaManager.get().findArenaForLeave(player);
         if (arena == null) {
-            source.sendFailure(Component.literal("Du er ikke med i en BlockParty-arena."));
+            source.sendFailure(Component.literal("Fant ingen aktiv BlockParty-økt i nærheten. Hvis du fortsatt sitter fast, kontakt en administrator."));
             return 0;
         }
         arena.leave(player, true);
