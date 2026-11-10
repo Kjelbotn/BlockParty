@@ -83,8 +83,8 @@ public final class Arena {
     private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds in lobby
     private static final int TELEPORT_COUNTDOWN_TICKS = 100; // 5 seconds after teleport
     private static final long TELEPORT_SUNSET_END = 13_500L;
-    private static final int FALL_TICKS = 35;
-    private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
+    private static final int FALL_TICKS = 35; // baseline, scaled to fit the selected track
+    private static final int INTERMISSION_TICKS = 25; // baseline, scaled with the selected track
     // 25 rounds: start at 10 seconds and gradually tighten the time window.
     // The final rounds remain playable rather than dropping to near-instant timings.
     private static final int[] ROUND_DURATION_TICKS = {
@@ -98,14 +98,29 @@ public final class Arena {
         int baseTicks = ROUND_DURATION_TICKS[index];
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (track == null) return baseTicks;
-        // A match may use at most 3:30 of a song. Shorter tracks keep their
-        // original duration; longer tracks are treated as a 210-second track.
-        int effectiveSongLength = Math.min(track.durationSeconds(), 210);
-        // Map the supported effective song-length range (53–210 seconds) to 0.60–1.15.
-        double lengthFactor = Math.max(0.60, Math.min(1.15,
-                0.60 + (effectiveSongLength - 53) * (0.55 / (210.0 - 53.0))));
-        return Math.max(30, (int) Math.round(baseTicks * lengthFactor));
+        // A match has at most 20 rounds and fits inside one play of the song.
+        // 3:30 is the hard cap; shorter tracks compress the round timers and transitions,
+        // making the game faster and harder without reducing the round count.
+        double factor = getMatchTimingFactor();
+        return Math.max(8, (int) Math.round(baseTicks * factor));
     }
+    private double getMatchTimingFactor() {
+        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        int songSeconds = track == null ? 120 : Math.max(1, Math.min(track.durationSeconds(), 210));
+        // Baseline schedule: all 20 round timers plus 19 fall/intermission transitions.
+        int baselineTicks = java.util.Arrays.stream(ROUND_DURATION_TICKS).sum()
+                + (MAX_ROUNDS - 1) * (FALL_TICKS + INTERMISSION_TICKS);
+        return (songSeconds * 20.0) / baselineTicks;
+    }
+
+    private int getFallDurationTicks() {
+        return Math.max(4, (int) Math.round(FALL_TICKS * getMatchTimingFactor()));
+    }
+
+    private int getIntermissionDurationTicks() {
+        return Math.max(3, (int) Math.round(INTERMISSION_TICKS * getMatchTimingFactor()));
+    }
+
     private static final int TARGET_BLOCK_SLOT = 4; // middle hotbar slot (1-based slot 5)
 
 
@@ -179,7 +194,8 @@ public final class Arena {
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
-    private int musicTicksUntilReplay;
+    private int musicTicksRemaining;
+    private boolean musicFinished;
     private boolean musicPaused;
     private int lastPowerupRound = -10;
     private ResourceLocation activeMusicId;
@@ -811,7 +827,14 @@ public final class Arena {
 
     private void tickMusicEffects() {
         if (activeMusicId == null || selectedMusicTrackId == null || level == null || musicPaused) return;
-        if (musicTicksUntilReplay > 0 && --musicTicksUntilReplay == 0) playSelectedMusic();
+        if (musicTicksRemaining > 0 && --musicTicksRemaining == 0) {
+            // Play once only. The 20-round schedule is scaled to fit the song;
+            // if tick rounding differs, continue silently rather than replaying it.
+            sendMusicControl(MusicControlPayload.STOP);
+            activeMusicId = null;
+            musicFinished = true;
+            musicPaused = false;
+        }
     }
 
     private void setDjLights(boolean lit) {
@@ -1134,7 +1157,8 @@ public final class Arena {
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (track == null) return;
         activeMusicId = track.soundId();
-        musicTicksUntilReplay = Math.min(track.durationSeconds(), 210) * 20;
+        musicTicksRemaining = Math.min(Math.max(1, track.durationSeconds()), 210) * 20;
+        musicFinished = false;
         musicPaused = false;
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
                 track.name(), track.soundId(), players.size());
@@ -1158,7 +1182,7 @@ public final class Arena {
     private void stopMusic() {
         if (activeMusicId != null) sendMusicControl(MusicControlPayload.STOP);
         activeMusicId = null;
-        musicTicksUntilReplay = 0;
+        musicTicksRemaining = 0;
         musicPaused = false;
     }
 
@@ -1815,7 +1839,7 @@ public final class Arena {
         timerTicks = getRoundDurationTicks(round);
         phase = Phase.PREPARE;
         if (musicPaused) resumeMusic();
-        else if (activeMusicId == null) playSelectedMusic();
+        else if (activeMusicId == null && !musicFinished) playSelectedMusic();
         broadcastTargetHud();
         playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 1.0F);
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.55F, 1.0F);
@@ -2126,7 +2150,7 @@ public final class Arena {
         }
         pauseMusic();
         phase = Phase.FALL;
-        timerTicks = FALL_TICKS;
+        timerTicks = getFallDurationTicks();
         broadcastActionBar(Component.literal("FEIL FARGE FORSVINNER!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
     }
 
@@ -2191,7 +2215,7 @@ public final class Arena {
         removeActiveBeacon();
 
         // The remaining target-colour tiles stay visible for the full 3-second transition.
-        // FALL_TICKS (35) + INTERMISSION_TICKS (25) = 60 ticks; the next pattern replaces them in-place.
+        // Transition durations scale with the selected song so all 20 rounds fit its playback window.
         broadcastActionBar(Component.literal("RUNDE " + round + " FULLFØRT  •  " + alive.size() + " IGJEN")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         refreshLobbyDisplays();
@@ -2202,13 +2226,13 @@ public final class Arena {
             if (round >= MAX_ROUNDS) declareWinner();
             else {
                 phase = Phase.INTERMISSION;
-                timerTicks = INTERMISSION_TICKS;
+                timerTicks = getIntermissionDurationTicks();
             }
         } else if (alive.size() <= 1 || round >= MAX_ROUNDS) {
             declareWinner();
         } else {
             phase = Phase.INTERMISSION;
-            timerTicks = INTERMISSION_TICKS;
+            timerTicks = getIntermissionDurationTicks();
         }
         updateScoreboard(level.getServer());
     }

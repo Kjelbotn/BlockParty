@@ -1,3 +1,17 @@
+# BlockParty 0.19.2-alpha
+
+- Every match has a maximum of 20 rounds, regardless of song length.
+- The match timing budget is capped at 3:30. Shorter tracks proportionally compress round timers and fall/intermission transitions, making short-song matches faster and harder without reducing the round count.
+- Each selected track is played once only. Audio completion never ends the match early and the song is not restarted; gameplay continues to the normal winner or round-20 result if tick rounding causes a small timing difference.
+- Tracks longer than 3:30 use a 3:30 timing budget.
+
+# BlockParty 0.19.1-alpha
+
+- Music tracks are played once only; removed automatic replay when a track ends.
+- The match now ends when the selected track reaches its full declared duration. If multiple players remain, the highest-scoring survivor wins.
+- Music duration is no longer capped at 210 seconds; the full track duration is used for match pacing.
+- The match-duration countdown pauses while the music is paused during floor-collapse transitions, so gameplay time stays aligned with playback.
+
 # BlockParty 0.19.0-alpha
 
 - Rebuilt the lobby interior as a coherent nightclub: symmetrical lounge bays, a proper front bar, framed wall panels, an architectural entrance, aligned ceiling trusses and speaker stacks.
