@@ -266,9 +266,12 @@ public final class Arena {
                 boolean changed = false;
                 for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
                     ItemStack stack = player.getInventory().getItem(slot);
-                    boolean keepTarget = alive.contains(uuid) && slot == TARGET_BLOCK_SLOT
-                            && isTargetColorBlock(stack);
-                    if (!stack.isEmpty() && !keepTarget) {
+                    boolean activePlayer = alive.contains(uuid);
+                    boolean keepTarget = activePlayer && slot == TARGET_BLOCK_SLOT && isTargetColorBlock(stack);
+                    // LEAP BOOST is the only permitted extra item for active players.
+                    // Eliminated players remain inventory-empty until the match ends.
+                    boolean keepLeapFeather = activePlayer && isLeapFeather(stack);
+                    if (!stack.isEmpty() && !keepTarget && !keepLeapFeather) {
                         player.getInventory().setItem(slot, ItemStack.EMPTY);
                         changed = true;
                     }
@@ -573,8 +576,8 @@ public final class Arena {
         BlockPos anchor = new BlockPos(centerX, (int) Math.floor(lobbyY) + 9, wallZ - 1);
         if (!level.hasChunkAt(anchor)) return;
         String tag = "bp_dj_" + id;
-        AABB area = new AABB(centerX - 22, lobbyY + 1, wallZ - 5,
-                centerX + 22, lobbyY + 13, wallZ + 2);
+        AABB area = new AABB(centerX - 32, lobbyY + 1, wallZ - 5,
+                centerX + 32, lobbyY + 13, wallZ + 2);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
 
@@ -586,27 +589,19 @@ public final class Arena {
             old.discard();
         }
 
-        List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
-                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        Component heading = Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.1, wallZ - 0.65,
+                180.0F, heading, 1.45F, tag);
 
         Track featured = selectedMusicTrackId == null ? mostVotedTrack() : MusicTrackManager.get(selectedMusicTrackId);
-        if (featured == null) {
-            lines.add(Component.literal("STEM PÅ NESTE LÅT").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-            lines.add(Component.literal("Ingen stemmer ennå").withStyle(ChatFormatting.GRAY));
-        } else {
-            long votes = musicVotes.values().stream().filter(featured.id()::equals).count();
-            lines.add(Component.literal(selectedMusicTrackId == null ? "🏆  LEDER AKKURAT NÅ" : "♫  SPILLES NÅ")
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-            lines.add(Component.literal(featured.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
-            lines.add(Component.literal("BANGERFABRIKKEN").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-            if (selectedMusicTrackId == null) {
-                lines.add(Component.literal("FLEST STEMMER  •  " + votes + (votes == 1 ? " STEMME" : " STEMMER"))
-                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-            } else {
-                lines.add(Component.literal("NÅVÆRENDE LÅT").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-            }
-        }
+        Component status = featured == null
+                ? Component.literal("STEM PÅ NESTE LÅT  •  VELG DIN FAVORITT")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
+                : Component.literal((selectedMusicTrackId == null ? "LEDENDE LÅT: " : "NÅ SPILLES: ") + featured.name())
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 9.65, wallZ - 0.65,
+                180.0F, status, 0.92F, tag);
 
         List<Track> ranked = new ArrayList<>(MusicTrackManager.getTracks());
         ranked.sort((left, right) -> {
@@ -615,27 +610,35 @@ public final class Arena {
             int byVotes = Long.compare(rightVotes, leftVotes);
             return byVotes != 0 ? byVotes : left.name().compareToIgnoreCase(right.name());
         });
-        lines.add(Component.literal("AVSTEMNING").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        for (int i = 0; i < ranked.size(); i++) {
+        int visible = Math.min(ranked.size(), 10);
+        for (int i = 0; i < visible; i++) {
             Track track = ranked.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            boolean leader = selectedMusicTrackId == null && !ranked.isEmpty() && i == 0 && votes > 0;
-            Component row = Component.literal((leader ? "★ " : (i + 1) + ". ")
-                            + track.name() + "  •  " + votes + (votes == 1 ? " stemme" : " stemmer"))
-                    .withStyle(leader ? ChatFormatting.GOLD : ChatFormatting.GRAY,
-                            leader ? ChatFormatting.BOLD : ChatFormatting.RESET);
-            lines.add(row);
+            int column = i % 5;
+            int row = i / 5;
+            double x = centerX + 0.5 + (column - 2) * 10.5;
+            double y = lobbyY + (row == 0 ? 7.7 : 5.8);
+            ChatFormatting accent = switch (column) {
+                case 0 -> ChatFormatting.RED;
+                case 1 -> ChatFormatting.AQUA;
+                case 2 -> ChatFormatting.GREEN;
+                case 3 -> ChatFormatting.LIGHT_PURPLE;
+                default -> ChatFormatting.GOLD;
+            };
+            Component card = Component.literal(String.format(java.util.Locale.ROOT, "%02d", i + 1) + "  ")
+                    .withStyle(accent, ChatFormatting.BOLD)
+                    .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
+                    .append(Component.literal("\n" + track.artist()).withStyle(ChatFormatting.GRAY))
+                    .append(Component.literal("\n" + votes + (votes == 1 ? " STEMME" : " STEMMER"))
+                            .withStyle(votes > 0 ? ChatFormatting.YELLOW : ChatFormatting.DARK_GRAY));
+            BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.65,
+                    180.0F, card, 0.72F, tag);
         }
-        lines.add(Component.literal("Stem på låten du vil høre!").withStyle(ChatFormatting.DARK_AQUA));
-
-        for (int i = 0; i < lines.size(); i++) {
-            float scale = i == 0 ? 1.8F
-                    : (i == 1 ? 1.25F
-                    : (i == 2 ? 1.05F : (i == 3 ? 0.95F : 0.82F)));
-            double y = lobbyY + 9.2 - i * 0.72;
-            BlockPartyText.spawnTextDisplay(level, centerX + 0.5, y, wallZ - 0.65,
-                    180.0F, lines.get(i), scale, tag);
-        }
+        String footerText = ranked.size() > visible
+                ? "Stem på låten du vil høre!  •  " + (ranked.size() - visible) + " FLERE I AVSTEMNINGSMENYEN"
+                : "Stem på låten du vil høre!";
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 4.25, wallZ - 0.65,
+                180.0F, Component.literal(footerText).withStyle(ChatFormatting.AQUA), 0.78F, tag);
     }
 
     private Track mostVotedTrack() {
@@ -775,10 +778,26 @@ public final class Arena {
             feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
             feather.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
-            if (!player.getInventory().add(feather)) {
+            int freeSlot = -1;
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                if (slot == TARGET_BLOCK_SLOT) continue; // Never replace the target-colour block.
+                if (player.getInventory().getItem(slot).isEmpty()) {
+                    freeSlot = slot;
+                    break;
+                }
+            }
+            if (freeSlot < 0) {
                 activated = false;
-                player.sendSystemMessage(Component.literal("Inventaret er fullt – ingen LEAP BOOST-fjær ble gitt.")
+                player.sendSystemMessage(Component.literal("Ingen ledig inventoryplass til LEAP BOOST-fjæren.")
                         .withStyle(ChatFormatting.YELLOW));
+            } else {
+                // Set the slot directly instead of Inventory.add(), so the item cannot
+                // be reported as failed after insertion or disappear during hotbar enforcement.
+                player.getInventory().setItem(freeSlot, feather);
+                player.getInventory().setChanged();
+                player.inventoryMenu.broadcastChanges();
+                player.sendSystemMessage(Component.literal("LEAP BOOST-fjær lagt i inventoryet ditt.")
+                        .withStyle(ChatFormatting.AQUA));
             }
         } else if (powerUp == PowerUp.COLOR_TELEPORTER) {
             List<BlockPos> safeTiles = new ArrayList<>();

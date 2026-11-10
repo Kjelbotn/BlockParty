@@ -274,7 +274,7 @@ public final class ArenaGenerator {
         }
 
         // Dedicated DJ screen on the back wall. Arena refreshes the text with the live playlist and vote counts.
-        for (int x = centerX - 12; x <= centerX + 12; x++) {
+        for (int x = centerX - 27; x <= centerX + 27; x++) {
             for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
             put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY + 12, lobbyMaxZ, Blocks.MAGENTA_CONCRETE);
@@ -284,7 +284,7 @@ public final class ArenaGenerator {
         }
 
         // Music-reactive lamp bars flank the DJ screen.
-        for (int x : new int[]{centerX - 16, centerX + 16}) {
+        for (int x : new int[]{centerX - 30, centerX + 30}) {
             for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
                 put(level, x, y, lobbyMaxZ,
                         Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
@@ -328,6 +328,8 @@ public final class ArenaGenerator {
                 put(level, seatX - side, floorY + 2, z, Blocks.DARK_OAK_SLAB);
             }
         }
+
+        buildLobbyRoofAndLighting(level, lobbyMinX, lobbyMaxX, lobbyMinZ, lobbyMaxZ, floorY);
 
         BlockPos first = new BlockPos(minX, floorY, minZ);
         BlockPos second = new BlockPos(maxX, floorY, maxZ);
@@ -462,13 +464,13 @@ public final class ArenaGenerator {
         }
 
         // Lobby DJ screen and decorative frame on the back wall.
-        for (int x = centerX - 12; x <= centerX + 12; x++) {
+        for (int x = centerX - 27; x <= centerX + 27; x++) {
             for (int y = floorY + 4; y <= floorY + 11; y++) put(level, x, y, lobbyMaxZ, Blocks.BLACK_CONCRETE);
             put(level, x, floorY + 3, lobbyMaxZ, Blocks.PURPLE_CONCRETE);
             put(level, x, floorY + 12, lobbyMaxZ, Blocks.MAGENTA_CONCRETE);
         }
         for (int side : new int[]{-1, 1}) {
-            int lampX = centerX + side * 16;
+            int lampX = centerX + side * 30;
             for (int y : new int[]{floorY + 5, floorY + 8, floorY + 11}) {
                 put(level, lampX, y, lobbyMaxZ,
                         Blocks.REDSTONE_LAMP.defaultBlockState().setValue(RedstoneLampBlock.LIT, true));
@@ -512,6 +514,7 @@ public final class ArenaGenerator {
                 put(level, seatX - side, floorY + 2, z, Blocks.DARK_OAK_SLAB);
             }
         }
+        buildLobbyRoofAndLighting(level, lobbyMinX, lobbyMaxX, lobbyMinZ, lobbyMaxZ, floorY);
         restoreSpectatorRails(level, minX, maxX, minZ, maxZ, floorY);
         removeLegacyEntranceStairs(level, (minX + maxX) / 2, floorY, maxZ);
 
@@ -562,6 +565,63 @@ public final class ArenaGenerator {
         for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, bounds,
                 entity -> entity.getTags().stream().anyMatch(tag -> tag.startsWith("blockparty_lb_")))) {
             stand.discard();
+        }
+    }
+
+    /** Builds a covered neon-club ceiling and a dense invisible light grid over the whole lobby floor. */
+    private static void buildLobbyRoofAndLighting(ServerLevel level, int minX, int maxX, int minZ, int maxZ, int floorY) {
+        int roofY = floorY + 16;
+        // Solid dark roof with a purple/magenta perimeter and a subtle central glass skylight strip.
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                boolean edge = x == minX || x == maxX || z == minZ || z == maxZ;
+                boolean neonBand = x == minX + 1 || x == maxX - 1 || z == minZ + 1 || z == maxZ - 1;
+                Block roof = edge ? Blocks.POLISHED_BLACKSTONE_BRICKS
+                        : neonBand ? Blocks.PURPLE_CONCRETE : Blocks.BLACKSTONE;
+                if (Math.abs(x - (minX + maxX) / 2) <= 1 && z >= minZ + 5 && z <= maxZ - 5) {
+                    roof = Blocks.TINTED_GLASS;
+                }
+                put(level, x, roofY, z, roof);
+            }
+        }
+        // Decorative ceiling beams and bright fixtures, kept above the usable headroom.
+        for (int x = minX + 4; x <= maxX - 4; x += 8) {
+            for (int z = minZ + 3; z <= maxZ - 3; z++) {
+                if (z % 4 == 0) put(level, x, roofY - 1, z, Blocks.PURPLE_CONCRETE);
+            }
+        }
+        for (int x = minX + 5; x <= maxX - 5; x += 10) {
+            for (int z : new int[]{minZ + 5, maxZ - 5}) {
+                put(level, x, roofY - 1, z, Blocks.SEA_LANTERN);
+            }
+        }
+        // Full-bright invisible sources at a tight spacing ensure no dark patches on the floor.
+        for (int x = minX + 2; x < maxX; x += 4) {
+            for (int z = minZ + 2; z < maxZ; z += 4) {
+                putLightIfOpen(level, x, floorY + 14, z);
+            }
+        }
+        // Additional mid-height light points brighten lounge corners and the dance-floor edges.
+        for (int x = minX + 3; x < maxX; x += 8) {
+            for (int z = minZ + 3; z < maxZ; z += 8) {
+                putLightIfOpen(level, x, floorY + 7, z);
+            }
+        }
+        // Concealed wall-adjacent light points prevent the perimeter and lounge corners from falling dark.
+        for (int z = minZ + 3; z < maxZ; z += 5) {
+            putLightIfOpen(level, minX + 1, floorY + 6, z);
+            putLightIfOpen(level, maxX - 1, floorY + 6, z);
+        }
+        for (int x = minX + 3; x < maxX; x += 5) {
+            putLightIfOpen(level, x, floorY + 6, minZ + 1);
+        }
+        // Keep visible fixtures on the walls as architectural accents.
+        for (int x = minX + 5; x <= maxX - 5; x += 10) {
+            put(level, x, floorY + 8, minZ, Blocks.SEA_LANTERN);
+        }
+        for (int z = minZ + 5; z <= maxZ - 5; z += 10) {
+            put(level, minX, floorY + 8, z, Blocks.SEA_LANTERN);
+            put(level, maxX, floorY + 8, z, Blocks.SEA_LANTERN);
         }
     }
 

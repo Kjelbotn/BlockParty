@@ -1,6 +1,3 @@
-BlockParty 0.13.8-alpha
-Minecraft 1.21.1 / NeoForge 21.1.265
-Upload the complete project folder to GitHub and run the Gradle build workflow.
+BlockParty 0.15.0-alpha
 
-This update intentionally omits the unchanged custom OGG music files. Keep the existing
-src/main/resources/assets/blockparty/sounds/music/*.ogg files in your repository.
+Upload/replace the project files in your GitHub repository with the contents of this archive. Keep the repository history and workflow settings. The archive includes the complete source project and all three music assets.

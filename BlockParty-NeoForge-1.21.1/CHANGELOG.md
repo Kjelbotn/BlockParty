@@ -1,3 +1,12 @@
+# BlockParty 0.15.0-alpha
+
+## Lobby redesign and music voting layout
+- Reworked the song voting chest GUI into a horizontal row of side-by-side song choices instead of a vertical list.
+- Expanded the in-world DJ display across almost the full lobby wall width. Songs are presented in up to five columns and two rows, with title, artist, and vote count; additional tracks remain available in the voting menu.
+- Added a full lobby roof with a dark industrial/neon finish, purple trim, a narrow tinted-glass skylight, and decorative ceiling fixtures.
+- Added a dense invisible Light Block grid above the full lobby floor, plus concealed mid-height and wall-adjacent lights to reduce dark patches throughout the room.
+- Preserved the DJ booth, speaker stacks, dance floor, leaderboard wall, lounge seating, and existing lobby controls.
+
 # BlockParty 0.13.9-alpha
 
 ## Sunset and song voting corrections

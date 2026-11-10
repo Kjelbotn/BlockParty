@@ -19,11 +19,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Server-authoritative, non-transferable chest GUI with a centered vertical song list. */
+/** Server-authoritative, non-transferable chest GUI with a horizontal row of song choices. */
 final class MusicVotingMenu extends ChestMenu {
     private static final int ROWS = 6;
-    private static final int CENTER_COLUMN = 4;
-    private static final int MAX_VISIBLE_TRACKS = ROWS;
+    private static final int FIRST_ROW = 2;
+    private static final int MAX_COLUMNS = 7;
+    private static final int MAX_VISIBLE_TRACKS = 14;
 
     private final Arena arena;
     private final SimpleContainer songContainer;
@@ -47,19 +48,25 @@ final class MusicVotingMenu extends ChestMenu {
         trackBySlot.clear();
         List<MusicTrackManager.Track> tracks = MusicTrackManager.getTracks();
         int count = Math.min(tracks.size(), MAX_VISIBLE_TRACKS);
-        int firstRow = Math.max(0, (ROWS - count) / 2);
         String selectedTrack = arena.getPlayerMusicVote(viewerId);
 
         for (int i = 0; i < count; i++) {
             MusicTrackManager.Track track = tracks.get(i);
-            int slot = (firstRow + i) * 9 + CENTER_COLUMN;
+            int row = i / MAX_COLUMNS;
+            int rowCount = Math.min(MAX_COLUMNS, count - row * MAX_COLUMNS);
+            int firstColumn = (9 - rowCount) / 2;
+            int column = i % MAX_COLUMNS;
+            int slot = (FIRST_ROW + row) * 9 + firstColumn + column;
             trackBySlot.put(slot, track.id());
 
-            ItemStack icon = new ItemStack(switch (i % 4) {
+            ItemStack icon = new ItemStack(switch (i % 7) {
                 case 0 -> Items.RED_CONCRETE;
                 case 1 -> Items.BLUE_CONCRETE;
                 case 2 -> Items.LIME_CONCRETE;
-                default -> Items.PURPLE_CONCRETE;
+                case 3 -> Items.PURPLE_CONCRETE;
+                case 4 -> Items.ORANGE_CONCRETE;
+                case 5 -> Items.CYAN_CONCRETE;
+                default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
             icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())

@@ -31,6 +31,8 @@ public final class MusicTrackManager {
                 ModSounds.MUSIC_STILLE_ANDERS, "music_stille_anders");
         add("hjulene_pa_bussen_olli", "Hjulene på bussen (til Olli)", "Bangerfabrikken", 0, 75,
                 ModSounds.MUSIC_HJULENE_OLLI, "music_hjulene_pa_bussen_olli");
+        add("odin_terrorist", "Odin er en terrorist", "Bangerfabrikken", 0, 177,
+                ModSounds.MUSIC_ODIN_TERRORIST, "music_odin_terrorist");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 

@@ -101,5 +101,15 @@
         "volume": 1.0
       }
     ]
+  },
+  "music_odin_terrorist": {
+    "subtitle": "subtitles.blockparty.music_odin_terrorist",
+    "sounds": [
+      {
+        "name": "blockparty:music/odin_terrorist",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
   }
 }
