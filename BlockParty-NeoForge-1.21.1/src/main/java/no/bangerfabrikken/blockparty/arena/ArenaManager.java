@@ -162,6 +162,11 @@ public final class ArenaManager {
 
     /** Cancel vanilla fall damage while a BlockParty jump power-up is active. */
     public boolean handleFallDamage(ServerPlayer player) {
+        // No fall damage anywhere inside an accessible BlockParty lobby, even for
+        // visitors who have not registered for the next match yet.
+        for (Arena lobby : arenas.values()) {
+            if (lobby.isInsideLobbyArea(player)) return true;
+        }
         Arena arena = findArena(player.getUUID());
         if (arena == null || !arena.shouldCancelFallDamage(player)) return false;
         arena.consumeLeapFallProtection(player);

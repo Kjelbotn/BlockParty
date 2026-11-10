@@ -76,7 +76,7 @@ public final class Arena {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING
     }
 
-    public static final int MAX_ROUNDS = 25;
+    public static final int MAX_ROUNDS = 20;
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
@@ -88,10 +88,21 @@ public final class Arena {
     // 25 rounds: start at 10 seconds and gradually tighten the time window.
     // The final rounds remain playable rather than dropping to near-instant timings.
     private static final int[] ROUND_DURATION_TICKS = {
-            200, 194, 188, 182, 176, 170, 164, 158, 152, 146,
-            140, 134, 128, 122, 116, 110, 104, 98, 92, 86,
-            80, 76, 74, 72, 70
+            200, 190, 180, 170, 160, 150, 140, 130, 120, 110,
+            100, 92, 84, 76, 68, 60, 54, 48, 42, 36
     };
+
+    /** Shorter songs get tighter round timers; every song still has exactly 20 rounds. */
+    private int getRoundDurationTicks(int roundNumber) {
+        int index = Math.max(0, Math.min(roundNumber - 1, MAX_ROUNDS - 1));
+        int baseTicks = ROUND_DURATION_TICKS[index];
+        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        if (track == null) return baseTicks;
+        // Map the supported song-length range (75–364 seconds) to 0.60–1.15.
+        double lengthFactor = Math.max(0.60, Math.min(1.15,
+                0.60 + (track.durationSeconds() - 75) * (0.55 / (364.0 - 75.0))));
+        return Math.max(30, (int) Math.round(baseTicks * lengthFactor));
+    }
     private static final int TARGET_BLOCK_SLOT = 4; // middle hotbar slot (1-based slot 5)
 
 
@@ -343,7 +354,8 @@ public final class Arena {
             return;
         }
         UUID uuid = player.getUUID();
-        if (!returnLocations.containsKey(uuid)) {
+        boolean firstLobbyEntry = !returnLocations.containsKey(uuid);
+        if (firstLobbyEntry) {
             originalGameModes.putIfAbsent(uuid, player.gameMode.getGameModeForPlayer());
             returnLocations.put(uuid, new ReturnLocation(player.serverLevel(), player.getX(), player.getY(),
                     player.getZ(), player.getYRot(), player.getXRot()));
@@ -358,6 +370,22 @@ public final class Arena {
         ensureLobbyItems(player);
         player.sendSystemMessage(Component.literal("Velkommen til BlockParty! Trykk Nether Star når du vil melde deg på.")
                 .withStyle(ChatFormatting.GREEN));
+        if (firstLobbyEntry) announceLobbyJoin(player);
+    }
+
+    /** Announce a first-time lobby entry to online players who are currently in Survival mode. */
+    private void announceLobbyJoin(ServerPlayer joiningPlayer) {
+        if (level == null || level.getServer() == null) return;
+        Component announcement = Component.literal(joiningPlayer.getName().getString())
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                .append(Component.literal(" ble med i BlockParty-lobbyen! Bli med du også: ")
+                        .withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("/bp").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        for (ServerPlayer online : level.getServer().getPlayerList().getPlayers()) {
+            if (online.gameMode.getGameModeForPlayer() == GameType.SURVIVAL) {
+                online.sendSystemMessage(announcement);
+            }
+        }
     }
 
     /** Explicit match registration, triggered only by the lobby Nether Star. */
@@ -1036,7 +1064,15 @@ public final class Arena {
         return customName != null && "BlockParty Leave Lobby".equals(customName.getString());
     }
 
-    /** True only while this player is physically inside this arena's lobby area. */
+    /** True when a player is physically inside this lobby, regardless of match phase. */
+    public boolean isInsideLobbyArea(ServerPlayer player) {
+        if (player == null || !lobbySet || level == null || player.serverLevel() != level) return false;
+        return Math.abs(player.getX() - lobbyX) <= 36.0
+                && Math.abs(player.getZ() - lobbyZ) <= 40.0
+                && Math.abs(player.getY() - lobbyY) <= 22.0;
+    }
+
+    /** True only while this player is physically inside this arena's lobby area and it is open. */
     public boolean isLobbyAccessibleTo(ServerPlayer player) {
         if (!lobbySet || level == null || player.serverLevel() != level) return false;
         // Lobby controls must never be refreshed after participants have been teleported.
@@ -1571,7 +1607,7 @@ public final class Arena {
         updateArenaAccents(targetColor);
         updateTargetItems(server);
         updateColorDisplay();
-        timerTicks = ROUND_DURATION_TICKS[round - 1];
+        timerTicks = getRoundDurationTicks(round);
         phase = Phase.PREPARE;
         if (musicPaused) resumeMusic();
         else if (activeMusicId == null) playSelectedMusic();
@@ -1658,7 +1694,7 @@ public final class Arena {
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
         String timeText = (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN) ? "NEDTELLING" :
                 (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
-                        ? formatSeconds(ROUND_DURATION_TICKS[Math.max(0, Math.min(round - 1, MAX_ROUNDS - 1))]) + "s" : "--";
+                        ? formatSeconds(getRoundDurationTicks(round)) + "s" : "--";
         PlayerStatsManager.PlayerRecord profile = profilePlayer == null
                 ? null : PlayerStatsManager.getRecord(profilePlayer.getUUID());
         int currentStreak = profile == null ? 0 : profile.currentStreak();
