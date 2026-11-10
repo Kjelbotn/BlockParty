@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0-alpha
+- Added exact return-location restoration for `/bp leave` and after match completion.
+- Added administrator command `/bp demolish <id>` to remove a generated arena footprint and its BlockParty displays.
+- Added an early-development disclaimer when players use `/bp`.
+- Sidebar is shown only once the match begins on the dance floor.
+- Extended matches to 20 rounds and adjusted the late-round timers so players have time to move.
+- Expanded floor pattern generation with additional irregular and mixed layouts.
+- Kept stadium redstone lamps permanently lit.
+- Changed music playback to send the selected registered sound directly to each participating player.
+
+**Demolish warning:** `/bp demolish <id>` clears the generated footprint to air. Terrain that was overwritten when the arena was generated cannot be restored automatically.
+
+# Changelog
+
 ## 0.7.0-alpha
 - Simplified match start to a 10-second countdown and removed the DJ intro phase.
 - Added majority-vote threshold and random tie resolution.

@@ -11,6 +11,8 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
@@ -71,7 +73,7 @@ public final class Arena {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER
     }
 
-    public static final int MAX_ROUNDS = 15;
+    public static final int MAX_ROUNDS = 20;
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
@@ -79,7 +81,7 @@ public final class Arena {
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
     private static final int[] ROUND_DURATION_TICKS = {
-            200, 180, 160, 140, 120, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10
+            200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 20
     };
 
     private final String id;
@@ -100,6 +102,8 @@ public final class Arena {
     private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
     private final Map<UUID, InventorySnapshot> originalHeldItems = new HashMap<>();
+    private final Map<UUID, ReturnLocation> returnLocations = new HashMap<>();
+    private record ReturnLocation(ServerLevel level, double x, double y, double z, float yaw, float pitch) { }
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
     private final Map<UUID, Integer> points = new HashMap<>();
     private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
@@ -213,6 +217,8 @@ public final class Arena {
         }
         UUID joiningId = player.getUUID();
         originalGameModes.putIfAbsent(joiningId, player.gameMode.getGameModeForPlayer());
+        returnLocations.putIfAbsent(joiningId, new ReturnLocation(player.serverLevel(), player.getX(), player.getY(),
+                player.getZ(), player.getYRot(), player.getXRot()));
         originalHeldItems.putIfAbsent(joiningId, InventorySnapshot.capture(player));
         player.getInventory().clearContent();
         player.inventoryMenu.broadcastChanges();
@@ -239,8 +245,10 @@ public final class Arena {
         musicVotes.remove(uuid);
         restorePlayerState(player);
         if (teleport && wasMember) {
-            teleportToLobby(player);
-            ensureLobbyItems(player);
+            ReturnLocation origin = returnLocations.remove(uuid);
+            if (origin != null) player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
+        } else if (wasMember && !teleport) {
+            returnLocations.remove(uuid);
         }
 
         if (wasMember) {
@@ -304,7 +312,6 @@ public final class Arena {
         phase = Phase.COUNTDOWN;
         timerTicks = START_COUNTDOWN_TICKS;
         hideLobbyLeaderboard();
-        showScoreboard(server);
         broadcast(Component.literal("BlockParty starter om 10 sekunder!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
         playSelectedMusic();
@@ -414,10 +421,11 @@ public final class Arena {
 
     private void setDjLights(boolean lit) {
         if (level == null) return;
+        // Stadium lighting is permanent; music effects must never black out the arena.
         for (BlockPos pos : musicLightPositions) {
             BlockState state = level.getBlockState(pos);
-            if (state.is(Blocks.REDSTONE_LAMP) && state.getValue(RedstoneLampBlock.LIT) != lit) {
-                level.setBlock(pos, state.setValue(RedstoneLampBlock.LIT, lit), 3);
+            if (state.is(Blocks.REDSTONE_LAMP) && !state.getValue(RedstoneLampBlock.LIT)) {
+                level.setBlock(pos, state.setValue(RedstoneLampBlock.LIT, true), 3);
             }
         }
     }
@@ -684,7 +692,12 @@ public final class Arena {
         BlockPartyMod.LOGGER.info("Starting BlockParty track '{}' ({}) for {} player(s).",
                 track.name(), track.soundId(), players.size());
         // Use full event gain; sounds.json controls the mix level. The MUSIC slider remains authoritative.
-        playSound(track.sound(), SoundSource.MUSIC, 1.0F, 1.0F);
+        for (UUID uuid : players) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                player.playNotifySound(track.sound().value(), SoundSource.MUSIC, 1.0F, 1.0F);
+            }
+        }
     }
 
     private void stopMusic() {
@@ -912,6 +925,7 @@ public final class Arena {
 
     public void tick(MinecraftServer server) {
         scoreboardTick++;
+        if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
         tickMusicEffects();
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
@@ -1140,8 +1154,8 @@ public final class Arena {
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
-        int pattern = random.nextInt(8);
-        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(7)) % 8;
+        int pattern = random.nextInt(12);
+        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(11)) % 12;
         previousPattern = pattern;
         int offset = random.nextInt(colors.size());
         List<DyeColor> cell = new ArrayList<>(colors);
@@ -1165,6 +1179,10 @@ public final class Arena {
                 case 5 -> ((lx * 2 + lz) % 16);
                 case 6 -> ((lz * 3 + lx * 5) % 16);
                 case 7 -> ((lx * 4 + (3 - lz)) % 16);
+                case 8 -> ((lx * 7 + lz * 3 + ((lx * lz) % 4)) % 16);
+                case 9 -> (((lx + lz) % 4) * 4 + ((lx * 2 + lz * 3) % 4));
+                case 10 -> (((lx * lx + 3 * lz + lx * lz) % 4) * 4 + ((lz * lz + lx) % 4));
+                case 11 -> ((Integer.rotateLeft(lx * 4 + lz, 1) + lx + 2 * lz) % 16);
                 default -> random.nextInt(16);
             };
             DyeColor color = cell.get(Math.floorMod(local + offset, cell.size()));
@@ -1202,6 +1220,20 @@ public final class Arena {
                     && player.getY() <= pos1.getY() + 2.5) {
                 lastTargetContactPos.put(uuid, tile.immutable());
                 lastTargetContactTick.put(uuid, (long) scoreboardTick);
+            }
+        }
+    }
+
+    private void recordTargetContacts(MinecraftServer server) {
+        if (targetColor == null || pos1 == null) return;
+        long now = level.getGameTime();
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
+            if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor) {
+                lastTargetContactTick.put(uuid, now);
+                lastTargetContactPos.put(uuid, tile.immutable());
             }
         }
     }
@@ -1390,7 +1422,8 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
                 restorePlayerState(player);
-                teleportToLobby(player);
+                ReturnLocation origin = returnLocations.remove(uuid);
+                if (origin != null) player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
                 player.sendSystemMessage(Component.literal("Takk for at du spilte BlockParty!").withStyle(ChatFormatting.GREEN));
             }
         }
@@ -1399,6 +1432,7 @@ public final class Arena {
         pendingEliminations.clear();
         originalGameModes.clear();
         originalHeldItems.clear();
+        returnLocations.clear();
         musicVotes.clear();
         selectedMusicTrackId = null;
         points.clear();

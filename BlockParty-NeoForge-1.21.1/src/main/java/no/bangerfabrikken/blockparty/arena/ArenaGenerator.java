@@ -476,6 +476,41 @@ public final class ArenaGenerator {
         return true;
     }
 
+
+    /**
+     * Removes the generated BlockParty footprint. This is intentionally destructive:
+     * the generator does not retain a snapshot of terrain overwritten during generation.
+     */
+    public static void demolish(ServerLevel level, BlockPos first, BlockPos second,
+                                double lobbyX, double lobbyZ) {
+        if (level == null || first == null || second == null) {
+            throw new IllegalArgumentException("Arenaen mangler posisjoner.");
+        }
+        int floorY = first.getY();
+        int minX = Math.min(first.getX(), second.getX());
+        int maxX = Math.max(first.getX(), second.getX());
+        int minZ = Math.min(first.getZ(), second.getZ());
+        int maxZ = Math.max(first.getZ(), second.getZ());
+        int centerX = minX + (maxX - minX + 1) / 2;
+        int outerMinX = Math.min(minX - OUTER_WALL_MARGIN, centerX - LOBBY_WIDTH / 2);
+        int outerMaxX = Math.max(maxX + OUTER_WALL_MARGIN, centerX + LOBBY_WIDTH / 2);
+        int outerMinZ = minZ - OUTER_WALL_MARGIN;
+        int outerMaxZ = Math.max(maxZ + OUTER_WALL_MARGIN, (int)Math.floor(lobbyZ) - 20 + LOBBY_DEPTH - 1);
+        int lowY = Math.max(level.getMinBuildHeight(), floorY - PIT_DEPTH - 2);
+        int highY = Math.min(level.getMaxBuildHeight() - 1, floorY + WALL_HEIGHT + 2);
+        clearVolume(level, outerMinX, outerMaxX, outerMinZ, outerMaxZ, lowY, highY);
+        // Also clear entities created by BlockParty in the generated area.
+        AABB bounds = new AABB(outerMinX, lowY, outerMinZ, outerMaxX + 1, highY + 1, outerMaxZ + 1);
+        for (Display.TextDisplay display : level.getEntitiesOfClass(Display.TextDisplay.class, bounds,
+                entity -> entity.getTags().stream().anyMatch(tag -> tag.startsWith("bp_") || tag.startsWith("blockparty_lb_")))) {
+            display.discard();
+        }
+        for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, bounds,
+                entity -> entity.getTags().stream().anyMatch(tag -> tag.startsWith("blockparty_lb_")))) {
+            stand.discard();
+        }
+    }
+
     private static void putLightIfOpen(ServerLevel level, int x, int y, int z) {
         BlockPos pos = new BlockPos(x, y, z);
         if (!level.hasChunkAt(pos)) return;

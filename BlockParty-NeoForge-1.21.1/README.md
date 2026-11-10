@@ -36,3 +36,14 @@ Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21. Build with the repository's GitH
 - The pit under the dance floor is intentionally left open; there is no polished-blackstone foundation directly below it.
 - Arena redstone lamps are generated lit.
 - Music event IDs for the three built-in songs are mapped to their registered sound events. If music is still inaudible, check the client's **Music & Sounds → Music** slider and the server log for `Starting BlockParty track`.
+
+
+## BlockParty 0.8.0-alpha
+
+- `/bp` joins the configured lobby and displays the early-access disclaimer.
+- `/bp leave` returns you to the exact location and orientation from before joining.
+- `/bp demolish <id>` (operator permission required) removes the generated stadium footprint and its tagged displays. This clears the footprint to air; overwritten terrain is not backed up.
+- Matches now have 20 rounds. Late rounds retain enough time for players to move.
+- The match sidebar appears when players enter the dance floor, not while waiting in the lobby.
+
+If music is still silent, first test with the BlockParty mod installed on both server and client, and temporarily disable other resource packs to rule out an override of `assets/blockparty/sounds.json` or the music OGG files. The server-side `Starting BlockParty track` log confirms only that the server sent the sound request, not that the client successfully loaded the sound.

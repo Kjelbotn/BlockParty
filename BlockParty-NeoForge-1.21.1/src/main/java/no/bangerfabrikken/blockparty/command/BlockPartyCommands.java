@@ -71,6 +71,10 @@ public final class BlockPartyCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> remove(context.getSource(), StringArgumentType.getString(context, "id")))))
+                .then(Commands.literal("demolish")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> demolish(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("list")
                         .requires(source -> source.hasPermission(2))
                         .executes(context -> list(context.getSource())))
@@ -102,6 +106,7 @@ public final class BlockPartyCommands {
         Arena current = manager.findArena(player.getUUID());
         if (current != null && current != arena) current.leave(player, false);
         arena.join(player);
+        player.sendSystemMessage(Component.literal("§6BlockParty av Bangerfabrikken er under utvikling. Bugs kan forekomme. Har du forslag til funksjoner eller forbedringer? Ta gjerne kontakt med oss på Discord!"));
         return 1;
     }
 
@@ -260,6 +265,25 @@ public final class BlockPartyCommands {
         if (arena == null) return 0;
         arena.stop(source.getServer());
         source.sendSuccess(() -> Component.literal("Stoppet arenaen '" + id + "'.").withStyle(ChatFormatting.YELLOW), true);
+        return 1;
+    }
+
+    private static int demolish(CommandSourceStack source, String id) {
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() > 0 || arena.isRunning()) {
+            source.sendFailure(Component.literal("Arenaen må være tom og spillet må være stoppet før den kan pakkes ned."));
+            return 0;
+        }
+        if (arena.getPos1() == null || arena.getPos2() == null) {
+            source.sendFailure(Component.literal("Arenaen har ingen generert stadionflate å rive."));
+            return 0;
+        }
+        ArenaGenerator.demolish(arena.getLevel(), arena.getPos1(), arena.getPos2(), arena.getLobbyX(), arena.getLobbyZ());
+        ArenaManager.get().remove(id);
+        ArenaManager.get().save(source.getServer());
+        source.sendSuccess(() -> Component.literal("BlockParty-arenaen '" + id + "' er revet og fjernet fra listen.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+        source.sendSuccess(() -> Component.literal("Merk: Området tømmes til luft. Terreng som ble overskrevet ved generering kan ikke gjenopprettes automatisk." ).withStyle(ChatFormatting.YELLOW), true);
         return 1;
     }
 
