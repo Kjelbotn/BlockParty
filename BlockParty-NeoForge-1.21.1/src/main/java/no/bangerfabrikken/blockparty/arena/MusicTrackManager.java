@@ -17,36 +17,41 @@ public final class MusicTrackManager {
 
     private MusicTrackManager() { }
 
-    public record Track(String id, String name, String artist, int bpm, int durationSeconds,
-                        Holder<SoundEvent> sound, ResourceLocation soundId) { }
+    public record Track(String id, String name, String artist, int bpm, double durationSeconds,
+                        Holder<SoundEvent> sound, ResourceLocation soundId) {
+        /** Audio playback is advanced in server ticks, each representing 1/20 second. */
+        public int durationTicks() {
+            return Math.max(1, (int) Math.round(durationSeconds * 20.0));
+        }
+    }
 
     /** Kept as a server lifecycle hook; the official playlist is intentionally fixed. */
     public static synchronized void load(MinecraftServer server) {
         TRACKS.clear();
-        add("bangerfabrikken", "BlockParty", "Bangerfabrikken", 128, 216,
+        add("bangerfabrikken", "BlockParty", "Bangerfabrikken", 128, 216.240,
                 ModSounds.MUSIC_BANGERFABRIKKEN, "music_bangerfabrikken");
-        add("odin_moon", "Odin er en alkis - Moon Edition", "Bangerfabrikken", 128, 120,
+        add("odin_moon", "Odin er en alkis - Moon Edition", "Bangerfabrikken", 128, 120.000,
                 ModSounds.MUSIC_ODIN_MOON, "music_odin_moon");
-        add("stille_anders", "Stille Anders [Indiepop]", "Bangerfabrikken", 0, 212,
+        add("stille_anders", "Stille Anders [Indiepop]", "Bangerfabrikken", 0, 211.960,
                 ModSounds.MUSIC_STILLE_ANDERS, "music_stille_anders");
-        add("hjulene_pa_bussen_olli", "Hjulene på bussen (til Olli)", "Bangerfabrikken", 0, 75,
+        add("hjulene_pa_bussen_olli", "Hjulene på bussen (til Olli)", "Bangerfabrikken", 0, 74.560,
                 ModSounds.MUSIC_HJULENE_OLLI, "music_hjulene_pa_bussen_olli");
-        add("odin_terrorist", "Odin er en terrorist", "Bangerfabrikken", 0, 177,
+        add("odin_terrorist", "Odin er en terrorist", "Bangerfabrikken", 0, 176.800,
                 ModSounds.MUSIC_ODIN_TERRORIST, "music_odin_terrorist");
-        add("exige_2014_launchpad_mix", "2014 Launchpad Mix", "Exige", 0, 364,
+        add("exige_2014_launchpad_mix", "2014 Launchpad Mix", "Exige", 0, 364.042449,
                 ModSounds.MUSIC_EXIGE_2014_LAUNCHPAD_MIX, "music_exige_2014_launchpad_mix");
-        add("hau_hau_hau", "Hau Hau Hau", "Bangerfabrikken", 0, 111,
+        add("hau_hau_hau", "Hau Hau Hau", "Bangerfabrikken", 0, 110.999979,
                 ModSounds.MUSIC_HAU_HAU_HAU, "music_hau_hau_hau");
-        add("fest_hos_toby", "Fest hos Toby", "Bangerfabrikken", 0, 146,
+        add("fest_hos_toby", "Fest hos Toby", "Bangerfabrikken", 0, 145.840167,
                 ModSounds.MUSIC_FEST_HOS_TOBY, "music_fest_hos_toby");
-        add("konfliktpartiet", "Konfliktpartiet", "Bangerfabrikken", 0, 53,
+        add("konfliktpartiet", "Konfliktpartiet", "Bangerfabrikken", 0, 53.400,
                 ModSounds.MUSIC_KONFLIKTPARTIET, "music_konfliktpartiet");
-        add("hms_er_best", "HMS er best!", "Bangerfabrikken", 0, 120,
+        add("hms_er_best", "HMS er best!", "Bangerfabrikken", 0, 119.797551,
                 ModSounds.MUSIC_HMS_ER_BEST, "music_hms_er_best");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 
-    private static void add(String id, String name, String artist, int bpm, int durationSeconds,
+    private static void add(String id, String name, String artist, int bpm, double durationSeconds,
                             Holder<SoundEvent> sound, String eventPath) {
         ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath(BlockPartyMod.MOD_ID, eventPath);
         TRACKS.put(id, new Track(id, name, artist, bpm, durationSeconds, sound, soundId));
