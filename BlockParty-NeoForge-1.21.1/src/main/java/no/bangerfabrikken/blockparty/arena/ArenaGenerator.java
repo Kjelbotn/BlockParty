@@ -536,6 +536,7 @@ public final class ArenaGenerator {
         int lobbyMaxX = centerX + LOBBY_WIDTH / 2;
         int lobbyMinZ = (int) Math.floor(lobbyZ) - 20;
         int lobbyMaxZ = lobbyMinZ + LOBBY_DEPTH - 1;
+        int walkwayY = floorY + SPECTATOR_HEIGHT;
         BlockPos arenaAnchor = new BlockPos(centerX, floorY + 12, minZ + (maxZ - minZ + 1) / 2);
         BlockPos lobbyAnchor = new BlockPos(centerX, floorY + 8, lobbyMaxZ);
         if (!level.hasChunkAt(arenaAnchor) || !level.hasChunkAt(lobbyAnchor)) return false;

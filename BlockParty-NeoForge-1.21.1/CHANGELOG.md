@@ -1,3 +1,8 @@
+# BlockParty 0.17.4-alpha
+
+- Fixed the compile error in ArenaGenerator.refreshVisuals: walkwayY is now declared before the spectator-walkway cleanup loop.
+- Includes all 0.17.1, 0.17.2 and 0.17.3 changes.
+
 # BlockParty 0.17.3-alpha\n\n- Combined the 0.17.1 DJ screen corrections and 0.17.2 arena/lobby cleanup.\n- Winner podium is now hidden during waiting and gameplay, then rebuilt in front of the DJ booth after a completed match victory.\n- The match winner is teleported onto the center gold block and held in place for 5 seconds before free lobby movement is restored.\n- The podium is cleared when the next match starts.\n\n# BlockParty 0.17.2-alpha\n\n- Combined the previous DJ-screen/lobby fixes with this arena and lobby polish pass.\n- Removed accidental blocks beneath the spectator ring, both on fresh generation and in-place upgrades.\n- Restored a coherent neon feature wall on the far side of the arena.\n- Forced tracked redstone lamps to remain lit and added adjacent sea-lantern lighting.\n- Reworked lobby decor into a consistent, symmetrical club layout with a compact cafe, mirrored lounge bays, aligned wall panels and speaker towers.\n\n# Changelog
 
 ## 0.17.0-alpha
