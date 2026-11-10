@@ -40,7 +40,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.9.5-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.9.6-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -142,32 +142,46 @@ public final class BlockPartyMod {
     }
 
     private void onItemToss(ItemTossEvent event) {
-        ItemStack stack = event.getEntity().getItem();
-        if (event.getPlayer() instanceof ServerPlayer player) {
-            no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
-            boolean concreteDuringMatch = arena != null && arena.isMatchParticipant(player)
-                    && no.bangerfabrikken.blockparty.util.BlockPartyColors.isConcrete(
-                    net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState());
-            boolean protectedMatchConcrete = concreteDuringMatch
-                    || (no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack)
-                    && arena != null && arena.isMatchParticipant(player));
-            if (!no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack) && !protectedMatchConcrete) return;
+        if (!(event.getPlayer() instanceof ServerPlayer player)) return;
 
-            if (protectedMatchConcrete) {
-                // Never use placeItemBackInInventory here: that would put the target block
-                // in the first free slot (usually hotbar slot 1), not its fixed centre slot.
-                arena.restoreTossedTargetBlock(player, stack);
-            } else if (no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
-                // Keep the lobby exit control anchored in hotbar slot 9.
-                player.getInventory().setItem(8, stack.copy());
-                player.inventoryMenu.broadcastChanges();
-            } else {
-                player.getInventory().placeItemBackInInventory(stack.copy());
-                player.inventoryMenu.broadcastChanges();
-            }
-        } else if (!no.bangerfabrikken.blockparty.arena.Arena.isProtectedLobbyItem(stack)) {
-            return;
+        ItemStack stack = event.getEntity().getItem();
+        no.bangerfabrikken.blockparty.arena.Arena lobbyArena = ArenaManager.get().findLobbyArenaFor(player);
+        no.bangerfabrikken.blockparty.arena.Arena matchArena = ArenaManager.get().findArenaForLeave(player);
+        boolean inLobby = lobbyArena != null;
+        boolean inActiveMatch = matchArena != null && matchArena.isMatchParticipant(player);
+
+        // Lobby controls are protected only while the player is actually inside
+        // an open BlockParty lobby. Outside BlockParty, these are ordinary items.
+        boolean protectedLobbyControl = inLobby && (
+                no.bangerfabrikken.blockparty.arena.Arena.isJoinGameItem(stack)
+                || no.bangerfabrikken.blockparty.arena.Arena.isMusicVotingBook(stack)
+                || no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack));
+
+        boolean concreteDuringMatch = inActiveMatch
+                && no.bangerfabrikken.blockparty.util.BlockPartyColors.isConcrete(
+                net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState());
+        boolean protectedMatchItem = inActiveMatch && (
+                concreteDuringMatch
+                || no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack)
+                || no.bangerfabrikken.blockparty.arena.Arena.isLeapFeather(stack));
+
+        // Crucially, do not globally protect Nether Stars, Books or Redstone Dust:
+        // in survival outside an active lobby/match they must be droppable as normal.
+        if (!protectedLobbyControl && !protectedMatchItem) return;
+
+        if (inActiveMatch && (no.bangerfabrikken.blockparty.arena.Arena.isTargetColorBlock(stack)
+                || concreteDuringMatch)) {
+            // Keep the target block in its fixed centre hotbar slot, never slot 1.
+            matchArena.restoreTossedTargetBlock(player, stack);
+        } else if (inLobby && no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
+            // Keep the lobby exit control anchored in hotbar slot 9.
+            player.getInventory().setItem(8, stack.copy());
+            player.inventoryMenu.broadcastChanges();
+        } else {
+            player.getInventory().placeItemBackInInventory(stack.copy());
+            player.inventoryMenu.broadcastChanges();
         }
+
         event.setCanceled(true);
         event.getEntity().discard();
     }

@@ -137,6 +137,32 @@ public final class PlayerStatsManager {
                 player.getGameProfile().getName(), 0, 0, 0, 0, 0, 0));
     }
 
+    /**
+     * Resets a player's persistent progression by exact, case-insensitive player name.
+     * Online players without a previous record can also be reset/initialized.
+     */
+    public static synchronized boolean resetByName(MinecraftServer server, String requestedName) {
+        if (requestedName == null || requestedName.isBlank()) return false;
+        String target = requestedName.trim();
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            if (online.getGameProfile().getName().equalsIgnoreCase(target)) {
+                PLAYERS.put(online.getUUID(), new PlayerRecord(online.getUUID(), online.getGameProfile().getName(),
+                        0, 0, 0, 0, 0, 0));
+                save(server);
+                return true;
+            }
+        }
+        for (PlayerRecord record : PLAYERS.values()) {
+            if (record.name().equalsIgnoreCase(target)) {
+                PLAYERS.put(record.uuid(), new PlayerRecord(record.uuid(), record.name(),
+                        0, 0, 0, 0, 0, 0));
+                save(server);
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static synchronized int getPoints(UUID uuid) { PlayerRecord r = PLAYERS.get(uuid); return r == null ? 0 : r.points(); }
     public static synchronized PlayerRecord getRecord(UUID uuid) { return PLAYERS.getOrDefault(uuid, new PlayerRecord(uuid, "Unknown", 0, 0, 0, 0, 0, 0)); }
     public static synchronized String getPlayerName(UUID uuid) { PlayerRecord r = PLAYERS.get(uuid); return r == null ? "Unknown" : r.name(); }

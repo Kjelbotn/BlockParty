@@ -92,3 +92,7 @@ The follow-up source archive fixes the initial GitHub Actions compile errors:
 - A player carrying a LEAP BOOST feather can still scroll the hotbar; otherwise the target block remains locked in the centre slot.
 - Increased the match limit from 20 to 25 rounds. Round 1 starts at 10 seconds, and the time decreases gradually to 3.5 seconds by round 25.
 - The feather remains protected from dropping, including when saved for a later round.
+
+
+## Admin: reset player statistics
+Use `/bp statsreset <player>` to reset a player's persistent BlockParty profile (points, streaks, personal best, wins and MVP awards). Requires permission level 2. The target may be online or have a previously saved profile.

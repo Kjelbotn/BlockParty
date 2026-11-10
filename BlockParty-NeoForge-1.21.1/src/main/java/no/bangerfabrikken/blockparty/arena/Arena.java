@@ -133,6 +133,7 @@ public final class Arena {
     private int previousPattern = -1;
     private boolean soloMode;
     private UUID lastEliminatedPlayer;
+    private UUID matchWinnerId;
 
     /** Active beacon blocks are placed one block above five separate floor tiles. */
     private final Map<BlockPos, BlockState> activeBeacons = new HashMap<>();
@@ -150,6 +151,7 @@ public final class Arena {
     private ResourceLocation activeMusicId;
     private long originalDayTime = Long.MIN_VALUE;
     private Boolean originalDaylightCycle;
+    private Boolean originalWeatherCycle;
 
     public Arena(String id, ServerLevel level) {
         this.id = id;
@@ -332,10 +334,14 @@ public final class Arena {
         if (originalDayTime == Long.MIN_VALUE) {
             originalDayTime = level.getDayTime();
             originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+            originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
         }
         // Stadium lighting is designed for night play; 13500 is dusk/nightfall, not midnight.
         level.setDayTime(13_500L);
         level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+        // Keep the arena dry for the entire match, then restore the world's weather-cycle rule.
+        level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
+        level.setWeatherParameters(20 * 60 * 60, 0, 0, false, false);
         alive.clear();
         alive.addAll(players);
         pendingEliminations.clear();
@@ -354,6 +360,11 @@ public final class Arena {
         lastPowerupRound = -10;
         stopMusic();
         selectedMusicTrackId = selectWinningSong();
+        Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        if (winningTrack != null) {
+            broadcast(Component.literal("Vote ended. " + winningTrack.name() + " by " + winningTrack.artist() + " won.")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        }
 
         phase = Phase.COUNTDOWN;
         timerTicks = START_COUNTDOWN_TICKS;
@@ -363,6 +374,11 @@ public final class Arena {
     }
 
     private void beginMatch(MinecraftServer server) {
+        Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        if (nowPlaying != null) {
+            broadcast(Component.literal("Now playing: " + nowPlaying.name() + " by " + nowPlaying.artist() + ". :)")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        }
         for (UUID uuid : new ArrayList<>(alive)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) {
@@ -1275,22 +1291,19 @@ public final class Arena {
             profilePlayer = server.getPlayerList().getPlayer(uuid);
             if (profilePlayer != null) break;
         }
-        int totalPoints = profilePlayer == null ? 0 : PlayerStatsManager.getPoints(profilePlayer.getUUID());
-        PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(totalPoints);
+        // During a match, show points earned in this session rather than lifetime progression.
+        int matchPoints = profilePlayer == null ? 0 : points.getOrDefault(profilePlayer.getUUID(), 0);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
         String timeText = phase == Phase.COUNTDOWN ? "NEDTELLING" :
                 (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
                         ? formatSeconds(ROUND_DURATION_TICKS[Math.max(0, Math.min(round - 1, MAX_ROUNDS - 1))]) + "s" : "--";
-        String nextRankText = rank.isMaxRank() ? "MAX RANK" : rank.pointsToNext(totalPoints) + " pts";
-
         PlayerStatsManager.PlayerRecord profile = profilePlayer == null
                 ? null : PlayerStatsManager.getRecord(profilePlayer.getUUID());
         int currentStreak = profile == null ? 0 : profile.currentStreak();
         int bestStreak = profile == null ? 0 : profile.bestStreak();
         String[] ids = {
                 "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4", "bp_line_5",
-                "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10", "bp_line_11",
-                "bp_line_12", "bp_line_13"
+                "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10", "bp_line_11"
         };
         Component[] lines = {
                 Component.literal("Dancers Left").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
@@ -1301,9 +1314,7 @@ public final class Arena {
                 Component.literal("Round Length: " + timeText).withStyle(ChatFormatting.GRAY),
                 Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
                 Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-                Component.literal("Points: " + totalPoints).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
-                Component.literal("Rank: " + rank.name()).withStyle(ChatFormatting.AQUA),
-                Component.literal("Next Rank: " + nextRankText).withStyle(ChatFormatting.LIGHT_PURPLE),
+                Component.literal("Points: " + matchPoints).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
                 Component.literal("Streak: " + currentStreak).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
                 Component.literal("Best Streak: " + bestStreak).withStyle(ChatFormatting.LIGHT_PURPLE),
                 Component.literal("Powerups: " + personalPowerups).withStyle(ChatFormatting.GRAY)
@@ -1314,6 +1325,9 @@ public final class Arena {
             score.display(lines[i]);
             score.numberFormatOverride(BlankFormat.INSTANCE);
         }
+        // Remove entries from the previous 14-line layout so old rank lines cannot linger.
+        scoreboard.resetPlayerScore(ScoreHolder.forNameOnly("bp_line_12"), sidebarObjective);
+        scoreboard.resetPlayerScore(ScoreHolder.forNameOnly("bp_line_13"), sidebarObjective);
     }
 
     private void hideScoreboard(MinecraftServer server) {
@@ -1582,6 +1596,7 @@ public final class Arena {
                     .orElse(null);
         }
 
+        matchWinnerId = winner == null ? null : winner.getUUID();
         if (winner != null) {
             PlayerStatsManager.recordWin(level.getServer(), winner);
             level.sendParticles(ParticleTypes.FIREWORK, winner.getX(), winner.getY() + 1.5, winner.getZ(),
@@ -1641,37 +1656,36 @@ public final class Arena {
         removeActiveBeacon();
         restoreOriginalFloor();
         restoreOriginalArenaAccents();
-        Set<UUID> returningPlayers = new HashSet<>(players);
-        for (UUID uuid : returningPlayers) {
+
+        // Nobody is sent home automatically. All participants remain in the arena session
+        // and can roam the spectator walkway until they explicitly use /bp leave or the
+        // redstone-dust leave item. Their original survival snapshots remain intact.
+        for (UUID uuid : new HashSet<>(players)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null) {
-                restorePlayerState(player);
-                ReturnLocation origin = returnLocations.remove(uuid);
-                if (origin != null) {
-                player.teleportTo(origin.level(), origin.x(), origin.y(), origin.z(), origin.yaw(), origin.pitch());
-            } else {
-                player.sendSystemMessage(Component.literal("Returposisjonen din ble ikke funnet. Du er ikke teleportert til lobbyen.")
-                        .withStyle(ChatFormatting.RED));
-            }
-                player.sendSystemMessage(Component.literal("Takk for at du spilte BlockParty!").withStyle(ChatFormatting.GREEN));
-            }
+            if (player == null) continue;
+
+            Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
+            if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
+            player.setGameMode(GameType.ADVENTURE);
+            player.getInventory().clearContent();
+            player.getInventory().setItem(0, createJoinGameItem());
+            player.getInventory().setItem(1, createMusicVotingBook());
+            player.getInventory().setItem(8, createLeaveLobbyItem());
+            player.inventoryMenu.broadcastChanges();
+            teleportToSpectatorWalkway(player);
+            player.sendSystemMessage(Component.literal("Kampen er ferdig! Du kan følge banen fra spectatorgangen. Bruk /bp leave eller redstone dust for å dra hjem.")
+                    .withStyle(ChatFormatting.GREEN));
         }
-        players.clear();
+
         alive.clear();
         pendingEliminations.clear();
-        originalGameModes.clear();
-        originalHeldItems.clear();
-        returnLocations.clear();
         musicVotes.clear();
         selectedMusicTrackId = null;
         points.clear();
         powerupsCollected.clear();
         phase = Phase.WAITING;
         timerTicks = 0;
-        for (UUID uuid : returningPlayers) {
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null) ensureLobbyItems(player);
-        }
+        matchWinnerId = null;
         round = 0;
         targetColor = null;
         previousTargetColor = null;
@@ -1684,20 +1698,28 @@ public final class Arena {
             if (originalDaylightCycle != null) {
                 level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(originalDaylightCycle, server);
             }
+            if (originalWeatherCycle != null) {
+                level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(originalWeatherCycle, server);
+            }
             originalDayTime = Long.MIN_VALUE;
             originalDaylightCycle = null;
+            originalWeatherCycle = null;
         }
         refreshLobbyDisplays();
+        updateScoreboard(server);
     }
 
     private void restorePlayerState(ServerPlayer player) {
         UUID uuid = player.getUUID();
         Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
         if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
-        GameType oldMode = originalGameModes.remove(uuid);
-        if (oldMode != null) player.setGameMode(oldMode);
+        // Leaving BlockParty always returns the player to normal survival, regardless
+        // of the mode they were placed in during the minigame.
+        originalGameModes.remove(uuid);
+        player.setGameMode(GameType.SURVIVAL);
         InventorySnapshot held = originalHeldItems.remove(uuid);
         if (held != null) held.restore(player);
+        player.inventoryMenu.broadcastChanges();
     }
 
     private void restoreHeldItemOnly(ServerPlayer player) {

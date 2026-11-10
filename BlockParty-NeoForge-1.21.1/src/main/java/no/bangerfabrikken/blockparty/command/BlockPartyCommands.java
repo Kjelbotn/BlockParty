@@ -82,6 +82,11 @@ public final class BlockPartyCommands {
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> status(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("leaderboard").executes(context -> leaderboard(context.getSource())))
+                .then(Commands.literal("statsreset")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .executes(context -> resetStats(context.getSource(),
+                                        StringArgumentType.getString(context, "player")))))
                 .then(Commands.literal("rank").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("profile").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("vote")
@@ -319,6 +324,17 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int resetStats(CommandSourceStack source, String playerName) {
+        if (!PlayerStatsManager.resetByName(source.getServer(), playerName)) {
+            source.sendFailure(Component.literal("Fant ingen BlockParty-statistikk for spilleren '" + playerName + "'."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("BlockParty-statistikken til " + playerName
+                + " er nullstilt: poeng, streak, best streak, personlig rekord, seire og MVP-priser.")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+        return 1;
+    }
+
     private static int leaderboard(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         PlayerStatsManager.sendLeaderboard(player);
@@ -363,6 +379,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("15 runder, 10 til 0,5 sekunder. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 10 | /bp rank eller /bp profile – se spillerprofil"), false);
+        source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);
         source.sendSuccess(() -> Component.literal("Lobbyen teller ned fra 60 sekunder. /bp start <id> starter umiddelbart."), false);
         source.sendSuccess(() -> Component.literal("/bp music reload – last inn egendefinert spilleliste (admin)"), false);
         return 1;

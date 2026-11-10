@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.1-alpha
+- Match-sidebar now shows session points earned in the current game, current streak, best streak and power-ups. Removed rank and next-rank progress from the in-game sidebar; persistent lifetime progression remains available in the lobby/profile/leaderboard.
+- Added admin command `/bp statsreset <player>` (permission level 2), which resets points, current/best streak, personal best, wins and MVP awards for an online or previously recorded player.
+
+
+- Fixed item tossing rules so the Nether Star, music book, and redstone leave item are protected only while inside an active BlockParty lobby.
+- Outside a BlockParty lobby or active match, these items behave like normal survival inventory items and can be dropped normally.
+- Kept target-color blocks and LEAP BOOST protected during active matches.
+
+# Changelog
+
 ## 0.9.1-alpha — CI compile fixes
 - Removed the unavailable DistExecutor reference from the clientbound music payload handler.
 - Updated protected-item toss handling to use ItemTossEvent#getEntity() and getPlayer(); restore the protected stack to the player's inventory and discard the dropped entity.
