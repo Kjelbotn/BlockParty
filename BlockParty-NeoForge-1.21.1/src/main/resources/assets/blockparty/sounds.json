@@ -81,5 +81,25 @@
         "volume": 1.0
       }
     ]
+  },
+  "music_stille_anders": {
+    "subtitle": "subtitles.blockparty.music_stille_anders",
+    "sounds": [
+      {
+        "name": "blockparty:music/stille_anders",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  },
+  "music_hjulene_pa_bussen_olli": {
+    "subtitle": "subtitles.blockparty.music_hjulene_pa_bussen_olli",
+    "sounds": [
+      {
+        "name": "blockparty:music/hjulene_pa_bussen_olli",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
   }
 }

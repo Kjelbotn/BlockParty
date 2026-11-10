@@ -27,6 +27,10 @@ public final class MusicTrackManager {
                 ModSounds.MUSIC_BANGERFABRIKKEN, "music_bangerfabrikken");
         add("odin_moon", "Odin er en alkis - Moon Edition", "Bangerfabrikken", 128, 120,
                 ModSounds.MUSIC_ODIN_MOON, "music_odin_moon");
+        add("stille_anders", "Stille Anders [Indiepop]", "Bangerfabrikken", 0, 212,
+                ModSounds.MUSIC_STILLE_ANDERS, "music_stille_anders");
+        add("hjulene_pa_bussen_olli", "Hjulene på bussen (til Olli)", "Bangerfabrikken", 0, 75,
+                ModSounds.MUSIC_HJULENE_OLLI, "music_hjulene_pa_bussen_olli");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 

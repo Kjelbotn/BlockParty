@@ -1,3 +1,11 @@
+# Changelog
+
+## 0.13.1-alpha
+- Added “Stille Anders [Indiepop]” by Bangerfabrikken to the music voting playlist.
+- Added “Hjulene på bussen (til Olli)” by Bangerfabrikken to the music voting playlist.
+- Added streamed OGG sound events and subtitle translations for both tracks.
+- Existing audio assets were not modified.
+
 ## 0.10.9-alpha
 - Prevented natural and other mob spawns inside the configured BlockParty arena, spectator walkway, pit and lobby; existing mobs in those footprints are periodically removed.
 - Disabled hunger and exhaustion for joined BlockParty players while preserving and restoring their original food level, saturation and exhaustion when they leave.
@@ -23,7 +31,6 @@
 - Added **Odin er en alkis - Moon Edition** by Bangerfabrikken as the second official voting option.
 - The music vote now contains only **BlockParty** and **Odin er en alkis - Moon Edition**.
 
-# Changelog
 
 ## 0.10.4-alpha
 - After a match ends, all participants (winner and eliminated spectators) are teleported back to the BlockParty lobby instead of the spectator walkway. Players remain in the BlockParty session until they use `/bp leave` or the redstone-dust leave item.
