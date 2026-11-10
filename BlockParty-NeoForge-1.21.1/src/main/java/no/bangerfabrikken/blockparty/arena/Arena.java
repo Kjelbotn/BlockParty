@@ -435,34 +435,52 @@ public final class Arena {
         }
 
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        lines.add(Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+
         Track featured = selectedMusicTrackId == null ? mostVotedTrack() : MusicTrackManager.get(selectedMusicTrackId);
         if (featured == null) {
-            lines.add(Component.literal("VOTE FOR THE NEXT TRACK").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-            lines.add(Component.literal("No track selected yet").withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal("STEM PÅ NESTE LÅT").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+            lines.add(Component.literal("Ingen stemmer ennå").withStyle(ChatFormatting.GRAY));
         } else {
             long votes = musicVotes.values().stream().filter(featured.id()::equals).count();
-            lines.add(Component.literal(selectedMusicTrackId == null ? "CURRENT VOTE LEADER" : "NOW PLAYING")
-                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-            lines.add(Component.literal(featured.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
-            lines.add(Component.literal("BY " + featured.artist()).withStyle(ChatFormatting.LIGHT_PURPLE));
-            lines.add(Component.literal("BPM " + featured.bpm() + "  •  " + votes + " VOTES")
+            lines.add(Component.literal(selectedMusicTrackId == null ? "🏆  LEDER AKKURAT NÅ" : "♫  SPILLES NÅ")
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            lines.add(Component.literal(featured.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+            lines.add(Component.literal("BANGERFABRIKKEN").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+            if (selectedMusicTrackId == null) {
+                lines.add(Component.literal("FLEST STEMMER  •  " + votes + (votes == 1 ? " STEMME" : " STEMMER"))
+                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            } else {
+                lines.add(Component.literal("NÅVÆRENDE LÅT").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            }
         }
 
         List<Track> ranked = new ArrayList<>(MusicTrackManager.getTracks());
-        ranked.sort((a, b) -> Long.compare(
-                musicVotes.values().stream().filter(b.id()::equals).count(),
-                musicVotes.values().stream().filter(a.id()::equals).count()));
-        for (int i = 0; i < Math.min(2, ranked.size()); i++) {
+        ranked.sort((left, right) -> {
+            long leftVotes = musicVotes.values().stream().filter(left.id()::equals).count();
+            long rightVotes = musicVotes.values().stream().filter(right.id()::equals).count();
+            int byVotes = Long.compare(rightVotes, leftVotes);
+            return byVotes != 0 ? byVotes : left.name().compareToIgnoreCase(right.name());
+        });
+        lines.add(Component.literal("AVSTEMNING").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        for (int i = 0; i < ranked.size(); i++) {
             Track track = ranked.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            lines.add(Component.literal((i + 1) + ". " + track.name() + " — " + track.artist() + "  [" + votes + "]")
-                    .withStyle(i == 0 ? ChatFormatting.GOLD : ChatFormatting.GRAY));
+            boolean leader = selectedMusicTrackId == null && !ranked.isEmpty() && i == 0 && votes > 0;
+            Component row = Component.literal((leader ? "★ " : (i + 1) + ". ")
+                            + track.name() + "  •  " + votes + (votes == 1 ? " stemme" : " stemmer"))
+                    .withStyle(leader ? ChatFormatting.GOLD : ChatFormatting.GRAY,
+                            leader ? ChatFormatting.BOLD : ChatFormatting.RESET);
+            lines.add(row);
         }
+        lines.add(Component.literal("Stem på låten du vil høre!").withStyle(ChatFormatting.DARK_AQUA));
+
         for (int i = 0; i < lines.size(); i++) {
-            float scale = i == 0 ? 1.9F : (i == 1 ? 1.35F : 0.92F);
-            double y = lobbyY + 9.2 - i * 0.88;
+            float scale = i == 0 ? 1.8F
+                    : (i == 1 ? 1.25F
+                    : (i == 2 ? 1.05F : (i == 3 ? 0.95F : 0.82F)));
+            double y = lobbyY + 9.2 - i * 0.72;
             BlockPartyText.spawnTextDisplay(level, centerX + 0.5, y, wallZ - 0.65,
                     180.0F, lines.get(i), scale, tag);
         }

@@ -1,3 +1,13 @@
+## 0.10.7-alpha
+- Players who leave the playable arena bounds during an active match are now immediately eliminated and moved to the spectator walkway instead of falling into the world void and dying.
+- The boundary check applies only to active players; existing spectators are unaffected.
+
+## 0.10.6-alpha
+- Corrected Win Streak and Best Win Streak to count consecutive completed match victories only; surviving individual rounds no longer affects either value.
+- Added a one-time stats migration that clears legacy streak values from older versions, because those values may have counted rounds rather than match wins. Total wins, points, MVPs and personal bests are preserved.
+- Redesigned the lobby music-voting display: removed BPM, made the current leader prominent, highlighted the leading track, and displayed vote counts more clearly.
+- Kept the official playlist limited to **BlockParty** and **Odin er en alkis - Moon Edition**, both by Bangerfabrikken.
+
 ## 0.10.5-alpha
 - Removed all development/test songs from the music voting playlist and packaged resources.
 - Added **Odin er en alkis - Moon Edition** by Bangerfabrikken as the second official voting option.

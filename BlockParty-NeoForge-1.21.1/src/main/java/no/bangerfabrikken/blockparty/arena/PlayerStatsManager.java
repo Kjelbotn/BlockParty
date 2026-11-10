@@ -23,6 +23,7 @@ import java.util.UUID;
 /** Persistent per-world BlockParty progression and player records. */
 public final class PlayerStatsManager {
     private static final String FILE_NAME = "blockparty-player-stats.properties";
+    private static final int STATS_SCHEMA_VERSION = 2;
     private static final Map<UUID, PlayerRecord> PLAYERS = new HashMap<>();
     private static final int[] RANK_THRESHOLDS = {0, 100, 250, 500, 1_000, 2_500, 5_000, 10_000};
     private static final String[] RANK_NAMES = {
@@ -44,8 +45,11 @@ public final class PlayerStatsManager {
         Path file = getFile(server);
         if (!Files.exists(file)) return;
         Properties properties = new Properties();
+        boolean migrateLegacyRoundStreaks = false;
         try (InputStream input = Files.newInputStream(file)) {
             properties.load(input);
+            int schemaVersion = number(properties, "schema.version");
+            migrateLegacyRoundStreaks = schemaVersion < STATS_SCHEMA_VERSION;
             for (String raw : properties.getProperty("player.ids", "").split(",")) {
                 if (raw.isBlank()) continue;
                 UUID uuid = UUID.fromString(raw.trim());
@@ -53,14 +57,19 @@ public final class PlayerStatsManager {
                 PLAYERS.put(uuid, new PlayerRecord(uuid,
                         properties.getProperty(prefix + "name", "Unknown"),
                         number(properties, prefix + "points"),
-                        number(properties, prefix + "streak"),
-                        number(properties, prefix + "best_streak"),
+                        migrateLegacyRoundStreaks ? 0 : number(properties, prefix + "streak"),
+                        migrateLegacyRoundStreaks ? 0 : number(properties, prefix + "best_streak"),
                         number(properties, prefix + "personal_best"),
                         number(properties, prefix + "wins"),
                         number(properties, prefix + "mvp")));
             }
         } catch (Exception exception) {
             BlockPartyMod.LOGGER.error("Could not load BlockParty player stats from {}", file, exception);
+        }
+        if (migrateLegacyRoundStreaks) {
+            // Persist the migration immediately so old round-based streaks cannot reappear.
+            save(server);
+            BlockPartyMod.LOGGER.info("Migrated legacy round-based streaks to match-win streaks.");
         }
         BlockPartyMod.LOGGER.info("Loaded {} BlockParty player profile(s).", PLAYERS.size());
     }
@@ -85,6 +94,7 @@ public final class PlayerStatsManager {
             properties.setProperty(prefix + "wins", Integer.toString(record.wins()));
             properties.setProperty(prefix + "mvp", Integer.toString(record.mvpAwards()));
         }
+        properties.setProperty("schema.version", Integer.toString(STATS_SCHEMA_VERSION));
         properties.setProperty("player.ids", ids.toString());
         Path file = getFile(server);
         try {
@@ -97,7 +107,10 @@ public final class PlayerStatsManager {
         }
     }
 
-    /** Adds one permanent point for each round survived and updates the personal round record. */
+    /**
+     * Adds one permanent point for each round survived and updates the personal round record.
+     * Deliberately does not change currentStreak/bestStreak: those count match victories only.
+     */
     public static synchronized int recordRoundSurvived(MinecraftServer server, ServerPlayer player, int round) {
         PlayerRecord old = getOrCreate(player);
         int points = old.points() + 1;
@@ -116,6 +129,7 @@ public final class PlayerStatsManager {
         save(server);
     }
 
+    /** Records exactly one consecutive win for a completed match (never for an individual round). */
     public static synchronized void recordWin(MinecraftServer server, ServerPlayer player) {
         PlayerRecord old = getOrCreate(player);
         int winStreak = old.currentStreak() + 1;
