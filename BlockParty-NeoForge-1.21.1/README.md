@@ -1,4 +1,4 @@
-# BlockParty 0.9.0-alpha
+# BlockParty 0.9.1-alpha
 
 NeoForge mod for Minecraft 1.21.1 / Java 21.
 
@@ -62,4 +62,17 @@ If music is still silent, first test with the BlockParty mod installed on both s
 - Stops the selected track while the floor is removed, then starts it again when the next round's floor is ready.
 - Added **BlockParty — Bangerfabrikken** as the first music-voting option, bundled as `sounds/music/bangerfabrikken.ogg` (3:36).
 
-**Music pause limitation:** this release stops and restarts the track from its beginning after the floor-fall phase. Minecraft's ordinary server sound packets do not expose a seek/pause position for streamed OGG playback, so exact continuation at the previous timestamp requires a custom client-side audio implementation and is not claimed here.
+**Music pause limitation in 0.9.0:** this release stops and restarts the track from its beginning after the floor-fall phase. Version 0.9.1 replaces that behavior with client-controlled playback and per-channel pause/resume.
+
+
+## 0.9.1-alpha — client-side music playback
+- Added a client music controller. The server now sends explicit PLAY, PAUSE, RESUME and STOP commands instead of asking each client to create an unmanaged vanilla sound from a sound packet.
+- The selected streamed OGG is created as a local Minecraft `SoundInstance` in the Records/Jukebox category.
+- The client retains the active sound instance and pauses/unpauses its own OpenAL channel. This preserves the playback cursor rather than stopping and replaying the song.
+- The server pauses the music when the floor is removed and resumes it when the next round's floor is ready. The server-side replay timer is frozen during the pause.
+- Leaving an arena sends a stop command only to the departing player; the other players continue listening.
+- The music still starts only when the first round begins, not during the lobby or countdown.
+
+**Client requirement:** BlockParty must be installed on both the server and every participating client. The client must have the Records/Jukebox sound category enabled.
+
+**Implementation note:** the client controller accesses Minecraft 1.21.1's active sound-channel map through NeoForge's obfuscation-aware reflection helper and pauses only the BlockParty music channel. If a future Minecraft update changes the sound engine internals, this small adapter may need updating.

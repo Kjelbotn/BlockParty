@@ -14,7 +14,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
-import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
+import net.neoforged.neoforge.network.PacketDistributor;
+import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
@@ -138,6 +139,7 @@ public final class Arena {
     private int djBeatTicks;
     private int djPulseTicks;
     private int musicTicksUntilReplay;
+    private boolean musicPaused;
     private int lastPowerupRound = -10;
     private ResourceLocation activeMusicId;
     private long originalDayTime = Long.MIN_VALUE;
@@ -238,7 +240,12 @@ public final class Arena {
 
     public void leave(ServerPlayer player, boolean teleport) {
         UUID uuid = player.getUUID();
-        boolean wasMember = players.remove(uuid);
+        boolean wasMember = players.contains(uuid);
+        if (wasMember && activeMusicId != null) {
+            PacketDistributor.sendToPlayer(player,
+                    new MusicControlPayload(activeMusicId, MusicControlPayload.STOP));
+        }
+        players.remove(uuid);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
         removeLobbyItemsFromInventory(player);
@@ -307,7 +314,7 @@ public final class Arena {
         soloMode = players.size() == 1;
         activeBeacons.clear();
         lastPowerupRound = -10;
-        activeMusicId = null;
+        stopMusic();
         selectedMusicTrackId = selectWinningSong();
 
         phase = Phase.COUNTDOWN;
@@ -415,7 +422,7 @@ public final class Arena {
     }
 
     private void tickMusicEffects() {
-        if (activeMusicId == null || selectedMusicTrackId == null || level == null) return;
+        if (activeMusicId == null || selectedMusicTrackId == null || level == null || musicPaused) return;
         if (musicTicksUntilReplay > 0 && --musicTicksUntilReplay == 0) playSelectedMusic();
     }
 
@@ -689,28 +696,42 @@ public final class Arena {
         if (track == null) return;
         activeMusicId = track.soundId();
         musicTicksUntilReplay = track.durationSeconds() * 20;
-        BlockPartyMod.LOGGER.info("Starting BlockParty track '{}' ({}) for {} player(s).",
+        musicPaused = false;
+        BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
                 track.name(), track.soundId(), players.size());
-        // Use full event gain; sounds.json controls the mix level. The MUSIC slider remains authoritative.
-        for (UUID uuid : players) {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-            if (player != null) {
-                player.playNotifySound(track.sound().value(), SoundSource.RECORDS, 1.0F, 1.0F);
-            }
-        }
+        sendMusicControl(MusicControlPayload.PLAY);
+    }
+
+    /** Pause the actual client audio channel; its OpenAL playback cursor is retained. */
+    private void pauseMusic() {
+        if (activeMusicId == null || musicPaused) return;
+        musicPaused = true;
+        sendMusicControl(MusicControlPayload.PAUSE);
+    }
+
+    /** Resume the same client sound instance from the exact sample where it was paused. */
+    private void resumeMusic() {
+        if (activeMusicId == null || !musicPaused) return;
+        musicPaused = false;
+        sendMusicControl(MusicControlPayload.RESUME);
     }
 
     private void stopMusic() {
-        if (activeMusicId == null || level == null) {
-            musicTicksUntilReplay = 0;
-            return;
-        }
-        for (UUID uuid : players) {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-            if (player != null) player.connection.send(new ClientboundStopSoundPacket(activeMusicId, SoundSource.RECORDS));
-        }
+        if (activeMusicId != null) sendMusicControl(MusicControlPayload.STOP);
         activeMusicId = null;
         musicTicksUntilReplay = 0;
+        musicPaused = false;
+    }
+
+    private void sendMusicControl(int action) {
+        if (level == null) return;
+        ResourceLocation id = activeMusicId != null ? activeMusicId
+                : ResourceLocation.fromNamespaceAndPath(BlockPartyMod.MOD_ID, "music_control");
+        MusicControlPayload payload = new MusicControlPayload(id, action);
+        for (UUID uuid : players) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) PacketDistributor.sendToPlayer(player, payload);
+        }
     }
 
     /** Lobby utility items are bound to the player and cannot be dropped or duplicated. */
@@ -1032,7 +1053,8 @@ public final class Arena {
         updateColorDisplay();
         timerTicks = ROUND_DURATION_TICKS[round - 1];
         phase = Phase.PREPARE;
-        if (activeMusicId == null) playSelectedMusic();
+        if (musicPaused) resumeMusic();
+        else if (activeMusicId == null) playSelectedMusic();
         broadcastTargetHud();
         playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 1.0F);
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.55F, 1.0F);
@@ -1284,7 +1306,7 @@ public final class Arena {
             DyeColor color = BlockPartyColors.getColor(entry.getValue());
             if (color != targetColor) level.setBlock(entry.getKey(), Blocks.AIR.defaultBlockState(), 3);
         }
-        stopMusic();
+        pauseMusic();
         phase = Phase.FALL;
         timerTicks = FALL_TICKS;
         broadcastActionBar(Component.literal("FEIL FARGE FORSVINNER!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));

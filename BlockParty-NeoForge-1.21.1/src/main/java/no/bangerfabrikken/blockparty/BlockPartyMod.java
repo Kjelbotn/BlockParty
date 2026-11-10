@@ -3,6 +3,11 @@ package no.bangerfabrikken.blockparty;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.DistExecutor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import no.bangerfabrikken.blockparty.network.MusicControlPayload;
+import no.bangerfabrikken.blockparty.client.ClientMusicController;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -27,6 +32,7 @@ public final class BlockPartyMod {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public BlockPartyMod(IEventBus modEventBus) {
+        modEventBus.addListener(this::registerPayloads);
         NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
@@ -37,7 +43,14 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.9.0-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.9.1-alpha");
+    }
+
+    private void registerPayloads(RegisterPayloadHandlersEvent event) {
+        event.registrar("1").playToClient(MusicControlPayload.TYPE, MusicControlPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                                () -> () -> ClientMusicController.handle(payload))));
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {

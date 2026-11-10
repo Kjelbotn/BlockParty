@@ -1,4 +1,7 @@
-BlockParty 0.8.2-alpha
+BlockParty 0.9.1-alpha
+
 Upload the contents of this folder to the root of your GitHub repository and allow GitHub Actions to build.
 
-This patch fixes the two Math.floorMod(double, int) compile errors reported by the 0.8.1-alpha build.
+This release adds a client-side music controller. The selected streamed OGG is played locally and its individual OpenAL channel is paused/resumed when the dance floor falls and returns. All players need the mod installed on their clients as well as the server.
+
+Target: Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21.

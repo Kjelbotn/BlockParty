@@ -1,3 +1,12 @@
+# Changelog
+
+## 0.9.1-alpha
+- Added a client-side BlockParty music controller with explicit PLAY, PAUSE, RESUME and STOP network commands.
+- Pauses the active OpenAL channel for the selected music sound, preserving its playback cursor through the floor-fall phase.
+- Resumes the same client sound instance when the next round begins; no restart from the beginning.
+- Keeps the Records/Jukebox category and server-authoritative start/stop timing.
+- Stops music for a player who leaves without interrupting the other arena participants.
+
 # Changelog\n\n## 0.9.0-alpha\n- Protected the Join star and Music Vote book from being dropped.\n- Delayed music playback until the first round starts.\n- Stops music during the falling-floor phase and restarts it when the next round begins (restart from track beginning; exact seek/resume is not supported by vanilla streamed sound playback).\n- Added Bangerfabrikken's 3:36 track as the first playlist entry.\n\n## 0.8.2-alpha
 - Fixed two Java compilation errors in the spiral and radial floor-pattern calculations reported by GitHub Actions.
 
