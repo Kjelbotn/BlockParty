@@ -232,7 +232,7 @@ public final class Arena {
     /** Fall damage is disabled for active Jump Boost and the one-use LEAP BOOST jump. */
     public boolean shouldCancelFallDamage(ServerPlayer player) {
         if (player == null || !alive.contains(player.getUUID()) || !isGameInProgress()) return false;
-        return player.hasEffect(MobEffects.JUMP_BOOST) || leapFallProtection.contains(player.getUUID());
+        return player.hasEffect(MobEffects.JUMP) || leapFallProtection.contains(player.getUUID());
     }
 
     /** Consume one-use Leap protection after the landing event has been handled. */

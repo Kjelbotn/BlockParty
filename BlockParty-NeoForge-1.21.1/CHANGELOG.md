@@ -184,3 +184,6 @@
 - Retired the experimental Festival arena layout and removed its generation command.
 - Saved arena registration with the ID `festival` is skipped on load; Classic remains available.
 - Retained the spectator rail and jump-powerup fall-protection changes from 0.12.1-alpha.
+
+## 0.12.3-alpha
+- Fixed the NeoForge 1.21.1 compile error: use the mapped `MobEffects.JUMP` holder for Jump Boost fall protection.
