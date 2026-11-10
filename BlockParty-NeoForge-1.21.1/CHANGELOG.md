@@ -54,3 +54,18 @@
 - Added a short target-tile contact grace window to prevent tick-order eliminations when the correct tile disappears at the round boundary.
 - Corrected the built-in music event IDs used when stopping/restarting tracks (`neon_beat`, `pixel_rush`, `night_drive`).
 - Increased built-in music event gain and added server-side track playback diagnostics.
+
+
+## 0.9.2-alpha – round pacing, music pause and hotbar controls
+- Hardened client music pause/resume channel lookup so it no longer depends on one obfuscated SoundEngine field name.
+- Target-color concrete is protected from dropping and is placed in the middle hotbar slot.
+- Hotbar selection is locked to the target block during a match; a LEAP BOOST feather temporarily unlocks scrolling and can be right-clicked for a forward/upward boost.
+- LEAP feathers expire at the end of the round.
+- Slightly increased reaction time in later rounds while keeping the early-game pace unchanged.
+- Unified target-contact tick tracking to use the same server tick counter throughout the round.
+
+
+## 0.9.3-alpha — bankable LEAP BOOST and 25-round pacing
+- LEAP BOOST feathers now persist across rounds until used, instead of being removed at the end of each round.
+- Unused feathers are cleared only when the match ends; the feather remains protected from dropping.
+- Increased the match limit to 25 rounds. The round timer starts at 10 seconds and gradually decreases to 3.5 seconds by round 25.

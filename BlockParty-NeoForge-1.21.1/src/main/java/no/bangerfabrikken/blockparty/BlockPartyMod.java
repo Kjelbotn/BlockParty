@@ -40,7 +40,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.9.1-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.9.2-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -89,6 +89,12 @@ public final class BlockPartyMod {
     private void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (handleLobbyItemInteraction(player, event.getItemStack())) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
+        no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArena(player.getUUID());
+        if (arena != null && arena.handlePowerupItemInteraction(player, event.getItemStack())) {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
         }

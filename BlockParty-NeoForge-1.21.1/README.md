@@ -1,4 +1,4 @@
-# BlockParty 0.9.1-alpha
+# BlockParty 0.9.3-alpha
 
 NeoForge mod for Minecraft 1.21.1 / Java 21.
 
@@ -43,7 +43,7 @@ Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21. Build with the repository's GitH
 - `/bp` joins the configured lobby and displays the early-access disclaimer.
 - `/bp leave` returns you to the exact location and orientation from before joining.
 - `/bp demolish <id>` (operator permission required) removes the generated stadium footprint and its tagged displays. This clears the footprint to air; overwritten terrain is not backed up.
-- Matches now have 20 rounds. Late rounds retain enough time for players to move.
+- Matches now have up to 25 rounds. Round 1 starts at 10 seconds, with the timer gradually decreasing to 3.5 seconds in round 25.
 - The match sidebar appears when players enter the dance floor, not while waiting in the lobby.
 
 If music is still silent, first test with the BlockParty mod installed on both server and client, and temporarily disable other resource packs to rule out an override of `assets/blockparty/sounds.json` or the music OGG files. The server-side `Starting BlockParty track` log confirms only that the server sent the sound request, not that the client successfully loaded the sound.
@@ -65,7 +65,7 @@ If music is still silent, first test with the BlockParty mod installed on both s
 **Music pause limitation in 0.9.0:** this release stops and restarts the track from its beginning after the floor-fall phase. Version 0.9.1 replaces that behavior with client-controlled playback and per-channel pause/resume.
 
 
-## 0.9.1-alpha — client-side music playback
+## 0.9.2-alpha — client-side music playback
 - Added a client music controller. The server now sends explicit PLAY, PAUSE, RESUME and STOP commands instead of asking each client to create an unmanaged vanilla sound from a sound packet.
 - The selected streamed OGG is created as a local Minecraft `SoundInstance` in the Records/Jukebox category.
 - The client retains the active sound instance and pauses/unpauses its own OpenAL channel. This preserves the playback cursor rather than stopping and replaying the song.
@@ -78,9 +78,17 @@ If music is still silent, first test with the BlockParty mod installed on both s
 **Implementation note:** the client controller accesses Minecraft 1.21.1's active sound-channel map through NeoForge's obfuscation-aware reflection helper and pauses only the BlockParty music channel. If a future Minecraft update changes the sound engine internals, this small adapter may need updating.
 
 
-### 0.9.1-alpha CI follow-up
+### 0.9.2-alpha CI follow-up
 The follow-up source archive fixes the initial GitHub Actions compile errors:
 - No longer imports the unavailable `net.neoforged.fml.DistExecutor`.
 - Uses the 1.21.1 `ItemTossEvent` API correctly: `getEntity()` for the dropped item entity and `getPlayer()` for the player inventory.
 - Cancels the protected toss, restores the stack to the tossing player's inventory, and discards the item entity to prevent duplication.
 - Removes the deprecated explicit event-bus selector while retaining client-only event subscription.
+
+
+## 0.9.3-alpha — bankable LEAP BOOST and 25-round pacing
+
+- LEAP BOOST feathers now persist across round transitions until the player right-clicks to use them. Unused feathers are cleared only when the match ends.
+- A player carrying a LEAP BOOST feather can still scroll the hotbar; otherwise the target block remains locked in the centre slot.
+- Increased the match limit from 20 to 25 rounds. Round 1 starts at 10 seconds, and the time decreases gradually to 3.5 seconds by round 25.
+- The feather remains protected from dropping, including when saved for a later round.

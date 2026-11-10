@@ -13,7 +13,6 @@ import net.minecraft.client.sounds.SoundManager;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
@@ -72,6 +71,7 @@ public final class ClientMusicController {
         if (currentSound == null) return;
         paused = true;
         pauseStateApplied = false;
+        BlockPartyMod.LOGGER.info("Pausing BlockParty music channel at floor collapse.");
         applyPauseState();
     }
 
@@ -79,6 +79,7 @@ public final class ClientMusicController {
         if (currentSound == null) return;
         paused = false;
         pauseStateApplied = false;
+        BlockPartyMod.LOGGER.info("Resuming BlockParty music channel for next round.");
         applyPauseState();
     }
 
@@ -128,10 +129,19 @@ public final class ClientMusicController {
             engineField.setAccessible(true);
             SoundEngine engine = (SoundEngine) engineField.get(manager);
 
-            Field channelsField = ObfuscationReflectionHelper.findField(SoundEngine.class, "f_120226_");
-            Map<SoundInstance, ChannelAccess.ChannelHandle> channels =
-                    (Map<SoundInstance, ChannelAccess.ChannelHandle>) channelsField.get(engine);
-            return channels.get(currentSound);
+            // Do not depend on a single obfuscated field name: mappings differ between
+            // NeoForge/Minecraft builds. Find the live SoundInstance -> ChannelHandle map.
+            for (Class<?> type = SoundEngine.class; type != null; type = type.getSuperclass()) {
+                for (Field field : type.getDeclaredFields()) {
+                    if (!Map.class.isAssignableFrom(field.getType())) continue;
+                    field.setAccessible(true);
+                    Object value = field.get(engine);
+                    if (!(value instanceof Map<?, ?> channels)) continue;
+                    Object handle = channels.get(currentSound);
+                    if (handle instanceof ChannelAccess.ChannelHandle channelHandle) return channelHandle;
+                }
+            }
+            return null;
         } catch (ReflectiveOperationException | RuntimeException exception) {
             if (!reflectionWarningLogged) {
                 reflectionWarningLogged = true;

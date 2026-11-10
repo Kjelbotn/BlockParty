@@ -74,16 +74,22 @@ public final class Arena {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER
     }
 
-    public static final int MAX_ROUNDS = 20;
+    public static final int MAX_ROUNDS = 25;
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
     private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
+    // 25 rounds: start at 10 seconds and gradually tighten the time window.
+    // The final rounds remain playable rather than dropping to near-instant timings.
     private static final int[] ROUND_DURATION_TICKS = {
-            200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 20
+            200, 194, 188, 182, 176, 170, 164, 158, 152, 146,
+            140, 134, 128, 122, 116, 110, 104, 98, 92, 86,
+            80, 76, 74, 72, 70
     };
+    private static final int TARGET_BLOCK_SLOT = 4; // middle hotbar slot (1-based slot 5)
+
 
     private final String id;
     private ServerLevel level;
@@ -559,15 +565,15 @@ public final class Arena {
 
         boolean activated = true;
         if (powerUp == PowerUp.LEAP) {
-            // A forward-and-upward impulse gives a clear, immediate arcade-style leap.
-            var look = player.getLookAngle();
-            var motion = player.getDeltaMovement();
-            double horizontalLength = Math.sqrt(look.x * look.x + look.z * look.z);
-            double forwardX = horizontalLength > 0.001D ? look.x / horizontalLength : 0.0D;
-            double forwardZ = horizontalLength > 0.001D ? look.z / horizontalLength : 0.0D;
-            player.setDeltaMovement(motion.x + forwardX * 0.7D, Math.max(0.95D, motion.y + 0.65D),
-                    motion.z + forwardZ * 0.7D);
-            player.hurtMarked = true;
+            ItemStack feather = new ItemStack(Items.FEATHER);
+            feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+            feather.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+            if (!player.getInventory().add(feather)) {
+                activated = false;
+                player.sendSystemMessage(Component.literal("Inventaret er fullt – ingen LEAP BOOST-fjær ble gitt.")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
         } else if (powerUp == PowerUp.COLOR_TELEPORTER) {
             List<BlockPos> safeTiles = new ArrayList<>();
             for (Map.Entry<BlockPos, BlockState> entry : floorSnapshot.entrySet()) {
@@ -608,6 +614,30 @@ public final class Arena {
         }
         playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
         updateScoreboard(level.getServer());
+        return true;
+    }
+
+    public static boolean isLeapFeather(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !stack.is(Items.FEATHER)) return false;
+        Component name = stack.get(DataComponents.CUSTOM_NAME);
+        return name != null && "LEAP BOOST".equals(name.getString());
+    }
+
+    /** Right-click activation for the bankable LEAP BOOST item. */
+    public boolean handlePowerupItemInteraction(ServerPlayer player, ItemStack stack) {
+        if (phase != Phase.PREPARE || !alive.contains(player.getUUID()) || !isLeapFeather(stack)) return false;
+        var look = player.getLookAngle();
+        var motion = player.getDeltaMovement();
+        double horizontalLength = Math.sqrt(look.x * look.x + look.z * look.z);
+        double forwardX = horizontalLength > 0.001D ? look.x / horizontalLength : 0.0D;
+        double forwardZ = horizontalLength > 0.001D ? look.z / horizontalLength : 0.0D;
+        player.setDeltaMovement(motion.x + forwardX * 0.7D, Math.max(0.95D, motion.y + 0.65D),
+                motion.z + forwardZ * 0.7D);
+        player.hurtMarked = true;
+        if (!player.getAbilities().instabuild) stack.shrink(1);
+        player.getInventory().setChanged();
+        player.sendSystemMessage(Component.literal("LEAP BOOST aktivert!").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.35F);
         return true;
     }
 
@@ -662,6 +692,22 @@ public final class Arena {
             if (player != null) for (Holder<MobEffect> effect : entry.getValue()) player.removeEffect(effect);
         }
         roundPowerupEffects.clear();
+        // LEAP BOOST feathers are intentionally NOT cleared here: they are inventory items
+        // that players may save and use in a later round when they really need them.
+    }
+
+    /** Remove any banked LEAP BOOST items only when the match is completely over. */
+    private void clearLeapFeathers(MinecraftServer server) {
+        for (UUID uuid : players) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                if (isLeapFeather(player.getInventory().getItem(slot))) {
+                    player.getInventory().setItem(slot, ItemStack.EMPTY);
+                }
+            }
+            player.inventoryMenu.broadcastChanges();
+        }
     }
 
     private void playSound(Holder<SoundEvent> sound, SoundSource source, float volume, float pitch) {
@@ -736,7 +782,7 @@ public final class Arena {
 
     /** Lobby utility items are bound to the player and cannot be dropped or duplicated. */
     public static boolean isProtectedLobbyItem(ItemStack stack) {
-        return isMusicVotingBook(stack) || isJoinGameItem(stack);
+        return isMusicVotingBook(stack) || isJoinGameItem(stack) || isTargetColorBlock(stack) || isLeapFeather(stack);
     }
 
     public static boolean isMusicVotingBook(ItemStack stack) {
@@ -1017,7 +1063,29 @@ public final class Arena {
                 if (timerTicks <= 0) endGame(server);
             }
         }
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
+            enforceTargetHotbar(server);
+        }
         if (phase != Phase.WAITING && scoreboardTick % 5 == 0) updateScoreboard(server);
+    }
+
+    /** Keep the target block fixed in the centre slot; a LEAP feather temporarily unlocks scrolling. */
+    private void enforceTargetHotbar(MinecraftServer server) {
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null || hasLeapFeather(player)) continue;
+            if (player.getInventory().selected != TARGET_BLOCK_SLOT) {
+                player.getInventory().selected = TARGET_BLOCK_SLOT;
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+            }
+        }
+    }
+
+    private static boolean hasLeapFeather(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (isLeapFeather(player.getInventory().getItem(slot))) return true;
+        }
+        return false;
     }
 
     private void beginRound(MinecraftServer server) {
@@ -1234,12 +1302,25 @@ public final class Arena {
             InventorySnapshot snapshot = originalHeldItems.get(uuid);
             if (player == null || snapshot == null) continue;
 
-            player.getInventory().selected = snapshot.selectedSlot();
+            player.getInventory().selected = TARGET_BLOCK_SLOT;
             ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(targetColor));
             targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
                     .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
-            player.getInventory().setItem(snapshot.selectedSlot(), targetBlock);
+            player.getInventory().setItem(TARGET_BLOCK_SLOT, targetBlock);
+            player.inventoryMenu.broadcastChanges();
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
         }
+    }
+
+    /** A named target concrete block is a protected match item, not a throwable item. */
+    public static boolean isTargetColorBlock(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !BlockPartyColors.isConcrete(net.minecraft.world.level.block.Block.byItem(stack.getItem()).defaultBlockState())) return false;
+        Component name = stack.get(DataComponents.CUSTOM_NAME);
+        if (name == null) return false;
+        for (DyeColor color : DyeColor.values()) {
+            if (BlockPartyColors.displayName(color).equals(name.getString())) return true;
+        }
+        return false;
     }
 
     private void rememberTargetContacts(MinecraftServer server) {
@@ -1265,7 +1346,7 @@ public final class Arena {
             if (player == null) continue;
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
             if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor) {
-                lastTargetContactTick.put(uuid, now);
+                lastTargetContactTick.put(uuid, (long) scoreboardTick);
                 lastTargetContactPos.put(uuid, tile.immutable());
             }
         }
@@ -1448,6 +1529,7 @@ public final class Arena {
             if (player != null) player.displayClientMessage(Component.empty(), true);
         }
         clearActivePowerUps(server);
+        clearLeapFeathers(server);
         removeActiveBeacon();
         restoreOriginalFloor();
         restoreOriginalArenaAccents();
