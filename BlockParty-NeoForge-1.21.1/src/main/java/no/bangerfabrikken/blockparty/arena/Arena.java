@@ -581,64 +581,60 @@ public final class Arena {
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
 
-        // Older 0.6.0 builds could leave DJ voting instructions floating over the lobby/arena entrance.
-        // Clear only text displays in the reserved entrance volume; the arena target screen is outside it.
+        // Remove obsolete instruction holograms from the reserved entrance volume only.
         AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
                 centerX + 20, lobbyY + 16, lobbyZ - 13);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) {
             old.discard();
         }
 
-        Component heading = Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
-                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
+        // Split-screen layout: full catalogue on the left, live leader featured prominently
+        // in the centre/right. Preserve the existing playlist order and registry unchanged.
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.15, wallZ - 0.65,
-                180.0F, heading, 1.35F, tag);
+                180.0F, Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
+                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.25F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX - 12.0, lobbyY + 9.55, wallZ - 0.65,
+                180.0F, Component.literal("ALLE LÅTER")
+                        .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 0.95F, tag);
 
-        Track featured = selectedMusicTrackId == null ? mostVotedTrack() : MusicTrackManager.get(selectedMusicTrackId);
-        Component status = featured == null
-                ? Component.literal("STEM PÅ NESTE LÅT  •  VELG DIN FAVORITT")
-                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
-                : Component.literal((selectedMusicTrackId == null ? "LEDENDE LÅT: " : "NÅ SPILLES: ") + featured.name())
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 9.75, wallZ - 0.65,
-                180.0F, status, 1.05F, tag);
-
-        List<Track> ranked = new ArrayList<>(MusicTrackManager.getTracks());
-        ranked.sort((left, right) -> {
-            long leftVotes = musicVotes.values().stream().filter(left.id()::equals).count();
-            long rightVotes = musicVotes.values().stream().filter(right.id()::equals).count();
-            int byVotes = Long.compare(rightVotes, leftVotes);
-            return byVotes != 0 ? byVotes : left.name().compareToIgnoreCase(right.name());
-        });
-        // Compact 3-column layout: larger, readable cards instead of tiny text spread
-        // across an oversized wall. The voting menu remains the complete catalogue.
-        int visible = Math.min(ranked.size(), 6);
-        for (int i = 0; i < visible; i++) {
-            Track track = ranked.get(i);
+        List<Track> catalogue = MusicTrackManager.getTracks();
+        int row = 0;
+        for (Track track : catalogue) {
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = i % 3;
-            int row = i / 3;
-            double x = centerX + 0.5 + (column - 1) * 12.0;
-            double y = lobbyY + (row == 0 ? 7.65 : 5.45);
-            ChatFormatting accent = switch (column) {
-                case 0 -> ChatFormatting.AQUA;
-                case 1 -> ChatFormatting.LIGHT_PURPLE;
-                default -> ChatFormatting.GOLD;
-            };
-            Component card = Component.literal(String.format(java.util.Locale.ROOT, "%02d", i + 1) + "  ")
-                    .withStyle(accent, ChatFormatting.BOLD)
+            Component line = Component.literal(String.format(java.util.Locale.ROOT, "%02d  ", ++row))
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                    .append(Component.literal("\n" + track.artist()).withStyle(ChatFormatting.GRAY))
-                    .append(Component.literal("\n" + votes + (votes == 1 ? " STEMME" : " STEMMER"))
-                            .withStyle(votes > 0 ? ChatFormatting.YELLOW : ChatFormatting.DARK_GRAY));
-            BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.65,
-                    180.0F, card, 1.05F, tag);
+                    .append(Component.literal("\n" + track.artist() + "  •  " + votes
+                            + (votes == 1 ? " STEMME" : " STEMMER")).withStyle(ChatFormatting.GRAY));
+            BlockPartyText.spawnTextDisplay(level, centerX - 12.0, lobbyY + 8.15 - (row - 1) * 1.0,
+                    wallZ - 0.65, 180.0F, line, 0.78F, tag);
         }
-        String footerText = ranked.size() > visible
-                ? "Stem på låten du vil høre!  •  " + (ranked.size() - visible) + " FLERE I AVSTEMNINGSMENYEN"
-                : "Stem på låten du vil høre!";
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 4.25, wallZ - 0.65,
-                180.0F, Component.literal(footerText).withStyle(ChatFormatting.AQUA), 0.95F, tag);
+
+        Track leader = mostVotedTrack();
+        long leaderVotes = leader == null ? 0 : musicVotes.values().stream()
+                .filter(leader.id()::equals).count();
+        BlockPartyText.spawnTextDisplay(level, centerX + 9.0, lobbyY + 9.25, wallZ - 0.65,
+                180.0F, Component.literal("LEDENDE LÅT")
+                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.0F, tag);
+        if (leader == null || leaderVotes == 0) {
+            BlockPartyText.spawnTextDisplay(level, centerX + 9.0, lobbyY + 7.0, wallZ - 0.65,
+                    180.0F, Component.literal("INGEN LEDER ENNÅ")
+                            .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD), 1.35F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX + 9.0, lobbyY + 5.7, wallZ - 0.65,
+                    180.0F, Component.literal("Stem på favoritten din!")
+                            .withStyle(ChatFormatting.AQUA), 0.9F, tag);
+        } else {
+            BlockPartyText.spawnTextDisplay(level, centerX + 9.0, lobbyY + 7.25, wallZ - 0.65,
+                    180.0F, Component.literal(leader.name())
+                            .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.35F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX + 9.0, lobbyY + 5.65, wallZ - 0.65,
+                    180.0F, Component.literal(leader.artist() + "  •  " + leaderVotes
+                            + (leaderVotes == 1 ? " STEMME" : " STEMMER"))
+                            .withStyle(ChatFormatting.YELLOW), 1.0F, tag);
+        }
+        BlockPartyText.spawnTextDisplay(level, centerX + 9.0, lobbyY + 4.35, wallZ - 0.65,
+                180.0F, Component.literal("STEM PÅ LÅTEN DU VIL HØRE")
+                        .withStyle(ChatFormatting.AQUA), 0.8F, tag);
     }
 
     private Track mostVotedTrack() {

@@ -1,3 +1,3 @@
-BlockParty 0.15.0-alpha
+BlockParty 0.15.2-alpha
 
-Upload/replace the project files in your GitHub repository with the contents of this archive. Keep the repository history and workflow settings. The archive includes the complete source project and all three music assets.
+Upload the contents of this project folder to your GitHub repository, replacing the previous BlockParty source files. The existing song catalogue and audio assets are unchanged.

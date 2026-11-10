@@ -1,3 +1,10 @@
+# BlockParty 0.15.2-alpha
+
+- Redesigned the lobby DJ screen into a split layout: the complete existing song catalogue is listed on the left in its original playlist order.
+- The centre/right panel now highlights the current vote leader in large text, including artist and vote count. Before any votes arrive, it displays a clear no-leader-yet message.
+- Removed the misleading rank-by-vote placement that visually reversed song numbers across the screen.
+- No tracks were added, removed, renamed, or re-registered; the existing playlist and audio assets are unchanged.
+
 # Changelog
 
 ## 0.15.1-alpha
