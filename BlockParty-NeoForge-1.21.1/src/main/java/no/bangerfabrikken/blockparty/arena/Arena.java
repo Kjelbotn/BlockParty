@@ -140,6 +140,7 @@ public final class Arena {
     /** Active beacon blocks are placed one block above five separate floor tiles. */
     private final Map<BlockPos, BlockState> activeBeacons = new HashMap<>();
     private final Map<UUID, String> musicVotes = new HashMap<>();
+    private final Set<UUID> musicVotingUnlocked = new HashSet<>();
     private final Set<UUID> fullLobbyInventoryNotices = new HashSet<>();
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
@@ -344,6 +345,7 @@ public final class Arena {
         removeLobbyItemsFromInventory(player);
         fullLobbyInventoryNotices.remove(uuid);
         musicVotes.remove(uuid);
+        musicVotingUnlocked.remove(uuid);
         restorePlayerState(player);
         if (teleport && wasMember) {
             ReturnLocation origin = returnLocations.remove(uuid);
@@ -946,9 +948,8 @@ public final class Arena {
         if (!lobbySet || level == null || player.serverLevel() != level) return;
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
         giveUniqueLobbyItem(player, createJoinGameItem(), Arena::isJoinGameItem);
-        giveMusicVotingBook(player);
         ensureLeaveLobbyItem(player);
-        if (hasLobbyItem(player, Arena::isJoinGameItem) && hasLobbyItem(player, Arena::isMusicVotingBook)) {
+        if (hasLobbyItem(player, Arena::isJoinGameItem)) {
             fullLobbyInventoryNotices.remove(player.getUUID());
         }
     }
@@ -1010,6 +1011,37 @@ public final class Arena {
         return star;
     }
 
+    /** Music voting is unlocked only after the player explicitly uses the Nether Star. */
+    public void unlockMusicVotingAfterStar(ServerPlayer player) {
+        if (!players.contains(player.getUUID()) || !isInsideBlockPartyArea(player)) return;
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+            player.sendSystemMessage(Component.literal("Musikkavstemningen åpner etter at den pågående kampen er ferdig.")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+        musicVotingUnlocked.add(player.getUUID());
+        giveMusicVotingBook(player);
+        player.inventoryMenu.broadcastChanges();
+    }
+
+    /** True only while the player is physically inside this arena's lobby or arena footprint. */
+    public boolean isInsideBlockPartyArea(ServerPlayer player) {
+        return player != null && player.serverLevel() == level
+                && protectsLocation(level, player.getX(), player.getY(), player.getZ());
+    }
+
+    private void removeLobbyControlsFromInventory(ServerPlayer player) {
+        boolean changed = false;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (isMusicVotingBook(stack) || isJoinGameItem(stack) || isLeaveLobbyItem(stack)) {
+                player.getInventory().setItem(i, ItemStack.EMPTY);
+                changed = true;
+            }
+        }
+        if (changed) player.inventoryMenu.broadcastChanges();
+    }
+
     private void giveMusicVotingBook(ServerPlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             if (isMusicVotingBook(player.getInventory().getItem(i))) return;
@@ -1061,6 +1093,12 @@ public final class Arena {
     }
 
     public void openMusicVoting(ServerPlayer player) {
+        if (!players.contains(player.getUUID()) || !musicVotingUnlocked.contains(player.getUUID())
+                || !isInsideBlockPartyArea(player)) {
+            player.sendSystemMessage(Component.literal("Trykk på Nether Star i BlockParty-lobbyen for å låse opp musikkavstemningen.")
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
             player.sendSystemMessage(Component.literal("Musikkavstemningen er stengt. Stem før kampen starter.")
                     .withStyle(ChatFormatting.RED));
@@ -1085,6 +1123,12 @@ public final class Arena {
     }
 
     public boolean voteMusic(ServerPlayer player, String trackId) {
+        if (!players.contains(player.getUUID()) || !musicVotingUnlocked.contains(player.getUUID())
+                || !isInsideBlockPartyArea(player)) {
+            player.sendSystemMessage(Component.literal("Du må være i BlockParty og trykke på Nether Star før du kan stemme.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
             player.sendSystemMessage(Component.literal("Avstemningen er stengt.").withStyle(ChatFormatting.RED));
             return false;
@@ -1153,6 +1197,16 @@ public final class Arena {
     public void tick(MinecraftServer server) {
         scoreboardTick++;
         enforceBlockPartyNeeds(server);
+        if (scoreboardTick % 5 == 0) {
+            for (UUID uuid : new HashSet<>(players)) {
+                ServerPlayer sessionPlayer = server.getPlayerList().getPlayer(uuid);
+                if (sessionPlayer != null && !isInsideBlockPartyArea(sessionPlayer)) {
+                    removeLobbyControlsFromInventory(sessionPlayer);
+                    musicVotingUnlocked.remove(uuid);
+                    musicVotes.remove(uuid);
+                }
+            }
+        }
         if (phase != Phase.WAITING && level != null) {
             // Keep the match lighting fixed even if another command changes the time mid-game.
             if (level.getDayTime() != 13_500L) level.setDayTime(13_500L);
@@ -1771,7 +1825,9 @@ public final class Arena {
             player.setGameMode(GameType.ADVENTURE);
             player.getInventory().clearContent();
             player.getInventory().setItem(0, createJoinGameItem());
-            player.getInventory().setItem(1, createMusicVotingBook());
+            if (musicVotingUnlocked.contains(uuid)) {
+                player.getInventory().setItem(1, createMusicVotingBook());
+            }
             player.getInventory().setItem(8, createLeaveLobbyItem());
             player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);

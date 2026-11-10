@@ -130,7 +130,9 @@ public final class ArenaGenerator {
         for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
             for (int x = minX - WALKWAY_INNER_GAP; x <= maxX + WALKWAY_INNER_GAP; x++) {
                 put(level, x, y, minZ - WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
-                put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
+                if (x < centerX - 4 || x > centerX + 4) {
+                    put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
+                }
             }
             for (int z = minZ - WALKWAY_INNER_GAP; z <= maxZ + WALKWAY_INNER_GAP; z++) {
                 put(level, minX - WALKWAY_INNER_GAP, y, z, Blocks.PURPLE_STAINED_GLASS);
@@ -209,7 +211,20 @@ public final class ArenaGenerator {
             for (int x = centerX - 4; x <= centerX + 4; x++) put(level, x, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
         }
         for (int z = outerMaxZ + 1; z <= lobbyMinZ; z++) {
-            for (int x = centerX - 4; x <= centerX + 4; x++) put(level, x, floorY, z, Blocks.PURPLE_CONCRETE);
+            for (int x = centerX - 6; x <= centerX + 6; x++) {
+                // Continuous, solid landing beside the ramp closes the side gaps.
+                if (x < centerX - 4 || x > centerX + 4) {
+                    put(level, x, floorY, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+                } else {
+                    put(level, x, floorY, z, Blocks.PURPLE_CONCRETE);
+                }
+            }
+        }
+        // Keep the entrance visually open: clear the remaining central glass rail section.
+        for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
+            for (int x = centerX - 4; x <= centerX + 4; x++) {
+                put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.AIR);
+            }
         }
 
         // A large dark colour screen on the north wall. Dynamic text is spawned by Arena using Text Display entities.

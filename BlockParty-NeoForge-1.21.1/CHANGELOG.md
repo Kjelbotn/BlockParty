@@ -121,3 +121,15 @@
 - Added a redstone-dust Leave Lobby control fixed to hotbar slot 9. Right-clicking it performs the same leave flow as `/bp leave`.
 - The leave control is protected against dropping and is removed when leaving the arena.
 - Leaving now returns only to the saved pre-join survival location; missing return data produces a warning instead of teleporting to the lobby.
+
+## 0.11.0-alpha
+- Opened the lobby-to-arena entrance by removing the central inner glass rail section.
+- Added solid matching floor blocks beside the entrance ramp to close side gaps.
+- Added server-side command restrictions for players in a BlockParty session/lobby; only /bp commands remain available, so external teleport commands and EasyHomes shortcuts cannot bypass /bp leave.
+
+## 0.11.1-alpha
+- Music voting book is no longer given automatically to lobby visitors.
+- Players must explicitly click the Nether Star to unlock and receive the voting book.
+- Music voting menu and vote commands require an unlocked BlockParty session and physical presence inside the BlockParty area.
+- Nether Star, music voting book and leave Redstone Dust are removed when a session player leaves the BlockParty area.
+- Re-entering the lobby allows the lobby controls to be refreshed; the player must click the Nether Star again to unlock music voting.

@@ -7,6 +7,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
@@ -35,6 +36,7 @@ public final class BlockPartyMod {
     public BlockPartyMod(IEventBus modEventBus) {
         modEventBus.addListener(this::registerPayloads);
         NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
+        NeoForge.EVENT_BUS.addListener(this::onCommand);
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
@@ -46,7 +48,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onLivingDeath);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.10.9-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.11.1-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -72,6 +74,30 @@ public final class BlockPartyMod {
     private void onRegisterCommands(RegisterCommandsEvent event) {
         BlockPartyCommands.register(event.getDispatcher());
     }
+
+    /**
+     * While a player is in the BlockParty lobby/session, prevent external
+     * teleport shortcuts (including EasyHomes aliases) from bypassing /bp leave.
+     * This is server-side, so client keybinds/macros cannot bypass the restriction.
+     */
+    private void onCommand(CommandEvent event) {
+        if (!(event.getParseResults().getContext().getSource().getEntity() instanceof ServerPlayer player)) return;
+        no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
+        if (arena == null) arena = ArenaManager.get().findLobbyArenaFor(player);
+        if (arena == null) return;
+
+        String raw = event.getParseResults().getReader().getString().trim();
+        String normalized = raw.startsWith("/") ? raw.substring(1).trim() : raw;
+        String root = normalized.split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
+        boolean allowed = root.equals("bp");
+        if (!allowed) {
+            event.setCanceled(true);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "Kommandoer er deaktivert i BlockParty. Bruk /bp leave eller Redstone Dust for å forlate området.")
+                    .withStyle(net.minecraft.ChatFormatting.RED));
+        }
+    }
+
 
     private void onServerTick(ServerTickEvent.Post event) {
         ArenaManager.get().tick(event.getServer());
@@ -140,6 +166,7 @@ public final class BlockPartyMod {
                         .withStyle(net.minecraft.ChatFormatting.YELLOW));
             } else {
                 arena.join(player);
+                arena.unlockMusicVotingAfterStar(player);
             }
             return true;
         }
