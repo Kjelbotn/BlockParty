@@ -1263,7 +1263,10 @@ public final class Arena {
                 rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
-                if (timerTicks <= 0) resolveRound();
+                if (timerTicks <= 0) {
+                    rememberTargetContacts(server);
+                    resolveRound();
+                }
             }
             case FALL -> {
                 timerTicks--;
@@ -1278,6 +1281,14 @@ public final class Arena {
                     if (player == null) {
                         pendingEliminations.remove(uuid);
                         alive.remove(uuid);
+                    } else if (isStandingOnTargetTile(player)) {
+                        // A player may complete their landing just after the round timer
+                        // reaches zero. The target tiles remain during FALL, so accept
+                        // a genuine landing before they drop into the pit.
+                        pendingEliminations.remove(uuid);
+                        lastTargetContactPos.put(uuid, new BlockPos(player.blockPosition().getX(),
+                                pos1.getY(), player.blockPosition().getZ()).immutable());
+                        lastTargetContactTick.put(uuid, (long) scoreboardTick);
                     } else if (player.getY() < pos1.getY() - 2.5) {
                         eliminate(player);
                     }
@@ -1640,6 +1651,14 @@ public final class Arena {
                 lastTargetContactPos.put(uuid, tile.immutable());
             }
         }
+    }
+
+    private boolean isStandingOnTargetTile(ServerPlayer player) {
+        if (targetColor == null || pos1 == null || level == null) return false;
+        BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
+        return BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor
+                && player.getY() >= pos1.getY() + 0.75
+                && player.getY() <= pos1.getY() + 2.5;
     }
 
     private void resolveRound() {

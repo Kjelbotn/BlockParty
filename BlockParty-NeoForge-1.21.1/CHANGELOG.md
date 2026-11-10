@@ -155,3 +155,13 @@
 - Removed outer tinted-glass rail while preserving the inner spectator safety glass.
 - Existing arenas receive an in-place geometry repair on first lobby visit; no arena regeneration required.
 - Music assets are unchanged and excluded from the update package.
+
+## 0.11.7-alpha
+- Restored the tinted-glass perimeter around the entire spectator walkway; only the centered entrance is opened.
+- Corrected the spectator stairs to face toward the arena and aligned the landing with the actual outer edge of the spectator ring.
+- Extended the bridge side walls and foundations to close the exposed gaps along both sides of the lobby-to-arena passage.
+
+## 0.11.8-alpha
+- Removed the visible support pillars beneath the spectator ring.
+- Added a landing grace during the floor-fall phase: players initially marked for elimination are saved if they land on the announced target colour before falling into the pit.
+- Added a final target-contact sample at round timeout to reduce tick-order edge cases.

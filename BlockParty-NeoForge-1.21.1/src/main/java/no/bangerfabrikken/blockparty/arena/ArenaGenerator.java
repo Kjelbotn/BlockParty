@@ -119,17 +119,21 @@ public final class ArenaGenerator {
                 put(level, x, walkwayY, z, trim ? Blocks.PURPLE_CONCRETE : Blocks.DEEPSLATE_TILES);
             }
         }
-        // Supports beneath the spectator ring, deliberately outside the fall pit.
-        for (int x = minX - WALKWAY_OUTER_MARGIN + 2; x <= maxX + WALKWAY_OUTER_MARGIN - 2; x += 8) {
-            for (int z = minZ - WALKWAY_OUTER_MARGIN + 2; z <= maxZ + WALKWAY_OUTER_MARGIN - 2; z += 8) {
-                boolean inPit = x >= minX - WALKWAY_INNER_GAP && x <= maxX + WALKWAY_INNER_GAP
-                        && z >= minZ - WALKWAY_INNER_GAP && z <= maxZ + WALKWAY_INNER_GAP;
-                if (inPit) continue;
-                for (int y = floorY + 1; y < walkwayY; y++) put(level, x, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+        // The spectator ring is intentionally cantilevered; do not generate
+        // visible support pillars hanging down beneath the arena perimeter.
+        // Keep the full outer tinted-glass guardrail around the spectator ring.
+        // Only the small south entrance section is opened by buildSpectatorEntrance.
+        for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
+            for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
+                put(level, x, y, minZ - WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);
+                put(level, x, y, maxZ + WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);
+            }
+            for (int z = minZ - WALKWAY_OUTER_MARGIN; z <= maxZ + WALKWAY_OUTER_MARGIN; z++) {
+                put(level, minX - WALKWAY_OUTER_MARGIN, y, z, Blocks.TINTED_GLASS);
+                put(level, maxX + WALKWAY_OUTER_MARGIN, y, z, Blocks.TINTED_GLASS);
             }
         }
-        // Inner rail remains; remove the old outer tinted-glass barrier so visitors can
-        // reach the spectator ring from the entrance stairs.
+        // Inner purple rail remains between spectators and the playing floor.
         for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
             for (int x = minX - WALKWAY_INNER_GAP; x <= maxX + WALKWAY_INNER_GAP; x++) {
                 put(level, x, y, minZ - WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
@@ -195,7 +199,7 @@ public final class ArenaGenerator {
         }
 
         // Walkable entrance: four actual stairs rise northward to the spectator ring.
-        buildSpectatorEntrance(level, centerX, floorY, outerMaxZ, lobbyMinZ);
+        buildSpectatorEntrance(level, centerX, floorY, maxZ + WALKWAY_OUTER_MARGIN, lobbyMinZ);
 
         // A large dark colour screen on the north wall. Dynamic text is spawned by Arena using Text Display entities.
         int signWidth = Math.min(80, size + 12);
@@ -352,26 +356,38 @@ public final class ArenaGenerator {
     }
 
     private static void buildSpectatorEntrance(ServerLevel level, int centerX, int floorY,
-                                                int outerMaxZ, int lobbyMinZ) {
+                                                int ringOuterZ, int lobbyMinZ) {
         int walkwayY = floorY + SPECTATOR_HEIGHT;
+        // Open only a centered doorway in the south outer tinted-glass rail.
+        for (int x = centerX - 4; x <= centerX + 4; x++) {
+            for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
+                removeTintedGlass(level, x, y, ringOuterZ);
+            }
+        }
         // Safe bridge at lobby level; seal both sides against the void.
-        for (int z = outerMaxZ + 1; z <= lobbyMinZ; z++) {
+        for (int z = ringOuterZ + 1; z <= lobbyMinZ; z++) {
             for (int x = centerX - 7; x <= centerX + 7; x++) {
                 put(level, x, floorY, z, Math.abs(x - centerX) <= 5
                         ? Blocks.PURPLE_CONCRETE : Blocks.POLISHED_BLACKSTONE_BRICKS);
             }
             for (int side : new int[]{-1, 1}) {
-                for (int y = floorY + 1; y <= floorY + 2; y++)
-                    put(level, centerX + side * 7, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+                int wallX = centerX + side * 7;
+                // Full-height side walls and foundations close the exposed void.
+                for (int y = floorY - 4; y <= floorY + 3; y++)
+                    put(level, wallX, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+                for (int x = wallX - 1; x <= wallX + 1; x++) {
+                    for (int y = floorY - 4; y < floorY; y++)
+                        put(level, x, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+                }
             }
         }
         // Stair treads have a half-block first rise, unlike the old full-block ramp.
         for (int step = 1; step <= SPECTATOR_HEIGHT; step++) {
-            int z = outerMaxZ + 1 - step;
+            int z = ringOuterZ + 1 - step;
             int baseY = floorY + step - 1;
             for (int x = centerX - 4; x <= centerX + 4; x++) {
                 put(level, x, baseY, z, Blocks.POLISHED_BLACKSTONE_BRICK_STAIRS.defaultBlockState()
-                        .setValue(StairBlock.FACING, Direction.SOUTH));
+                        .setValue(StairBlock.FACING, Direction.NORTH));
                 for (int y = baseY + 1; y <= walkwayY + 3; y++) put(level, x, y, z, Blocks.AIR);
             }
             for (int side : new int[]{-1, 1}) {
@@ -382,7 +398,7 @@ public final class ArenaGenerator {
         }
         // Landing meets the existing ring at the same Y level.
         for (int x = centerX - 4; x <= centerX + 4; x++) {
-            for (int z = outerMaxZ - SPECTATOR_HEIGHT; z >= outerMaxZ - SPECTATOR_HEIGHT - 2; z--) {
+            for (int z = ringOuterZ - SPECTATOR_HEIGHT; z >= ringOuterZ - SPECTATOR_HEIGHT - 2; z--) {
                 put(level, x, walkwayY, z, Blocks.DEEPSLATE_TILES);
                 for (int y = walkwayY + 1; y <= walkwayY + 3; y++) put(level, x, y, z, Blocks.AIR);
             }
@@ -409,22 +425,22 @@ public final class ArenaGenerator {
         BlockPos arenaAnchor = new BlockPos(centerX, floorY + 12, minZ + (maxZ - minZ + 1) / 2);
         BlockPos lobbyAnchor = new BlockPos(centerX, floorY + 8, lobbyMaxZ);
         if (!level.hasChunkAt(arenaAnchor) || !level.hasChunkAt(lobbyAnchor)) return false;
-        // Upgrade existing arenas in place; no need to regenerate the dance floor.
-        buildSpectatorEntrance(level, centerX, floorY, outerMaxZ, lobbyMinZ);
-        int ringMinX = minX - WALKWAY_OUTER_MARGIN;
-        int ringMaxX = maxX + WALKWAY_OUTER_MARGIN;
-        int ringMinZ = minZ - WALKWAY_OUTER_MARGIN;
-        int ringMaxZ = maxZ + WALKWAY_OUTER_MARGIN;
-        for (int y = floorY + SPECTATOR_HEIGHT + 1; y <= floorY + SPECTATOR_HEIGHT + 2; y++) {
-            for (int x = ringMinX; x <= ringMaxX; x++) {
-                removeTintedGlass(level, x, y, ringMinZ);
-                removeTintedGlass(level, x, y, ringMaxZ);
+        // Restore the outer tinted-glass guardrail around the full ring for arenas
+        // touched by the previous buggy update. The entrance helper then reopens
+        // only the centered doorway at the south side.
+        int walkwayY = floorY + SPECTATOR_HEIGHT;
+        for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
+            for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
+                put(level, x, y, minZ - WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);
+                put(level, x, y, maxZ + WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);
             }
-            for (int z = ringMinZ; z <= ringMaxZ; z++) {
-                removeTintedGlass(level, ringMinX, y, z);
-                removeTintedGlass(level, ringMaxX, y, z);
+            for (int z = minZ - WALKWAY_OUTER_MARGIN; z <= maxZ + WALKWAY_OUTER_MARGIN; z++) {
+                put(level, minX - WALKWAY_OUTER_MARGIN, y, z, Blocks.TINTED_GLASS);
+                put(level, maxX + WALKWAY_OUTER_MARGIN, y, z, Blocks.TINTED_GLASS);
             }
         }
+        // Upgrade existing arenas in place; no need to regenerate the dance floor.
+        buildSpectatorEntrance(level, centerX, floorY, maxZ + WALKWAY_OUTER_MARGIN, lobbyMinZ);
 
         // Dense invisible full-bright lighting above the dance floor; only air/light blocks are replaced.
         for (int x = outerMinX + 2; x < outerMaxX; x += 4) {
