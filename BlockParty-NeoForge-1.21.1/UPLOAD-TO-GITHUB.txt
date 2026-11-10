@@ -1,6 +1,4 @@
-BlockParty 0.8.1-alpha
+BlockParty 0.8.2-alpha
 Upload the contents of this folder to the root of your GitHub repository and allow GitHub Actions to build.
 
-Music: the three bundled tracks use the Records/Jukebox volume category. Raise the Jukebox/Note Blocks slider in Music & Sounds. The BlockParty mod must be installed on both server and client.
-
-Pattern generation and /bp leave session lookup have been revised.
+This patch fixes the two Math.floorMod(double, int) compile errors reported by the 0.8.1-alpha build.

@@ -1179,12 +1179,12 @@ public final class Arena {
             int index;
             switch (pattern) {
                 case 0 -> index = (ring / 2 + twist) % colors.size(); // broad concentric squares
-                case 1 -> index = (int) Math.floorMod(Math.atan2(dz, dx) * 4.0 + Math.sqrt(dx * dx + dz * dz) / 2.5 + twist, colors.size()); // spiral
+                case 1 -> index = Math.floorMod((int) Math.floor(Math.atan2(dz, dx) * 4.0 + Math.sqrt(dx * dx + dz * dz) / 2.5 + twist), colors.size()); // spiral
                 case 2 -> index = ((x / 3) + (z / 3) + twist) % colors.size(); // checkerboard
                 case 3 -> index = (int) Math.floorMod((diagonal / 3) + twist, colors.size()); // diagonal bands
                 case 4 -> index = ((x / 4) % 2 == 0 ? z / 2 : (depth - 1 - z) / 2) + twist; // woven lanes
                 case 5 -> index = (distance / 3 + twist) % colors.size(); // diamond rings
-                case 6 -> index = (int) Math.floorMod(Math.atan2(dz, dx) * colors.size() / (Math.PI * 2.0) + twist, colors.size()); // radial color wheel
+                case 6 -> index = Math.floorMod((int) Math.floor(Math.atan2(dz, dx) * colors.size() / (Math.PI * 2.0) + twist), colors.size()); // radial color wheel
                 case 7 -> index = ((ax / 3) * 3 + (az / 3) + twist) % colors.size(); // nested blocks
                 case 8 -> index = (ax <= 2 || az <= 2 ? 0 : (ring / 3 + twist)) % colors.size(); // cross with outer bands
                 case 9 -> index = ((int) Math.floor((Math.sin(x / 3.0 + twist) + Math.cos(z / 3.0) + 2.0) * 3.0) + twist) % colors.size(); // flowing waves

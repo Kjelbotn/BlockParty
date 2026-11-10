@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.2-alpha
+- Fixed two Java compilation errors in the spiral and radial floor-pattern calculations reported by GitHub Actions.
+
+# Changelog
+
 ## 0.8.1-alpha
 - Reworked floor generation into 12 recognizable geometric patterns: concentric squares, spiral, checkerboard, diagonal bands, woven lanes, diamonds, radial wheel, nested blocks, cross, waves, pinwheel and maze.
 - `/bp leave` now locates an active return session as well as normal arena membership, preventing false "not in arena" responses.
