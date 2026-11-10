@@ -1,4 +1,4 @@
-# BlockParty 0.9.3-alpha
+# BlockParty 0.13.3-alpha
 
 NeoForge mod for Minecraft 1.21.1 / Java 21.
 

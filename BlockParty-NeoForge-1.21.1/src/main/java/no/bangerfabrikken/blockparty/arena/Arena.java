@@ -68,7 +68,7 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, PREPARE, FALL, INTERMISSION, FINISHING
+        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, INTERMISSION, FINISHING
     }
 
     private enum PowerUp {
@@ -79,7 +79,8 @@ public final class Arena {
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
-    private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds
+    private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds in lobby
+    private static final int TELEPORT_COUNTDOWN_TICKS = 100; // 5 seconds after teleport
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
     // 25 rounds: start at 10 seconds and gradually tighten the time window.
@@ -414,7 +415,7 @@ public final class Arena {
     }
 
     public void start(MinecraftServer server) {
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) {
             throw new IllegalStateException("Arenaen kjører allerede.");
         }
         players.removeIf(uuid -> server.getPlayerList().getPlayer(uuid) == null);
@@ -435,12 +436,6 @@ public final class Arena {
             originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
             originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
         }
-        // Stadium lighting is designed for night play; 13500 is dusk/nightfall, not midnight.
-        level.setDayTime(13_500L);
-        level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
-        // Keep the arena dry for the entire match, then restore the world's weather-cycle rule.
-        level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
-        level.setWeatherParameters(20 * 60 * 60, 0, false, false);
         alive.clear();
         alive.addAll(players);
         pendingEliminations.clear();
@@ -478,21 +473,7 @@ public final class Arena {
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
         for (UUID uuid : players) matchStartPersonalBest.put(uuid, PlayerStatsManager.getRecord(uuid).personalBest());
-        for (UUID uuid : players) {
-            ServerPlayer introPlayer = server.getPlayerList().getPlayer(uuid);
-            if (introPlayer != null) {
-                introPlayer.connection.send(new ClientboundSetTitlesAnimationPacket(10, 50, 15));
-                introPlayer.connection.send(new ClientboundSetTitleTextPacket(Component.literal("BLOCKPARTY")
-                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)));
-                introPlayer.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("GJØR DEG KLAR!")
-                        .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)));
-            }
-        }
-        Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        if (nowPlaying != null) {
-            broadcast(Component.literal("Now playing: " + nowPlaying.name() + " by " + nowPlaying.artist() + ". :)")
-                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        }
+        // The lobby countdown has ended; players are teleported before the final countdown.
         for (UUID uuid : new ArrayList<>(alive)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) {
@@ -508,9 +489,27 @@ public final class Arena {
             declareWinner();
             return;
         }
+        // Switch to night lighting exactly when the players arrive in the arena.
+        level.setDayTime(13_500L);
+        level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+        level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
+        level.setWeatherParameters(20 * 60 * 60, 0, false, false);
+
         hideLobbyLeaderboard();
         showScoreboard(server);
-        beginRound(server);
+        phase = Phase.TELEPORT_COUNTDOWN;
+        timerTicks = TELEPORT_COUNTDOWN_TICKS;
+        broadcast(Component.literal("Du er på banen! Spillet starter om 5 sekunder.")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        for (UUID uuid : alive) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null) continue;
+            p.connection.send(new ClientboundSetTitlesAnimationPacket(0, 20, 5));
+            p.connection.send(new ClientboundSetTitleTextPacket(Component.literal("5")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+            // Clear the pre-teleport subtitle once players arrive in the arena.
+            p.connection.send(new ClientboundSetSubtitleTextPacket(Component.empty()));
+        }
     }
 
     public void refreshLobbyDisplays() {
@@ -608,31 +607,6 @@ public final class Arena {
     }
 
 
-    /** Lightweight particle-based LED/equalizer animation; avoids per-tick block updates. */
-    private void animateArenaLeds() {
-        if (level == null || pos1 == null || pos2 == null) return;
-        int minX = Math.min(pos1.getX(), pos2.getX());
-        int maxX = Math.max(pos1.getX(), pos2.getX());
-        int minZ = Math.min(pos1.getZ(), pos2.getZ());
-        int maxZ = Math.max(pos1.getZ(), pos2.getZ());
-        int centerX = (minX + maxX) / 2;
-        int centerZ = (minZ + maxZ) / 2;
-        int wallY = pos1.getY() + 16;
-        int beat = Math.floorMod(scoreboardTick / 10, 8);
-        for (int i = 0; i < 8; i++) {
-            int height = 1 + Math.floorMod(beat + i * 3, 5);
-            double x = centerX - 14 + i * 4.0;
-            level.sendParticles(ParticleTypes.END_ROD, x, wallY + height * 0.45, minZ - 12.0,
-                    2, 0.12, 0.18, 0.04, 0.005);
-            level.sendParticles(ParticleTypes.END_ROD, x, wallY + height * 0.45, maxZ + 12.0,
-                    2, 0.12, 0.18, 0.04, 0.005);
-        }
-        if (scoreboardTick % 20 == 0) {
-            level.sendParticles(ParticleTypes.NOTE, centerX, pos1.getY() + 18.0, centerZ, 6,
-                    2.5, 0.35, 2.5, 0.01);
-        }
-    }
-
     private void tickMusicEffects() {
         if (activeMusicId == null || selectedMusicTrackId == null || level == null || musicPaused) return;
         if (musicTicksUntilReplay > 0 && --musicTicksUntilReplay == 0) playSelectedMusic();
@@ -646,23 +620,6 @@ public final class Arena {
             if (state.is(Blocks.REDSTONE_LAMP) && !state.getValue(RedstoneLampBlock.LIT)) {
                 level.setBlock(pos, state.setValue(RedstoneLampBlock.LIT, true), 3);
             }
-        }
-    }
-
-    private void emitMusicParticles() {
-        if (level == null) return;
-        double x = lobbyX;
-        double y = lobbyY + 6.0;
-        double z = lobbyZ + 33.5;
-        level.sendParticles(ParticleTypes.NOTE, x - 10.0, y, z, 4, 0.22, 0.45, 0.1, 0.02);
-        level.sendParticles(ParticleTypes.NOTE, x + 10.0, y, z, 4, 0.22, 0.45, 0.1, 0.02);
-        level.sendParticles(ParticleTypes.END_ROD, x, y + 0.4, z, 3, 0.45, 0.25, 0.15, 0.015);
-        if (pos1 != null && pos2 != null) {
-            int centerX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-            int centerZ = Math.min(pos1.getZ(), pos2.getZ()) + (Math.abs(pos2.getZ() - pos1.getZ()) + 1) / 2;
-            int wallY = pos1.getY() + 17;
-            level.sendParticles(ParticleTypes.NOTE, centerX - 20.0, wallY, centerZ, 2, 0.15, 0.25, 0.15, 0.01);
-            level.sendParticles(ParticleTypes.NOTE, centerX + 20.0, wallY, centerZ, 2, 0.15, 0.25, 0.15, 0.01);
         }
     }
 
@@ -1027,7 +984,7 @@ public final class Arena {
     /** True only while this player is physically inside this arena's lobby area. */
     public boolean isLobbyAccessibleTo(ServerPlayer player) {
         if (!lobbySet || level == null || player.serverLevel() != level) return false;
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return false;
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) return false;
         return Math.abs(player.getX() - lobbyX) <= 36.0
                 && Math.abs(player.getZ() - lobbyZ) <= 40.0
                 && Math.abs(player.getY() - lobbyY) <= 22.0;
@@ -1104,7 +1061,7 @@ public final class Arena {
     /** Music voting is unlocked only after the player explicitly uses the Nether Star. */
     public void unlockMusicVotingAfterStar(ServerPlayer player) {
         if (!players.contains(player.getUUID()) || !isInsideBlockPartyArea(player)) return;
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) {
             player.sendSystemMessage(Component.literal("Musikkavstemningen åpner etter at den pågående kampen er ferdig.")
                     .withStyle(ChatFormatting.YELLOW));
             return;
@@ -1189,7 +1146,7 @@ public final class Arena {
                     .withStyle(ChatFormatting.RED));
             return;
         }
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) {
             player.sendSystemMessage(Component.literal("Musikkavstemningen er stengt. Stem før kampen starter.")
                     .withStyle(ChatFormatting.RED));
             return;
@@ -1219,7 +1176,7 @@ public final class Arena {
                     .withStyle(ChatFormatting.RED));
             return false;
         }
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) {
             player.sendSystemMessage(Component.literal("Avstemningen er stengt.").withStyle(ChatFormatting.RED));
             return false;
         }
@@ -1315,7 +1272,6 @@ public final class Arena {
         if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
-        if (isGameInProgress() && scoreboardTick % 10 == 0) animateArenaLeds();
         if (scannerTicks > 0 && --scannerTicks % 20 == 0 && targetColor != null && level != null) {
             for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
                 if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
@@ -1346,11 +1302,38 @@ public final class Arena {
                             countdownPlayer.connection.send(new ClientboundSetTitleTextPacket(Component.literal(Integer.toString(secondsLeft))
                                     .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
                             countdownPlayer.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("GJØR DEG KLAR!")
-                                    .withStyle(ChatFormatting.WHITE)));
+                                    .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)));
                         }
                     }
                 }
                 if (timerTicks <= 0) beginMatch(server);
+            }
+            case TELEPORT_COUNTDOWN -> {
+                if (alive.isEmpty()) {
+                    declareWinner();
+                    break;
+                }
+                timerTicks--;
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                    int secondsLeft = timerTicks / 20;
+                    for (UUID uuid : alive) {
+                        ServerPlayer countdownPlayer = server.getPlayerList().getPlayer(uuid);
+                        if (countdownPlayer == null) continue;
+                        countdownPlayer.connection.send(new ClientboundSetTitlesAnimationPacket(0, 18, 2));
+                        countdownPlayer.connection.send(new ClientboundSetTitleTextPacket(Component.literal(Integer.toString(secondsLeft))
+                                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+                    }
+                    broadcastActionBar(Component.literal("MATCH STARTER OM  " + secondsLeft + "  SEKUNDER")
+                            .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                }
+                if (timerTicks <= 0) {
+                    Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+                    if (nowPlaying != null) {
+                        broadcast(Component.literal("Now playing: " + nowPlaying.name() + " by " + nowPlaying.artist() + ". :)")
+                                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                    }
+                    beginRound(server);
+                }
             }
             case PREPARE -> {
                 rememberTargetContacts(server);
@@ -1566,7 +1549,7 @@ public final class Arena {
         // During a match, show points earned in this session rather than lifetime progression.
         int matchPoints = profilePlayer == null ? 0 : points.getOrDefault(profilePlayer.getUUID(), 0);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
-        String timeText = phase == Phase.COUNTDOWN ? "NEDTELLING" :
+        String timeText = (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN) ? "NEDTELLING" :
                 (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
                         ? formatSeconds(ROUND_DURATION_TICKS[Math.max(0, Math.min(round - 1, MAX_ROUNDS - 1))]) + "s" : "--";
         PlayerStatsManager.PlayerRecord profile = profilePlayer == null
@@ -2146,7 +2129,7 @@ public final class Arena {
     /** Refreshes the lobby-only leaderboard. Its text is hidden while players are in the arena. */
     private void refreshLobbyLeaderboard() {
         if (level == null || !lobbySet) return;
-        if (phase == Phase.COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
+        if (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
             hideLobbyLeaderboard();
             return;
@@ -2210,7 +2193,7 @@ public final class Arena {
     }
 
     private boolean isGameInProgress() {
-        return phase == Phase.COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
+        return phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.INTERMISSION || phase == Phase.FINISHING;
     }
 

@@ -1,3 +1,14 @@
+## 0.13.3-alpha
+- Moved the night-time/daylight lock to the instant players are teleported from the lobby into the arena; normal world time remains unchanged during the lobby countdown.
+- Added a separate five-second countdown after teleportation. The first round and selected music now begin only after this countdown.
+- Shortened the "GJØR DEG KLAR!" title so it no longer lingers over the arena countdown.
+- Kept Color Scanner, winner celebration and other gameplay-relevant particle effects; removed only the ambient LED/equalizer particles.
+
+## 0.13.2-alpha
+- Removed the particle-based LED/equalizer animation and ambient music particles that were not rendering as intended.
+- Kept gameplay-relevant effects, including Color Scanner highlights, power-up feedback and winner celebration particles.
+- Preserved the four-song Bangerfabrikken playlist and existing audio assets unchanged.
+
 # Changelog
 
 ## 0.13.1-alpha
@@ -194,3 +205,8 @@
 
 ## 0.12.3-alpha
 - Fixed the NeoForge 1.21.1 compile error: use the mapped `MobEffects.JUMP` holder for Jump Boost fall protection.
+
+## 0.13.4-alpha
+- Moved “GJØR DEG KLAR!” to the final 3-second countdown in the lobby, before teleportation.
+- Removed “STARTER SNART” from the post-teleport countdown; the arena countdown now displays only 5–1.
+- Clears the pre-teleport subtitle when players arrive in the arena.
