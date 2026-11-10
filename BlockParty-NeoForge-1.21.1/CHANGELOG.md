@@ -173,3 +173,14 @@
 - Added `/bp generatefestival <id> [size]` to create the new style.
 - Added `/bp arenas` to list available arenas; `/bp join <id>` selects a specific arena.
 - Existing `/bp generate <id> [size]` Classic arena remains available.
+
+## 0.12.1-alpha
+- Removed the spectator access staircase and bridge from both arena layouts.
+- Restored continuous tinted-glass outer rails and purple stained-glass inner rails around the full spectator perimeter.
+- Existing arenas are repaired by refreshing visuals; legacy entrance stair blocks are removed.
+- Fall damage is disabled for active Jump Boost and one-use LEAP BOOST power-ups.
+
+## 0.12.2-alpha
+- Retired the experimental Festival arena layout and removed its generation command.
+- Saved arena registration with the ID `festival` is skipped on load; Classic remains available.
+- Retained the spectator rail and jump-powerup fall-protection changes from 0.12.1-alpha.

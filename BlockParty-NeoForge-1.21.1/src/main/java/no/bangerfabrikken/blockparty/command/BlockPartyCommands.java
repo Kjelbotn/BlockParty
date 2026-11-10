@@ -34,12 +34,6 @@ public final class BlockPartyCommands {
                                 .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), ArenaGenerator.DEFAULT_SIZE))
                                 .then(Commands.argument("size", IntegerArgumentType.integer(ArenaGenerator.MIN_SIZE, ArenaGenerator.MAX_SIZE))
                                         .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
-                .then(Commands.literal("generatefestival")
-                        .requires(source -> source.hasPermission(2))
-                        .then(Commands.argument("id", StringArgumentType.word())
-                                .executes(context -> generateFestival(context.getSource(), StringArgumentType.getString(context, "id"), ArenaGenerator.DEFAULT_SIZE))
-                                .then(Commands.argument("size", IntegerArgumentType.integer(ArenaGenerator.MIN_SIZE, ArenaGenerator.MAX_SIZE))
-                                        .executes(context -> generateFestival(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
                 .then(Commands.literal("arenas")
                         .executes(context -> publicArenaList(context.getSource())))
                 .then(Commands.literal("create")
@@ -158,41 +152,6 @@ public final class BlockPartyCommands {
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal("Kunne ikke generere arenaen: " + exception.getMessage()));
-            return 0;
-        }
-    }
-
-    private static int generateFestival(CommandSourceStack source, String id, int size) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
-        if (!id.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9_-]{1,32}")) {
-            source.sendFailure(Component.literal("Arena-ID må inneholde 1–32 tegn: a-z, 0-9, _ eller -."));
-            return 0;
-        }
-        ArenaManager manager = ArenaManager.get();
-        Arena existing = manager.get(id);
-        if (existing != null && (existing.getPlayerCount() > 0 || existing.isRunning())) {
-            source.sendFailure(Component.literal("Arenaen finnes allerede og er i bruk. Tøm den før du genererer den på nytt."));
-            return 0;
-        }
-        try {
-            source.sendSuccess(() -> Component.literal("Bygger ny BlockParty Festival-arena på " + size + " x " + size + " blokker ...")
-                    .withStyle(ChatFormatting.YELLOW), true);
-            ArenaGenerator.Result layout = ArenaGenerator.generateFestival(player.serverLevel(), player.blockPosition(), size);
-            if (existing != null) manager.remove(id);
-            Arena arena = manager.create(id, player);
-            arena.setCorner(1, layout.firstCorner());
-            arena.setCorner(2, layout.secondCorner());
-            arena.setDisplayCenter(layout.displayCenter());
-            arena.setLobby(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
-            manager.save(source.getServer());
-            player.teleportTo(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
-            arena.ensureLobbyItems(player);
-            source.sendSuccess(() -> Component.literal("Festival-arena '" + id + "' er generert. Lobby og arena er separate. Bruk /bp join " + id + " for å besøke den.")
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
-            source.sendSuccess(() -> Component.literal("Velg et åpent område. Generatoren bygger over eksisterende terreng.").withStyle(ChatFormatting.GRAY), false);
-            return 1;
-        } catch (IllegalArgumentException | IllegalStateException exception) {
-            source.sendFailure(Component.literal("Kunne ikke generere Festival-arenaen: " + exception.getMessage()));
             return 0;
         }
     }
@@ -427,7 +386,6 @@ public final class BlockPartyCommands {
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
         source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen"), false);
-        source.sendSuccess(() -> Component.literal("/bp generatefestival <id> [størrelse] – bygg en ny, åpen Festival-arena med LED/equalizer-vegger og separat lobby"), false);
         source.sendSuccess(() -> Component.literal("/bp arenas – vis valgbare arenaer | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);

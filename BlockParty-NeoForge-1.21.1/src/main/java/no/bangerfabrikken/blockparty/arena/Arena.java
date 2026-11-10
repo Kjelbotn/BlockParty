@@ -116,6 +116,7 @@ public final class Arena {
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
     private final Map<UUID, Integer> points = new HashMap<>();
     private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
+    private final Set<UUID> leapFallProtection = new HashSet<>();
     // Last tick a player was physically standing on the announced target tile.
     // This small grace window prevents a block-removal/tick-order race at round end.
     private final Map<UUID, Long> lastTargetContactTick = new HashMap<>();
@@ -226,6 +227,17 @@ public final class Arena {
         player.fallDistance = 0.0F;
         eliminate(player);
         return true;
+    }
+
+    /** Fall damage is disabled for active Jump Boost and the one-use LEAP BOOST jump. */
+    public boolean shouldCancelFallDamage(ServerPlayer player) {
+        if (player == null || !alive.contains(player.getUUID()) || !isGameInProgress()) return false;
+        return player.hasEffect(MobEffects.JUMP_BOOST) || leapFallProtection.contains(player.getUUID());
+    }
+
+    /** Consume one-use Leap protection after the landing event has been handled. */
+    public void consumeLeapFallProtection(ServerPlayer player) {
+        if (player != null) leapFallProtection.remove(player.getUUID());
     }
 
     private void enforceBlockPartyNeeds(MinecraftServer server) {
@@ -429,6 +441,7 @@ public final class Arena {
         lastEliminatedPlayer = null;
         points.clear();
         powerupsCollected.clear();
+        leapFallProtection.clear();
         for (UUID uuid : players) {
             points.put(uuid, 0);
             powerupsCollected.put(uuid, 0);
@@ -781,6 +794,7 @@ public final class Arena {
         player.setDeltaMovement(motion.x + forwardX * 0.7D, Math.max(0.95D, motion.y + 0.65D),
                 motion.z + forwardZ * 0.7D);
         player.hurtMarked = true;
+        leapFallProtection.add(player.getUUID());
         if (!player.getAbilities().instabuild) stack.shrink(1);
         player.getInventory().setChanged();
         player.sendSystemMessage(Component.literal("LEAP BOOST aktivert!").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
@@ -1879,6 +1893,7 @@ public final class Arena {
         selectedMusicTrackId = null;
         points.clear();
         powerupsCollected.clear();
+        leapFallProtection.clear();
         phase = Phase.WAITING;
         timerTicks = 0;
         matchWinnerId = null;
@@ -1907,6 +1922,7 @@ public final class Arena {
 
     private void restorePlayerState(ServerPlayer player) {
         UUID uuid = player.getUUID();
+        leapFallProtection.remove(uuid);
         Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
         if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
 

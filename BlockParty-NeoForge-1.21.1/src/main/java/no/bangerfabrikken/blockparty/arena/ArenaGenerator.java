@@ -12,8 +12,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
-import net.minecraft.world.level.block.StairBlock;
-import net.minecraft.core.Direction;
 import no.bangerfabrikken.blockparty.util.BlockPartyColors;
 import no.bangerfabrikken.blockparty.util.BlockPartyText;
 
@@ -199,7 +197,6 @@ public final class ArenaGenerator {
         }
 
         // Walkable entrance: four actual stairs rise northward to the spectator ring.
-        buildSpectatorEntrance(level, centerX, floorY, maxZ + WALKWAY_OUTER_MARGIN, lobbyMinZ);
 
         // A large dark colour screen on the north wall. Dynamic text is spawned by Arena using Text Display entities.
         int signWidth = Math.min(80, size + 12);
@@ -344,160 +341,46 @@ public final class ArenaGenerator {
         return new Result(first, second, displayCenter, lobbyX, lobbyY, lobbyZ, 0.0F, 0.0F);
     }
 
-    /** Generates a second, visually distinct open-air festival arena with a physically separate lobby. */
-    public static Result generateFestival(ServerLevel level, BlockPos playerPosition, int size) {
-        Result result = generate(level, playerPosition, size);
-        int floorY = result.firstCorner().getY();
-        int minX = result.firstCorner().getX();
-        int maxX = result.secondCorner().getX();
-        int minZ = result.firstCorner().getZ();
-        int maxZ = result.secondCorner().getZ();
-        int centerX = (minX + maxX) / 2;
-        int outerMinX = minX - OUTER_WALL_MARGIN;
-        int outerMaxX = maxX + OUTER_WALL_MARGIN;
-        int outerMinZ = minZ - OUTER_WALL_MARGIN;
-        int outerMaxZ = maxZ + OUTER_WALL_MARGIN;
-        int lobbyMinZ = outerMaxZ + 2;
-
-        // Separate lobby and arena completely: remove the old bridge and seal both openings.
-        clearVolume(level, centerX - 8, centerX + 8, outerMaxZ + 1, lobbyMinZ, floorY - 5, floorY + 10);
-        for (int x = outerMinX; x <= outerMaxX; x++) {
-            for (int y = floorY + 1; y <= floorY + 10; y++) {
-                put(level, x, y, outerMaxZ, Blocks.BLACK_CONCRETE);
-                put(level, x, y, outerMaxZ - 1, Blocks.BLACK_CONCRETE);
-            }
-        }
-        for (int x = centerX - 5; x <= centerX + 5; x++) {
-            for (int y = floorY + 1; y <= floorY + 14; y++) {
-                put(level, x, y, lobbyMinZ, Blocks.BLACK_CONCRETE);
-            }
-        }
-
-        // Re-skin the stadium as a low-walled, open-air music festival arena.
-        // Keep the colorful playable floor and the raised spectator ring intact.
-        for (int y = floorY + 1; y <= floorY + 10; y++) {
-            Block wall = (y == floorY + 1 || y == floorY + 2) ? Blocks.GRAY_CONCRETE : Blocks.BLACK_CONCRETE;
-            for (int x = outerMinX; x <= outerMaxX; x++) {
-                put(level, x, y, outerMinZ, wall);
-                put(level, x, y, outerMaxZ, wall);
-            }
-            for (int z = outerMinZ; z <= outerMaxZ; z++) {
-                put(level, outerMinX, y, z, wall);
-                put(level, outerMaxX, y, z, wall);
-            }
-        }
-        // Remove the old tall shell above the new low festival walls to open the skyline.
-        for (int y = floorY + 11; y <= floorY + WALL_HEIGHT; y++) {
-            for (int x = outerMinX; x <= outerMaxX; x++) {
-                put(level, x, y, outerMinZ, Blocks.AIR);
-                put(level, x, y, outerMaxZ, Blocks.AIR);
-            }
-            for (int z = outerMinZ; z <= outerMaxZ; z++) {
-                put(level, outerMinX, y, z, Blocks.AIR);
-                put(level, outerMaxX, y, z, Blocks.AIR);
-            }
-        }
-        // Continuous cyan/magenta neon bands and compact light panels.
-        for (int x = outerMinX + 1; x < outerMaxX; x++) {
-            put(level, x, floorY + 4, outerMinZ, Blocks.CYAN_CONCRETE);
-            put(level, x, floorY + 4, outerMaxZ, Blocks.CYAN_CONCRETE);
-            put(level, x, floorY + 7, outerMinZ, Blocks.MAGENTA_CONCRETE);
-            put(level, x, floorY + 7, outerMaxZ, Blocks.MAGENTA_CONCRETE);
-        }
-        for (int z = outerMinZ + 1; z < outerMaxZ; z++) {
-            put(level, outerMinX, floorY + 4, z, Blocks.CYAN_CONCRETE);
-            put(level, outerMaxX, floorY + 4, z, Blocks.CYAN_CONCRETE);
-            put(level, outerMinX, floorY + 7, z, Blocks.MAGENTA_CONCRETE);
-            put(level, outerMaxX, floorY + 7, z, Blocks.MAGENTA_CONCRETE);
-        }
-        // Equalizer-style vertical bars on the long walls, in bright festival colours.
-        Block[] bars = {Blocks.LIME_CONCRETE, Blocks.YELLOW_CONCRETE, Blocks.ORANGE_CONCRETE,
-                Blocks.MAGENTA_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.CYAN_CONCRETE};
-        int[] heights = {2, 4, 6, 3, 5, 7, 4, 2, 6, 3, 5, 7};
-        int n = 0;
-        for (int x = outerMinX + 4; x <= outerMaxX - 4; x += 3) {
-            int h = heights[n++ % heights.length];
-            for (int y = floorY + 2; y < floorY + 2 + h; y++) {
-                Block colour = bars[n % bars.length];
-                put(level, x, y, outerMinZ + 1, colour);
-                put(level, x, y, outerMaxZ - 1, colour);
-            }
-        }
-        // Sea-lantern spotlights embedded in the low wall band.
-        for (int x = outerMinX + 2; x <= outerMaxX - 2; x += 8) {
-            put(level, x, floorY + 8, outerMinZ, Blocks.SEA_LANTERN);
-            put(level, x, floorY + 8, outerMaxZ, Blocks.SEA_LANTERN);
-        }
-        for (int z = outerMinZ + 2; z <= outerMaxZ - 2; z += 8) {
-            put(level, outerMinX, floorY + 8, z, Blocks.SEA_LANTERN);
-            put(level, outerMaxX, floorY + 8, z, Blocks.SEA_LANTERN);
-        }
-        // Open sky remains unobstructed; keep lighting above the floor even at night.
-        for (int x = minX; x <= maxX; x += 4) {
-            for (int z = minZ; z <= maxZ; z += 4) {
-                put(level, x, floorY + 9, z, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15));
-            }
-        }
-        return result;
-    }
-
     /**
      * Non-destructively upgrades the arena lighting and lobby interior for arenas
      * generated by older BlockParty releases. The main floor and player builds are
      * not cleared; only the reserved lobby surfaces and stadium wall fixtures change.
      */
     /** Repairs the lobby-to-spectator connection, including arenas built by older versions. */
-    private static void removeTintedGlass(ServerLevel level, int x, int y, int z) {
-        BlockPos pos = new BlockPos(x, y, z);
-        if (level.getBlockState(pos).is(Blocks.TINTED_GLASS)) put(level, x, y, z, Blocks.AIR);
+    /** Restore continuous tinted-glass and purple-glass rails around the full spectator ring. */
+    private static void restoreSpectatorRails(ServerLevel level, int minX, int maxX, int minZ, int maxZ, int floorY) {
+        int walkwayY = floorY + SPECTATOR_HEIGHT;
+        for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
+            for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
+                put(level, x, y, minZ - WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);
+                put(level, x, y, maxZ + WALKWAY_OUTER_MARGIN, Blocks.TINTED_GLASS);
+            }
+            for (int z = minZ - WALKWAY_OUTER_MARGIN; z <= maxZ + WALKWAY_OUTER_MARGIN; z++) {
+                put(level, minX - WALKWAY_OUTER_MARGIN, y, z, Blocks.TINTED_GLASS);
+                put(level, maxX + WALKWAY_OUTER_MARGIN, y, z, Blocks.TINTED_GLASS);
+            }
+        }
+        for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
+            for (int x = minX - WALKWAY_INNER_GAP; x <= maxX + WALKWAY_INNER_GAP; x++) {
+                put(level, x, y, minZ - WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
+                put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
+            }
+            for (int z = minZ - WALKWAY_INNER_GAP; z <= maxZ + WALKWAY_INNER_GAP; z++) {
+                put(level, minX - WALKWAY_INNER_GAP, y, z, Blocks.PURPLE_STAINED_GLASS);
+                put(level, maxX + WALKWAY_INNER_GAP, y, z, Blocks.PURPLE_STAINED_GLASS);
+            }
+        }
     }
 
-    private static void buildSpectatorEntrance(ServerLevel level, int centerX, int floorY,
-                                                int ringOuterZ, int lobbyMinZ) {
-        int walkwayY = floorY + SPECTATOR_HEIGHT;
-        // Open only a centered doorway in the south outer tinted-glass rail.
-        for (int x = centerX - 4; x <= centerX + 4; x++) {
-            for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
-                removeTintedGlass(level, x, y, ringOuterZ);
-            }
-        }
-        // Safe bridge at lobby level; seal both sides against the void.
-        for (int z = ringOuterZ + 1; z <= lobbyMinZ; z++) {
-            for (int x = centerX - 7; x <= centerX + 7; x++) {
-                put(level, x, floorY, z, Math.abs(x - centerX) <= 5
-                        ? Blocks.PURPLE_CONCRETE : Blocks.POLISHED_BLACKSTONE_BRICKS);
-            }
-            for (int side : new int[]{-1, 1}) {
-                int wallX = centerX + side * 7;
-                // Full-height side walls and foundations close the exposed void.
-                for (int y = floorY - 4; y <= floorY + 3; y++)
-                    put(level, wallX, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
-                for (int x = wallX - 1; x <= wallX + 1; x++) {
-                    for (int y = floorY - 4; y < floorY; y++)
-                        put(level, x, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+    /** Remove old stair blocks left by earlier versions without touching the spectator floor. */
+    private static void removeLegacyEntranceStairs(ServerLevel level, int centerX, int floorY, int maxZ) {
+        for (int x = centerX - 6; x <= centerX + 6; x++) {
+            for (int z = maxZ + 1; z <= maxZ + 5; z++) {
+                for (int y = floorY; y <= floorY + SPECTATOR_HEIGHT + 2; y++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    if (level.getBlockState(pos).getBlock() instanceof net.minecraft.world.level.block.StairBlock)
+                        put(level, x, y, z, Blocks.AIR);
                 }
-            }
-        }
-        // Stair treads have a half-block first rise, unlike the old full-block ramp.
-        for (int step = 1; step <= SPECTATOR_HEIGHT; step++) {
-            int z = ringOuterZ + 1 - step;
-            int baseY = floorY + step - 1;
-            for (int x = centerX - 4; x <= centerX + 4; x++) {
-                put(level, x, baseY, z, Blocks.POLISHED_BLACKSTONE_BRICK_STAIRS.defaultBlockState()
-                        .setValue(StairBlock.FACING, Direction.NORTH));
-                for (int y = baseY + 1; y <= walkwayY + 3; y++) put(level, x, y, z, Blocks.AIR);
-            }
-            for (int side : new int[]{-1, 1}) {
-                int railX = centerX + side * 5;
-                for (int y = floorY; y <= baseY + 1; y++)
-                    put(level, railX, y, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
-            }
-        }
-        // Landing meets the existing ring at the same Y level.
-        for (int x = centerX - 4; x <= centerX + 4; x++) {
-            for (int z = ringOuterZ - SPECTATOR_HEIGHT; z >= ringOuterZ - SPECTATOR_HEIGHT - 2; z--) {
-                put(level, x, walkwayY, z, Blocks.DEEPSLATE_TILES);
-                for (int y = walkwayY + 1; y <= walkwayY + 3; y++) put(level, x, y, z, Blocks.AIR);
             }
         }
     }
@@ -537,7 +420,6 @@ public final class ArenaGenerator {
             }
         }
         // Upgrade existing arenas in place; no need to regenerate the dance floor.
-        buildSpectatorEntrance(level, centerX, floorY, maxZ + WALKWAY_OUTER_MARGIN, lobbyMinZ);
 
         // Dense invisible full-bright lighting above the dance floor; only air/light blocks are replaced.
         for (int x = outerMinX + 2; x < outerMaxX; x += 4) {
@@ -633,6 +515,8 @@ public final class ArenaGenerator {
                 put(level, seatX - side, floorY + 2, z, Blocks.DARK_OAK_SLAB);
             }
         }
+        restoreSpectatorRails(level, minX, maxX, minZ, maxZ, floorY);
+        removeLegacyEntranceStairs(level, (minX + maxX) / 2, floorY, maxZ);
         return true;
     }
 

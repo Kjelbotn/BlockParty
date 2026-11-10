@@ -160,6 +160,14 @@ public final class ArenaManager {
         return false;
     }
 
+    /** Cancel vanilla fall damage while a BlockParty jump power-up is active. */
+    public boolean handleFallDamage(ServerPlayer player) {
+        Arena arena = findArena(player.getUUID());
+        if (arena == null || !arena.shouldCancelFallDamage(player)) return false;
+        arena.consumeLeapFallProtection(player);
+        return true;
+    }
+
     /** Cancels fall/void deaths for active players once they cross the arena elimination line. */
     public boolean handleOutOfBoundsDeath(ServerPlayer player) {
         Arena arena = findArena(player.getUUID());
@@ -200,6 +208,12 @@ public final class ArenaManager {
         for (String rawId : ids.split(",")) {
             String id = normalize(rawId.trim());
             if (id.isBlank()) continue;
+            // Festival was an experimental second layout and is no longer supported.
+            // Skip its saved registration; the Classic arena remains untouched.
+            if (id.equals("festival")) {
+                BlockPartyMod.LOGGER.info("Skipping retired Festival arena registration.");
+                continue;
+            }
             try {
                 String prefix = "arena." + id + ".";
                 String dimensionText = properties.getProperty(prefix + "dimension");

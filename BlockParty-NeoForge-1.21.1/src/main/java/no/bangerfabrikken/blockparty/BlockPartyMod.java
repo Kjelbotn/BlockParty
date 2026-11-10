@@ -12,6 +12,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
@@ -48,9 +49,10 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(this::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(this::onLivingAttack);
+        NeoForge.EVENT_BUS.addListener(this::onLivingFall);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.11.4-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.12.2-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -71,6 +73,14 @@ public final class BlockPartyMod {
     private void onLivingDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (ArenaManager.get().handleOutOfBoundsDeath(player)) event.setCanceled(true);
+    }
+
+    /** Prevent fall damage from Jump Boost and the one-use LEAP BOOST power-up. */
+    private void onLivingFall(LivingFallEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (ArenaManager.get().handleFallDamage(player)) {
+            event.setDamageMultiplier(0.0F);
+        }
     }
 
     /** Disable player-versus-player damage anywhere inside a BlockParty lobby or arena. */
