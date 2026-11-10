@@ -1,3 +1,19 @@
+# Changelog
+
+## 0.16.0-alpha
+- Revamped lobby DJ screen with a two-column playlist and a larger live-vote leader panel.
+- Added six rotating visual patterns to the lobby dance floor while the lobby is idle.
+- Added a lobby winner podium showing the top three players from the latest match and their survived rounds.
+- Added a clickable BlockParty HUB compass with profile, music voting, leaderboard, achievements placeholder, cosmetics placeholder, and next-match registration.
+- Protected the HUB compass from being dropped and restored it after matches.
+
+# BlockParty 0.15.9-alpha
+
+- Added three official tracks: Fest hos Toby, Konfliktpartiet, and HMS er best!.
+- Song-length difficulty scaling now treats 3:30 (210 seconds) as the maximum effective match soundtrack duration.
+- Tracks shorter than 3:30 retain their original duration for difficulty scaling; longer tracks are capped at 3:30.
+- Existing 20-round maximum and progressively tightening round timers are preserved.
+
 # BlockParty 0.15.8-alpha\n\n- Match length is capped at 20 rounds for every song.\n- Round timers now scale with the selected song duration: shorter songs have tighter, harder timing; longer songs are more forgiving.\n- The progression still tightens through all 20 rounds, with a minimum timer guard to keep rounds playable.\n- Retains the 0.15.7 lobby join announcement and lobby fall-damage protection.\n\n# BlockParty 0.15.7-alpha
 
 - Added a one-time public chat announcement when a player first enters the BlockParty lobby using `/bp`; sent only to online players currently in Survival mode.

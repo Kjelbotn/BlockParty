@@ -27,6 +27,9 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ODIN_TERRORIST = sound("music_odin_terrorist");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_EXIGE_2014_LAUNCHPAD_MIX = sound("music_exige_2014_launchpad_mix");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_HAU_HAU_HAU = sound("music_hau_hau_hau");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_FEST_HOS_TOBY = sound("music_fest_hos_toby");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_KONFLIKTPARTIET = sound("music_konfliktpartiet");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_HMS_ER_BEST = sound("music_hms_er_best");
 
     private ModSounds() { }
 

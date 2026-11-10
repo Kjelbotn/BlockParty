@@ -37,6 +37,12 @@ public final class MusicTrackManager {
                 ModSounds.MUSIC_EXIGE_2014_LAUNCHPAD_MIX, "music_exige_2014_launchpad_mix");
         add("hau_hau_hau", "Hau Hau Hau", "Bangerfabrikken", 0, 111,
                 ModSounds.MUSIC_HAU_HAU_HAU, "music_hau_hau_hau");
+        add("fest_hos_toby", "Fest hos Toby", "Bangerfabrikken", 0, 146,
+                ModSounds.MUSIC_FEST_HOS_TOBY, "music_fest_hos_toby");
+        add("konfliktpartiet", "Konfliktpartiet", "Bangerfabrikken", 0, 53,
+                ModSounds.MUSIC_KONFLIKTPARTIET, "music_konfliktpartiet");
+        add("hms_er_best", "HMS er best!", "Bangerfabrikken", 0, 120,
+                ModSounds.MUSIC_HMS_ER_BEST, "music_hms_er_best");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 

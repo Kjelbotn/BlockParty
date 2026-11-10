@@ -167,6 +167,14 @@ public final class BlockPartyMod {
     }
 
     private boolean handleLobbyItemInteraction(ServerPlayer player, ItemStack stack) {
+        if (no.bangerfabrikken.blockparty.arena.Arena.isHubItem(stack)) {
+            no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findLobbyArenaFor(player);
+            if (arena != null) arena.openHub(player);
+            else player.sendSystemMessage(net.minecraft.network.chat.Component.literal("HUB fungerer i BlockParty-lobbyen.")
+                    .withStyle(net.minecraft.ChatFormatting.YELLOW));
+            return true;
+        }
+
         if (no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
             no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArenaForLeave(player);
             if (arena != null && arena.hasReturnLocation(player.getUUID()) && arena.isLobbyControlPhase()) {
@@ -225,7 +233,8 @@ public final class BlockPartyMod {
         boolean protectedLobbyControl = inLobby && (
                 no.bangerfabrikken.blockparty.arena.Arena.isJoinGameItem(stack)
                 || no.bangerfabrikken.blockparty.arena.Arena.isMusicVotingBook(stack)
-                || no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack));
+                || no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)
+                || no.bangerfabrikken.blockparty.arena.Arena.isHubItem(stack));
 
         boolean concreteDuringMatch = inActiveMatch
                 && no.bangerfabrikken.blockparty.util.BlockPartyColors.isConcrete(

@@ -214,6 +214,8 @@ public final class PlayerStatsManager {
         }
     }
 
+    public static void sendProfile(ServerPlayer player) { sendPlayerRank(player); }
+
     public static void sendPlayerRank(ServerPlayer player) {
         PlayerRecord record = getRecord(player.getUUID());
         Rank rank = getRank(record.points());
