@@ -105,7 +105,7 @@ public final class Arena {
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (track == null) return ROUND_DURATION_TICKS[index];
 
-        long totalSongTicks = Math.max(1, track.durationSeconds()) * 20L;
+        long totalSongTicks = track.durationTicks();
         int baseTicksBefore = 0;
         for (int i = 0; i < index; i++) baseTicksBefore += ROUND_DURATION_TICKS[i];
         int baseTicksThrough = baseTicksBefore + ROUND_DURATION_TICKS[index];
@@ -1159,7 +1159,7 @@ public final class Arena {
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (track == null) return;
         activeMusicId = track.soundId();
-        musicTicksRemaining = Math.max(1, track.durationSeconds()) * 20;
+        musicTicksRemaining = track.durationTicks();
         musicFinished = false;
         musicPaused = false;
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
