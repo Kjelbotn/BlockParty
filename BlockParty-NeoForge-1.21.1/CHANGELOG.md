@@ -133,3 +133,11 @@
 - Music voting menu and vote commands require an unlocked BlockParty session and physical presence inside the BlockParty area.
 - Nether Star, music voting book and leave Redstone Dust are removed when a session player leaves the BlockParty area.
 - Re-entering the lobby allows the lobby controls to be refreshed; the player must click the Nether Star again to unlock music voting.
+
+## 0.11.3-alpha
+- Disconnecting during a BlockParty session restores the original Survival inventory, food state, Survival mode and saved pre-join location before player data is saved.
+- Disabled direct player-versus-player damage when either player is physically inside a BlockParty lobby, arena or spectator area.
+
+## 0.11.4-alpha
+- Improved the BlockParty exit cleanup: stop any active item use, restore Survival mode and saved hunger/inventory, explicitly refresh player abilities, inventory menus and selected hotbar slot.
+- This targets the issue where food and other right-click interactions could remain unavailable immediately after leaving BlockParty.

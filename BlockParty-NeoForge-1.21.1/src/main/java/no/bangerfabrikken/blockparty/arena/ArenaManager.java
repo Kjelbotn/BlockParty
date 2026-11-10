@@ -143,6 +143,15 @@ public final class ArenaManager {
         }
     }
 
+    /** True when a player is physically inside any BlockParty lobby, arena or spectator footprint. */
+    public boolean isInsideAnyProtectedArea(ServerPlayer player) {
+        if (player == null) return false;
+        for (Arena arena : arenas.values()) {
+            if (arena.protectsLocation(player.serverLevel(), player.getX(), player.getY(), player.getZ())) return true;
+        }
+        return false;
+    }
+
     /** Whether a location belongs to any configured BlockParty arena/lobby footprint. */
     public boolean isProtectedMobLocation(ServerLevel level, double x, double y, double z) {
         for (Arena arena : arenas.values()) {

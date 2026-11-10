@@ -373,7 +373,9 @@ public final class Arena {
     }
 
     public void handleLogout(ServerPlayer player) {
-        leave(player, false);
+        // Restore the pre-BlockParty snapshot before the server saves disconnecting player data.
+        // This also persists the original return location instead of the arena position.
+        leave(player, true);
     }
 
     public void start(MinecraftServer server) {
@@ -1871,15 +1873,30 @@ public final class Arena {
         UUID uuid = player.getUUID();
         Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
         if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
-        // Leaving BlockParty always returns the player to normal survival, regardless
-        // of the mode they were placed in during the minigame.
+
+        // End any in-progress item use from the lobby controls before restoring the
+        // player's Survival state. This avoids a stale use/action state on the client.
+        player.stopUsingItem();
+
+        // Leaving BlockParty always returns the player to normal Survival.
         originalGameModes.remove(uuid);
         player.setGameMode(GameType.SURVIVAL);
+
         FoodSnapshot food = originalFoodStates.remove(uuid);
         if (food != null) food.restore(player);
+
         InventorySnapshot held = originalHeldItems.remove(uuid);
         if (held != null) held.restore(player);
+
+        // Explicitly synchronize abilities, selected hotbar slot and inventory.
+        // The Survival game-mode packet normally handles this, but the explicit refresh
+        // prevents Adventure-mode interaction state from lingering after /bp leave.
+        player.onUpdateAbilities();
+        player.getInventory().setChanged();
         player.inventoryMenu.broadcastChanges();
+        player.containerMenu.broadcastChanges();
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(
+                player.getInventory().selected));
     }
 
     private void restoreHeldItemOnly(ServerPlayer player) {

@@ -130,9 +130,7 @@ public final class ArenaGenerator {
         for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
             for (int x = minX - WALKWAY_INNER_GAP; x <= maxX + WALKWAY_INNER_GAP; x++) {
                 put(level, x, y, minZ - WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
-                if (x < centerX - 4 || x > centerX + 4) {
-                    put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
-                }
+                put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.PURPLE_STAINED_GLASS);
             }
             for (int z = minZ - WALKWAY_INNER_GAP; z <= maxZ + WALKWAY_INNER_GAP; z++) {
                 put(level, minX - WALKWAY_INNER_GAP, y, z, Blocks.PURPLE_STAINED_GLASS);
@@ -218,12 +216,6 @@ public final class ArenaGenerator {
                 } else {
                     put(level, x, floorY, z, Blocks.PURPLE_CONCRETE);
                 }
-            }
-        }
-        // Keep the entrance visually open: clear the remaining central glass rail section.
-        for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
-            for (int x = centerX - 4; x <= centerX + 4; x++) {
-                put(level, x, y, maxZ + WALKWAY_INNER_GAP, Blocks.AIR);
             }
         }
 

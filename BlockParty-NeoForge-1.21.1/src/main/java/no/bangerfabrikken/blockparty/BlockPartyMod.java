@@ -11,6 +11,7 @@ import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingAttackEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
@@ -46,9 +47,10 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
         NeoForge.EVENT_BUS.addListener(this::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(this::onLivingDeath);
+        NeoForge.EVENT_BUS.addListener(this::onLivingAttack);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.11.1-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.11.4-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -69,6 +71,16 @@ public final class BlockPartyMod {
     private void onLivingDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (ArenaManager.get().handleOutOfBoundsDeath(player)) event.setCanceled(true);
+    }
+
+    /** Disable player-versus-player damage anywhere inside a BlockParty lobby or arena. */
+    private void onLivingAttack(LivingAttackEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer victim)) return;
+        if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
+        if (ArenaManager.get().isInsideAnyProtectedArea(victim)
+                || ArenaManager.get().isInsideAnyProtectedArea(attacker)) {
+            event.setCanceled(true);
+        }
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
