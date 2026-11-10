@@ -1,3 +1,9 @@
+# BlockParty 0.18.0-alpha
+
+- Rebuilt the music voting wall layout: song title, artist and vote count are separate text displays; removed the literal \\n rendering issue; now shows up to eight tracks with more spacing.
+- Reworked the HUB chest GUI with a dark frame, purple separators, centered category items, clearer labels and descriptions.
+- Updated click routing to match the new HUB slot positions.
+
 # BlockParty 0.17.5-alpha
 
 - Fixed the remaining duplicate walkwayY declaration in ArenaGenerator.refreshVisuals.

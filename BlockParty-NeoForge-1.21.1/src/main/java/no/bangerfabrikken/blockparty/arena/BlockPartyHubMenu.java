@@ -29,18 +29,34 @@ final class BlockPartyHubMenu extends ChestMenu {
         super(MenuType.GENERIC_9x6, containerId, inventory, contents, 6);
         this.arena = arena;
         this.contents = contents;
-        add(10, Items.PLAYER_HEAD, "Profil", "Se poeng, rank, rekorder og seire.");
-        add(12, Items.MUSIC_DISC_CAT, "Musikk", "Åpne sangavstemningen.");
-        add(14, Items.GOLDEN_HELMET, "Leaderboard", "Se topp 10 spillere.");
-        add(30, Items.NETHER_STAR, "Prestasjoner", "Kommer i en senere oppdatering.");
-        add(32, Items.LEATHER_CHESTPLATE, "Kosmetikk", "Kommer i en senere oppdatering.");
-        add(49, Items.LIME_CONCRETE, "Bli med i neste match", "Registrer deg til neste BlockParty-runde.");
-        add(4, Items.AMETHYST_SHARD, "BLOCKPARTY HUB", "Velkommen til lobbyen!");
+        // Dark frame and subtle purple accents make the menu read as one intentional GUI.
+        ItemStack frame = pane(Items.BLACK_STAINED_GLASS_PANE);
+        ItemStack accent = pane(Items.PURPLE_STAINED_GLASS_PANE);
+        for (int slot = 0; slot < 54; slot++) {
+            int row = slot / 9;
+            int col = slot % 9;
+            if (row == 0 || row == 5 || col == 0 || col == 8) contents.setItem(slot, frame.copy());
+            else if (row == 2 || row == 4) contents.setItem(slot, accent.copy());
+        }
+
+        add(4, Items.AMETHYST_SHARD, "BLOCKPARTY HUB", "Velkommen! Velg en kategori nedenfor.");
+        add(11, Items.PLAYER_HEAD, "PROFIL", "Se poeng, rank, rekorder og seire.");
+        add(13, Items.MUSIC_DISC_CAT, "MUSIKKAVSTEMNING", "Velg hvilken låt som skal spilles.");
+        add(15, Items.GOLDEN_HELMET, "LEADERBOARD", "Se de 10 beste BlockParty-spillerne.");
+        add(29, Items.NETHER_STAR, "PRESTASJONER", "Låses opp i en kommende oppdatering.");
+        add(33, Items.LEATHER_CHESTPLATE, "KOSMETIKK", "Skins og effekter kommer senere.");
+        add(49, Items.LIME_CONCRETE, "BLI MED I NESTE MATCH", "Registrer deg til neste BlockParty-runde.");
+    }
+
+    private ItemStack pane(net.minecraft.world.item.Item item) {
+        ItemStack stack = new ItemStack(item);
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(" ").withStyle(ChatFormatting.RESET));
+        return stack;
     }
 
     private void add(int slot, net.minecraft.world.item.Item item, String name, String lore) {
         ItemStack stack = new ItemStack(item);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal(lore).withStyle(ChatFormatting.GRAY))));
         contents.setItem(slot, stack);
     }
@@ -48,9 +64,16 @@ final class BlockPartyHubMenu extends ChestMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         if (!(player instanceof ServerPlayer serverPlayer) || clickType != ClickType.PICKUP || button != 0) return;
-        if (slotId == 10 || slotId == 12 || slotId == 14 || slotId == 30 || slotId == 32 || slotId == 49) {
+        if (slotId == 11 || slotId == 13 || slotId == 15 || slotId == 29 || slotId == 33 || slotId == 49) {
             serverPlayer.closeContainer();
-            arena.handleHubMenuClick(serverPlayer, slotId);
+            arena.handleHubMenuClick(serverPlayer, switch (slotId) {
+                case 11 -> 10;
+                case 13 -> 12;
+                case 15 -> 14;
+                case 29 -> 30;
+                case 33 -> 32;
+                default -> 49;
+            });
         }
     }
 }
