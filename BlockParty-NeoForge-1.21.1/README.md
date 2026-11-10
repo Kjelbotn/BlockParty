@@ -96,3 +96,11 @@ The follow-up source archive fixes the initial GitHub Actions compile errors:
 
 ## Admin: reset player statistics
 Use `/bp statsreset <player>` to reset a player's persistent BlockParty profile (points, streaks, personal best, wins and MVP awards). Requires permission level 2. The target may be online or have a previously saved profile.
+
+
+### Multiple arena styles (0.12.0-alpha)
+- Classic: `/bp generate classic 40`
+- Festival: `/bp generatefestival festival 40`
+- List arenas: `/bp arenas`
+- Join a chosen arena lobby: `/bp join classic` or `/bp join festival`
+Generate each arena in a separate, open area. The Festival style has a separate lobby and play area with no physical bridge between them.

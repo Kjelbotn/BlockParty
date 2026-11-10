@@ -165,3 +165,11 @@
 - Removed the visible support pillars beneath the spectator ring.
 - Added a landing grace during the floor-fall phase: players initially marked for elimination are saved if they land on the announced target colour before falling into the pit.
 - Added a final target-contact sample at round timeout to reduce tick-order edge cases.
+
+
+## 0.12.0-alpha
+- Added a second arena-generation style: Festival, with an open-air skyline, lower dark walls, cyan/magenta neon bands, and colourful equalizer panels.
+- Festival arena lobby is physically separated from the play arena; players use teleport-based lobby/game flow rather than a connecting bridge.
+- Added `/bp generatefestival <id> [size]` to create the new style.
+- Added `/bp arenas` to list available arenas; `/bp join <id>` selects a specific arena.
+- Existing `/bp generate <id> [size]` Classic arena remains available.
