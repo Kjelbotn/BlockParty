@@ -233,10 +233,6 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Arenaen er ikke ferdig konfigurert. Bruk /bp generate <id> <størrelse>.").withStyle(ChatFormatting.RED));
             return;
         }
-        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
-            player.sendSystemMessage(Component.literal("Denne runden har allerede startet. Vent til spillet er ferdig.").withStyle(ChatFormatting.RED));
-            return;
-        }
         if (!players.contains(player.getUUID()) && players.size() >= MAX_PLAYERS) {
             player.sendSystemMessage(Component.literal("Denne kampen er full (maks " + MAX_PLAYERS + " spillere).").withStyle(ChatFormatting.RED));
             return;
@@ -261,6 +257,9 @@ public final class Arena {
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
         player.sendSystemMessage(Component.literal("Du ble med i BlockParty-arenaen '" + id + "'. Spillere: " + players.size() + "/" + MAX_PLAYERS).withStyle(ChatFormatting.GREEN));
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+            player.sendSystemMessage(Component.literal("En kamp pågår allerede. Du er i lobbyen og kan delta i neste kamp når denne er ferdig.").withStyle(ChatFormatting.YELLOW));
+        }
         if (players.size() < MIN_PLAYERS) {
             player.sendSystemMessage(Component.literal("Venter på minst én spiller til. Administrator kan bruke /bp forcestart " + id + " for å teste alene.").withStyle(ChatFormatting.YELLOW));
         }
@@ -1092,7 +1091,18 @@ public final class Arena {
 
     public void tick(MinecraftServer server) {
         scoreboardTick++;
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION) {
+            // Leaving the playable floor is an elimination, not a vanilla fall death.
+            // Check every active player independently of target-contact bookkeeping so
+            // jumping deliberately over the edge cannot bypass the normal elimination flow.
+            for (UUID uuid : new ArrayList<>(alive)) {
+                ServerPlayer active = server.getPlayerList().getPlayer(uuid);
+                if (active == null) continue;
+                if (active.getY() <= pos1.getY() - 3.0) eliminate(active);
+            }
+        }
         if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
+        if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }

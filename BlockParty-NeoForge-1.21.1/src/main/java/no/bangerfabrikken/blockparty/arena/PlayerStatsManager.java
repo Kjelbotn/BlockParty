@@ -222,7 +222,7 @@ public final class PlayerStatsManager {
         player.sendSystemMessage(Component.literal("Rank: " + rank.name()).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         player.sendSystemMessage(Component.literal("Win streak: " + record.currentStreak()).withStyle(ChatFormatting.GOLD));
         player.sendSystemMessage(Component.literal("Best win streak: " + record.bestStreak()).withStyle(ChatFormatting.LIGHT_PURPLE));
-        player.sendSystemMessage(Component.literal("Personal best: " + record.personalBest() + "/15 rounds").withStyle(ChatFormatting.WHITE));
+        player.sendSystemMessage(Component.literal("Personal best: " + record.personalBest() + "/" + Arena.MAX_ROUNDS + " rounds").withStyle(ChatFormatting.WHITE));
         player.sendSystemMessage(Component.literal("Wins: " + record.wins() + "  |  MVP awards: " + record.mvpAwards()).withStyle(ChatFormatting.GRAY));
         if (rank.isMaxRank()) player.sendSystemMessage(Component.literal("Du har nådd høyeste rank!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         else player.sendSystemMessage(Component.literal("Neste rank: " + rank.nextThreshold() + " poeng (" + rank.pointsToNext(record.points()) + " igjen)").withStyle(ChatFormatting.LIGHT_PURPLE));

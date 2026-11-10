@@ -1,3 +1,6 @@
+## 0.10.8-alpha
+- Fixed out-of-bounds elimination, late joining, Personal Best display and lobby leaderboard refresh.
+
 ## 0.10.7-alpha
 - Players who leave the playable arena bounds during an active match are now immediately eliminated and moved to the spectator walkway instead of falling into the world void and dying.
 - The boundary check applies only to active players; existing spectators are unaffected.
