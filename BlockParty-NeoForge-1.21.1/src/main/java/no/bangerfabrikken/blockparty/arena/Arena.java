@@ -15,6 +15,7 @@ import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.neoforged.neoforge.network.PacketDistributor;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.world.item.DyeColor;
@@ -80,7 +81,6 @@ public final class Arena {
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
     private static final int START_COUNTDOWN_TICKS = 200; // 10 seconds in lobby
     private static final int TELEPORT_COUNTDOWN_TICKS = 100; // 5 seconds after teleport
-    private static final long TELEPORT_SUNSET_START = 12_000L;
     private static final long TELEPORT_SUNSET_END = 13_500L;
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25; // 35 + 25 ticks = 3 seconds after the collapse begins
@@ -523,7 +523,9 @@ public final class Arena {
             originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
         }
         long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
-        teleportSunsetStartTime = dayStart + TELEPORT_SUNSET_START;
+        // Begin at the exact Survival-world time captured after teleportation.
+        // Animate from that value to 13,500 over the five-second arena countdown.
+        teleportSunsetStartTime = originalDayTime;
         teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
         // Freeze natural time progression, then manually animate sunset during the
         // five-second arena countdown so players can watch the sky darken.
@@ -1213,6 +1215,15 @@ public final class Arena {
         return musicVotes.get(playerId);
     }
 
+    boolean hasPlayerVoted(UUID playerId) {
+        return musicVotes.containsKey(playerId);
+    }
+
+    void sendAlreadyVotedMessage(ServerPlayer player) {
+        player.sendSystemMessage(Component.literal("Du har allerede stemt! Du kan bare stemme én gang per match.")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+    }
+
     public boolean voteMusic(ServerPlayer player, String trackId) {
         if (!players.contains(player.getUUID()) || !musicVotingUnlocked.contains(player.getUUID())
                 || !isInsideBlockPartyArea(player)) {
@@ -1229,9 +1240,17 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Fant ikke sangen " + trackId + ".").withStyle(ChatFormatting.RED));
             return false;
         }
-        musicVotes.put(player.getUUID(), track.id());
-        player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
-                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        String previousVote = musicVotes.put(player.getUUID(), track.id());
+        if (track.id().equals(previousVote)) {
+            player.sendSystemMessage(Component.literal("Du har allerede valgt denne sangen.")
+                    .withStyle(ChatFormatting.YELLOW));
+        } else if (previousVote != null) {
+            player.sendSystemMessage(Component.literal("Stemmen din er endret til " + track.name() + " — " + track.artist() + ".")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        } else {
+            player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
         int requiredVotes = Math.max(2, (players.size() * 2 + 2) / 3);
@@ -1366,7 +1385,16 @@ public final class Arena {
                 long sunsetTime = teleportSunsetStartTime
                         + ((teleportSunsetEndTime - teleportSunsetStartTime) * sunsetProgress)
                         / TELEPORT_COUNTDOWN_TICKS;
-                if (level.getDayTime() != sunsetTime) level.setDayTime(sunsetTime);
+                // Send a time-sync packet every server tick. Vanilla normally synchronizes
+                // world time much less often, which makes a five-second accelerated sunset
+                // appear to jump in large steps on clients even when the server clock is smooth.
+                level.setDayTime(sunsetTime);
+                ClientboundSetTimePacket timePacket = new ClientboundSetTimePacket(
+                        level.getGameTime(), sunsetTime, false);
+                for (UUID uuid : alive) {
+                    ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
+                    if (viewer != null) viewer.connection.send(timePacket);
+                }
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
                     int secondsLeft = timerTicks / 20;
                     for (UUID uuid : alive) {
@@ -2031,10 +2059,9 @@ public final class Arena {
             player.removeEffect(MobEffects.NIGHT_VISION);
             player.setGameMode(GameType.ADVENTURE);
             player.getInventory().clearContent();
+            // Returning to the lobby does not enroll anyone in the next match.
+            // The Nether Star is the explicit opt-in; only then is the vote book granted.
             player.getInventory().setItem(0, createJoinGameItem());
-            if (musicVotingUnlocked.contains(uuid)) {
-                player.getInventory().setItem(1, createMusicVotingBook());
-            }
             player.getInventory().setItem(8, createLeaveLobbyItem());
             player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);
@@ -2044,6 +2071,8 @@ public final class Arena {
 
         alive.clear();
         pendingEliminations.clear();
+        players.clear();
+        musicVotingUnlocked.clear();
         musicVotes.clear();
         selectedMusicTrackId = null;
         points.clear();

@@ -19,9 +19,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Server-authoritative, non-transferable chest GUI for the lobby music vote. */
+/** Server-authoritative, non-transferable chest GUI with a centered vertical song list. */
 final class MusicVotingMenu extends ChestMenu {
-    private static final int[] CENTERED_FOUR_SONG_SLOTS = {12, 13, 21, 22};
+    private static final int ROWS = 6;
+    private static final int CENTER_COLUMN = 4;
+    private static final int MAX_VISIBLE_TRACKS = ROWS;
 
     private final Arena arena;
     private final SimpleContainer songContainer;
@@ -29,11 +31,11 @@ final class MusicVotingMenu extends ChestMenu {
     private final Map<Integer, String> trackBySlot = new HashMap<>();
 
     MusicVotingMenu(int containerId, Inventory inventory, Arena arena, ServerPlayer viewer) {
-        this(containerId, inventory, arena, viewer.getUUID(), new SimpleContainer(27));
+        this(containerId, inventory, arena, viewer.getUUID(), new SimpleContainer(ROWS * 9));
     }
 
     private MusicVotingMenu(int containerId, Inventory inventory, Arena arena, UUID viewerId, SimpleContainer container) {
-        super(MenuType.GENERIC_9x3, containerId, inventory, container, 3);
+        super(MenuType.GENERIC_9x6, containerId, inventory, container, ROWS);
         this.arena = arena;
         this.viewerId = viewerId;
         this.songContainer = container;
@@ -44,27 +46,30 @@ final class MusicVotingMenu extends ChestMenu {
         songContainer.clearContent();
         trackBySlot.clear();
         List<MusicTrackManager.Track> tracks = MusicTrackManager.getTracks();
-        int count = Math.min(tracks.size(), CENTERED_FOUR_SONG_SLOTS.length);
+        int count = Math.min(tracks.size(), MAX_VISIBLE_TRACKS);
+        int firstRow = Math.max(0, (ROWS - count) / 2);
+        String selectedTrack = arena.getPlayerMusicVote(viewerId);
+
         for (int i = 0; i < count; i++) {
             MusicTrackManager.Track track = tracks.get(i);
-            int slot = CENTERED_FOUR_SONG_SLOTS[i];
+            int slot = (firstRow + i) * 9 + CENTER_COLUMN;
             trackBySlot.put(slot, track.id());
 
-            ItemStack icon = new ItemStack(switch (i) {
+            ItemStack icon = new ItemStack(switch (i % 4) {
                 case 0 -> Items.RED_CONCRETE;
                 case 1 -> Items.BLUE_CONCRETE;
                 case 2 -> Items.LIME_CONCRETE;
                 default -> Items.PURPLE_CONCRETE;
             });
-            boolean selected = track.id().equals(arena.getPlayerMusicVote(viewerId));
-            icon.set(DataComponents.CUSTOM_NAME, Component.literal(track.name())
+            boolean selected = track.id().equals(selectedTrack);
+            icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA, ChatFormatting.BOLD));
             long votes = arena.getTrackVoteCount(track.id());
             icon.set(DataComponents.LORE, new ItemLore(List.of(
                     Component.literal("Artist: " + track.artist()).withStyle(ChatFormatting.GRAY),
                     Component.literal("Stemmer: " + votes).withStyle(ChatFormatting.YELLOW),
-                    Component.literal(selected ? "✓ DIN STEMME" : "Klikk for å stemme")
-                            .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY)
+                    Component.literal(selected ? "DITT NÅVÆRENDE VALG" : "Klikk for å stemme eller bytte valg")
+                            .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW)
             )));
             songContainer.setItem(slot, icon);
         }
@@ -75,8 +80,9 @@ final class MusicVotingMenu extends ChestMenu {
         // Never delegate to ChestMenu: voting icons must not be picked up, moved, or shift-clicked.
         if (!(player instanceof ServerPlayer serverPlayer)) return;
         String trackId = trackBySlot.get(slotId);
-        if (trackId == null || clickType == ClickType.QUICK_MOVE || clickType == ClickType.SWAP
-                || clickType == ClickType.THROW || clickType == ClickType.PICKUP_ALL) return;
+        if (trackId == null || clickType != ClickType.PICKUP || button != 0) return;
         arena.voteMusic(serverPlayer, trackId);
+        refreshContents();
+        broadcastChanges();
     }
 }
