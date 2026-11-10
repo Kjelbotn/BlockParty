@@ -163,6 +163,9 @@ public final class Arena {
     private UUID lastEliminatedPlayer;
     private UUID matchWinnerId;
     private final List<String> lastPodium = new ArrayList<>();
+    private final Map<UUID, Integer> podiumFreezeTicks = new HashMap<>();
+    private final Map<UUID, BlockPos> podiumFreezePositions = new HashMap<>();
+    private BlockPos winnerPodiumSpawn;
     private int lastDancePattern = -1;
 
     /** Active beacon blocks are placed one block above five separate floor tiles. */
@@ -471,6 +474,9 @@ public final class Arena {
     }
 
     public void handleLogout(ServerPlayer player) {
+        podiumFreezeTicks.remove(player.getUUID());
+        podiumFreezePositions.remove(player.getUUID());
+        player.setNoGravity(false);
         // Restore the pre-BlockParty snapshot before the server saves disconnecting player data.
         // This also persists the original return location instead of the arena position.
         leave(player, true);
@@ -486,6 +492,7 @@ public final class Arena {
         }
 
         applyVisualUpgrade();
+        clearWinnerPodiumAtDjBooth();
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
@@ -606,28 +613,126 @@ public final class Arena {
 
     private void refreshWinnerPodium() {
         if (level == null || !lobbySet) return;
+        // Podium is hidden during waiting and gameplay; it is built at the DJ booth after a match.
         int centerX = (int) Math.floor(lobbyX);
         int floorY = (int) Math.floor(lobbyY) - 1;
-        int z = (int) Math.floor(lobbyZ) + 8;
-        int x = centerX - 28;
-        if (!level.hasChunkAt(new BlockPos(x, floorY + 3, z))) return;
+        int oldZ = (int) Math.floor(lobbyZ) + 8;
+        int oldX = centerX - 28;
         String tag = "bp_podium_" + id;
-        AABB area = new AABB(x - 5, floorY, z - 3, x + 6, floorY + 8, z + 3);
+        AABB oldArea = new AABB(oldX - 5, floorY, oldZ - 3, oldX + 6, floorY + 8, oldZ + 3);
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, oldArea,
+                entity -> entity.getTags().contains(tag))) old.discard();
+        for (int x = oldX - 3; x <= oldX + 3; x++) {
+            for (int z = oldZ - 1; z <= oldZ + 1; z++) {
+                for (int y = floorY; y <= floorY + 2; y++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    Block block = level.getBlockState(pos).getBlock();
+                    if (block == Blocks.IRON_BLOCK || block == Blocks.GOLD_BLOCK || block == Blocks.COPPER_BLOCK) {
+                        level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+                    }
+                }
+            }
+        }
+    }
+
+    private void buildWinnerPodiumAtDjBooth() {
+        if (level == null || !lobbySet || lastPodium.isEmpty()) return;
+        int centerX = (int) Math.floor(lobbyX);
+        int floorY = (int) Math.floor(lobbyY) - 1;
+        int lobbyMaxZ = (int) Math.floor(lobbyZ) + 35;
+        int boothZ = lobbyMaxZ - 8;
+        int podiumZ = boothZ - 5; // in front of the DJ, toward the dancefloor
+        String tag = "bp_podium_" + id;
+        AABB area = new AABB(centerX - 8, floorY, podiumZ - 4, centerX + 8, floorY + 8, podiumZ + 4);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
+        for (int x = centerX - 4; x <= centerX + 4; x++) {
+            for (int z = podiumZ - 2; z <= podiumZ + 2; z++) {
+                for (int y = floorY; y <= floorY + 3; y++) {
+                    level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
         int[] heights = {1, 2, 1};
         Block[] blocks = {Blocks.IRON_BLOCK, Blocks.GOLD_BLOCK, Blocks.COPPER_BLOCK};
         for (int i = 0; i < 3; i++) {
-            int px = x - 2 + i * 2;
-            for (int h = 0; h < heights[i]; h++) level.setBlock(new BlockPos(px, floorY + h, z), blocks[i].defaultBlockState(), 3);
+            int x = centerX - 2 + i * 2;
+            for (int h = 0; h < heights[i]; h++) {
+                level.setBlock(new BlockPos(x, floorY + h, podiumZ), blocks[i].defaultBlockState(), 3);
+            }
         }
-        BlockPartyText.spawnTextDisplay(level, x + 0.5, floorY + 5.2, z - 1.0, 90.0F,
-                Component.literal("SISTE MATCH  •  TOPP 3").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), 0.85F, tag);
+        BlockPos goldTop = new BlockPos(centerX, floorY + 1, podiumZ);
+        winnerPodiumSpawn = goldTop.above();
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 5.4, podiumZ - 1.2,
+                180.0F, Component.literal("BLOCKPARTY-VINNER")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), 1.1F, tag);
         for (int i = 0; i < 3; i++) {
             String line = i < lastPodium.size() ? (i + 1) + ". " + lastPodium.get(i) : (i + 1) + ". —";
             ChatFormatting colour = i == 0 ? ChatFormatting.GOLD : i == 1 ? ChatFormatting.GRAY : ChatFormatting.RED;
-            BlockPartyText.spawnTextDisplay(level, x + 0.5, floorY + 4.0 - i * 0.85, z - 1.0, 90.0F,
-                    Component.literal(line).withStyle(colour, ChatFormatting.BOLD), 0.68F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 4.1 - i * 0.8,
+                    podiumZ - 1.2, 180.0F, Component.literal(line).withStyle(colour, ChatFormatting.BOLD),
+                    0.78F, tag);
+        }
+    }
+
+    private void clearWinnerPodiumAtDjBooth() {
+        if (level == null || !lobbySet) return;
+        int centerX = (int) Math.floor(lobbyX);
+        int floorY = (int) Math.floor(lobbyY) - 1;
+        int podiumZ = (int) Math.floor(lobbyZ) + 22;
+        String tag = "bp_podium_" + id;
+        AABB area = new AABB(centerX - 8, floorY, podiumZ - 4, centerX + 8, floorY + 8, podiumZ + 4);
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                entity -> entity.getTags().contains(tag))) old.discard();
+        for (int x = centerX - 4; x <= centerX + 4; x++) {
+            for (int z = podiumZ - 2; z <= podiumZ + 2; z++) {
+                for (int y = floorY; y <= floorY + 3; y++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    Block block = level.getBlockState(pos).getBlock();
+                    if (block == Blocks.IRON_BLOCK || block == Blocks.GOLD_BLOCK || block == Blocks.COPPER_BLOCK) {
+                        level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+                    }
+                }
+            }
+        }
+        winnerPodiumSpawn = null;
+    }
+
+    private void teleportWinnerToPodium(ServerPlayer winner) {
+        if (winner == null || level == null || winnerPodiumSpawn == null) return;
+        BlockPos spawn = winnerPodiumSpawn;
+        winner.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, 180.0F, 0.0F);
+        winner.setDeltaMovement(0.0, 0.0, 0.0);
+        winner.setNoGravity(true);
+        podiumFreezeTicks.put(winner.getUUID(), 100);
+        podiumFreezePositions.put(winner.getUUID(), spawn);
+        winner.sendSystemMessage(Component.literal("Du er vinneren! Hold posisjonen på podiet i 5 sekunder.")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+    }
+
+    private void tickWinnerPodiumFreeze(MinecraftServer server) {
+        for (UUID uuid : new HashSet<>(podiumFreezeTicks.keySet())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            Integer remaining = podiumFreezeTicks.get(uuid);
+            BlockPos spawn = podiumFreezePositions.get(uuid);
+            if (player == null || remaining == null || spawn == null) {
+                podiumFreezeTicks.remove(uuid);
+                podiumFreezePositions.remove(uuid);
+                continue;
+            }
+            player.setNoGravity(true);
+            player.setPos(spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5);
+            player.setDeltaMovement(0.0, 0.0, 0.0);
+            if (remaining <= 1) {
+                podiumFreezeTicks.remove(uuid);
+                podiumFreezePositions.remove(uuid);
+                player.setNoGravity(false);
+                player.setDeltaMovement(0.0, 0.0, 0.0);
+                player.sendSystemMessage(Component.literal("Du kan nå bevege deg fritt i lobbyen!")
+                        .withStyle(ChatFormatting.GREEN));
+            } else {
+                podiumFreezeTicks.put(uuid, remaining - 1);
+            }
         }
     }
 
@@ -1452,6 +1557,7 @@ public final class Arena {
 
     public void tick(MinecraftServer server) {
         scoreboardTick++;
+        tickWinnerPodiumFreeze(server);
         if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
@@ -2214,6 +2320,9 @@ public final class Arena {
         restoreOriginalFloor();
         restoreOriginalArenaAccents();
 
+        // The match is fully over: move the podium from the lobby corner to the DJ booth.
+        if (matchWinnerId != null) buildWinnerPodiumAtDjBooth();
+
         // The match is fully over: return every participant, including the winner and
         // eliminated spectators, to the BlockParty lobby. They remain in the session
         // until they explicitly use /bp leave or the redstone-dust leave item.
@@ -2233,6 +2342,7 @@ public final class Arena {
             player.getInventory().setItem(8, createLeaveLobbyItem());
             player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);
+            if (matchWinnerId != null && uuid.equals(matchWinnerId)) teleportWinnerToPodium(player);
             player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
                     .withStyle(ChatFormatting.GREEN));
         }
