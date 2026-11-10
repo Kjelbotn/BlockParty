@@ -1,3 +1,9 @@
+# BlockParty 0.19.4-alpha
+
+- Fixed song-length pacing: the 20 round timers now add up to the track's full declared playback duration, with cumulative tick rounding to avoid timing drift.
+- Fall and intermission phases pause music and are no longer incorrectly counted as song playback time; their transition durations remain fixed.
+- Removed the 3:30 cap from music playback, round pacing and the voting-menu duration display. Long tracks now use their complete duration.
+
 # BlockParty 0.19.3-alpha
 
 - Added difficulty and match-duration details to each song's voting-menu tooltip.
