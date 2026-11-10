@@ -1,3 +1,10 @@
+# BlockParty 0.19.0-alpha
+
+- Rebuilt the lobby interior as a coherent nightclub: symmetrical lounge bays, a proper front bar, framed wall panels, an architectural entrance, aligned ceiling trusses and speaker stacks.
+- Preserved the DJ stage, voting wall, leaderboard, podium footprint and central dance floor.
+- Refreshed the DJ voting screen's leader panel: it now says 'MEST STEMTE LÅT' and displays the leading track, artist and vote count instead of the old 'FOLKETS FAVORITT' / 'INGEN LEDER ENNÅ' wording.
+- Keeps the playlist title and artist metadata in separate text displays to avoid literal newline artifacts.
+
 # BlockParty 0.18.0-alpha
 
 - Rebuilt the music voting wall layout: song title, artist and vote count are separate text displays; removed the literal \\n rendering issue; now shows up to eight tracks with more spacing.

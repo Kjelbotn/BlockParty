@@ -381,104 +381,165 @@ public final class ArenaGenerator {
      */
     private static void buildNeonLobbyInterior(ServerLevel level, int centerX,
                                                 int minX, int maxX, int minZ, int maxZ, int floorY) {
-        // Restrained club palette: blackstone, charcoal, magenta, purple and cyan.
-        // Ceiling ribs run in parallel and never hang low over player movement.
-        int ceilingY = floorY + 14;
-        for (int x = minX + 4; x <= maxX - 4; x += 10) {
-            for (int z = minZ + 3; z <= maxZ - 3; z++) {
-                put(level, x, ceilingY, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
-            }
-            for (int z = minZ + 6; z <= maxZ - 6; z += 12) {
-                put(level, x, ceilingY - 1, z, Blocks.SEA_LANTERN);
-                put(level, x, ceilingY - 2, z, Blocks.PURPLE_STAINED_GLASS);
-            }
-        }
+        // BLOCKPARTY CLUB INTERIOR: intentional zones, mirrored lounge bays and a clear central route.
+        int innerMinX = minX + 2;
+        int innerMaxX = maxX - 2;
+        int rearZ = maxZ - 8;
 
-        // Matching framed wall panels on both long sides, aligned at regular intervals.
-        for (int z = minZ + 8; z <= maxZ - 8; z += 14) {
-            for (int y = floorY + 3; y <= floorY + 8; y++) {
-                put(level, minX, y, z, Blocks.BLACK_CONCRETE);
-                put(level, minX, y, z + 1, Blocks.PURPLE_STAINED_GLASS);
-                put(level, maxX, y, z, Blocks.BLACK_CONCRETE);
-                put(level, maxX, y, z + 1, Blocks.MAGENTA_STAINED_GLASS);
-            }
-            put(level, minX + 1, floorY + 2, z, Blocks.CYAN_CONCRETE);
-            put(level, maxX - 1, floorY + 2, z, Blocks.CYAN_CONCRETE);
-        }
-
-        // Clear the footprint of the previous experimental cafe and lounge builds first.
-        // This removes orphaned rods, floating glass and misplaced shelves from existing lobbies.
-        int oldCafeX = centerX - 24;
-        for (int x = oldCafeX - 7; x <= oldCafeX + 7; x++) {
-            for (int z = minZ + 5; z <= minZ + 13; z++) {
-                for (int y = floorY + 1; y <= floorY + 7; y++) put(level, x, y, z, Blocks.AIR);
-            }
-        }
-        for (int side : new int[]{-1, 1}) {
-            int oldLoungeX = centerX + side * 24;
-            for (int x = oldLoungeX - 6; x <= oldLoungeX + 6; x++) {
-                for (int z = minZ + 7; z <= maxZ - 10; z += 13) {
-                    for (int zz = z - 5; zz <= z + 5; zz++) {
-                        for (int y = floorY + 1; y <= floorY + 9; y++) {
-                            BlockPos legacy = new BlockPos(x, y, zz);
-                            Block block = level.getBlockState(legacy).getBlock();
-                            if (block == Blocks.SEA_LANTERN || block == Blocks.END_ROD
-                                    || block == Blocks.PURPLE_STAINED_GLASS || block == Blocks.CYAN_STAINED_GLASS
-                                    || block == Blocks.MAGENTA_STAINED_GLASS || block == Blocks.BOOKSHELF) {
-                                put(level, x, y, zz, Blocks.AIR);
-                            }
+        // Reset only the reserved side-lounge and front-bar footprints. Keep the DJ stage,
+        // voting wall, leaderboard wall and central dance floor intact.
+        for (int side : new int[]{-1,  1}) {
+            int loungeX = centerX + side * 23;
+            for (int x = loungeX - 5; x <= loungeX + 5; x++) {
+                for (int z = minZ + 11; z <= maxZ - 15; z++) {
+                    for (int y = floorY + 1; y <= floorY + 6; y++) {
+                        BlockPos pos = new BlockPos(x, y, z);
+                        Block block = level.getBlockState(pos).getBlock();
+                        if (block == Blocks.DARK_OAK_STAIRS || block == Blocks.DARK_OAK_SLAB
+                                || block == Blocks.SPRUCE_TRAPDOOR || block == Blocks.BOOKSHELF
+                                || block == Blocks.END_ROD || block == Blocks.CYAN_STAINED_GLASS
+                                || block == Blocks.PURPLE_STAINED_GLASS || block == Blocks.MAGENTA_STAINED_GLASS
+                                || block == Blocks.SEA_LANTERN || block == Blocks.NOTE_BLOCK) {
+                            put(level, x, y, z, Blocks.AIR);
                         }
                     }
                 }
             }
         }
-
-        // Compact cafe counter at the west/rear side, with a clear approach and no floating decor.
-        int cafeX = centerX - 24;
-        int cafeZ = minZ + 8;
-        for (int x = cafeX - 4; x <= cafeX + 4; x++) {
-            put(level, x, floorY + 1, cafeZ, Blocks.SMOOTH_QUARTZ);
-            put(level, x, floorY + 2, cafeZ, Blocks.QUARTZ_SLAB);
-            put(level, x, floorY + 3, cafeZ - 1, Blocks.BOOKSHELF);
-        }
-        for (int x : new int[]{cafeX - 3, cafeX, cafeX + 3}) {
-            put(level, x, floorY + 4, cafeZ - 2, Blocks.SEA_LANTERN);
-            put(level, x, floorY + 5, cafeZ - 2, Blocks.CYAN_STAINED_GLASS);
-        }
-
-        // Two mirrored lounge bays: benches face inward toward low tables.
-        for (int side : new int[]{-1, 1}) {
-            int loungeX = centerX + side * 24;
-            for (int z = minZ + 17; z <= maxZ - 13; z += 14) {
-                for (int dx = -2; dx <= 2; dx++) {
-                    put(level, loungeX + dx, floorY + 1, z, Blocks.DARK_OAK_STAIRS);
+        for (int x = centerX - 10; x <= centerX + 10; x++) {
+            for (int z = minZ + 4; z <= minZ + 10; z++) {
+                for (int y = floorY + 1; y <= floorY + 6; y++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    Block block = level.getBlockState(pos).getBlock();
+                    if (block == Blocks.SMOOTH_QUARTZ || block == Blocks.QUARTZ_SLAB
+                            || block == Blocks.BOOKSHELF || block == Blocks.SEA_LANTERN
+                            || block == Blocks.CYAN_STAINED_GLASS || block == Blocks.END_ROD) {
+                        put(level, x, y, z, Blocks.AIR);
+                    }
                 }
-                put(level, loungeX, floorY + 1, z + 3, Blocks.POLISHED_BLACKSTONE_SLAB);
-                put(level, loungeX, floorY + 2, z + 3, Blocks.SEA_LANTERN);
             }
         }
 
-        // Thin neon borders define the dance area; no decorative blocks intrude onto its surface.
-        for (int x = centerX - 10; x <= centerX + 10; x++) {
-            put(level, x, floorY, minZ + 13, Blocks.PURPLE_CONCRETE);
-            put(level, x, floorY, minZ + 29, Blocks.MAGENTA_CONCRETE);
+        // Continuous dark floor inlay defines the main circulation axis without cluttering it.
+        for (int z = minZ + 4; z <= maxZ - 10; z++) {
+            put(level, centerX - 11, floorY, z, Blocks.POLISHED_BLACKSTONE);
+            put(level, centerX + 11, floorY, z, Blocks.POLISHED_BLACKSTONE);
         }
-        for (int z = minZ + 13; z <= minZ + 29; z++) {
-            put(level, centerX - 10, floorY, z, Blocks.CYAN_CONCRETE);
-            put(level, centerX + 10, floorY, z, Blocks.CYAN_CONCRETE);
+        for (int side : new int[]{-1, 1}) {
+            int x = centerX + side * 16;
+            for (int z = minZ + 11; z <= maxZ - 14; z++) {
+                if (z < minZ + 14 || z > minZ + 28) {
+                    put(level, x, floorY, z, Blocks.PURPLE_CONCRETE);
+                    put(level, x + side, floorY, z, Blocks.BLACK_CONCRETE);
+                }
+            }
         }
 
-        // Speaker towers sit outside the dancefloor corners and use matching mirrored shapes.
+        // Front lounge bar: a proper counter with a back wall, shelves and warm/cool lighting.
+        int barZ = minZ + 7;
+        for (int x = centerX - 9; x <= centerX + 9; x++) {
+            put(level, x, floorY + 1, barZ, Blocks.POLISHED_BLACKSTONE_BRICKS);
+            put(level, x, floorY + 2, barZ, Blocks.SMOOTH_QUARTZ);
+            put(level, x, floorY + 3, barZ, Blocks.QUARTZ_SLAB);
+            put(level, x, floorY + 4, barZ + 2, Blocks.BOOKSHELF);
+            put(level, x, floorY + 5, barZ + 2, Blocks.BLACK_CONCRETE);
+        }
+        for (int x : new int[]{centerX - 7, centerX - 3, centerX + 3, centerX + 7}) {
+            put(level, x, floorY + 5, barZ + 2, Blocks.SEA_LANTERN);
+            put(level, x, floorY + 6, barZ + 2, Blocks.PURPLE_STAINED_GLASS);
+        }
+        for (int x = centerX - 10; x <= centerX + 10; x++) {
+            put(level, x, floorY + 1, barZ - 1, Blocks.BLACKSTONE);
+        }
+
+        // Three mirrored lounge bays on each side. Each has a backrest, two seats and a low table.
+        for (int side : new int[]{-1, 1}) {
+            int loungeX = centerX + side * 23;
+            for (int z : new int[]{minZ + 17, minZ + 31, minZ + 45}) {
+                // Raised rug with a cyan/magenta border.
+                for (int dx = -4; dx <= 4; dx++) {
+                    put(level, loungeX + dx, floorY, z - 2, Blocks.PURPLE_CONCRETE);
+                    put(level, loungeX + dx, floorY, z + 2, Blocks.PURPLE_CONCRETE);
+                }
+                for (int dz = -1; dz <= 1; dz++) {
+                    put(level, loungeX - 4, floorY, z + dz, Blocks.CYAN_CONCRETE);
+                    put(level, loungeX + 4, floorY, z + dz, Blocks.CYAN_CONCRETE);
+                }
+                // Sofa row facing the centre aisle.
+                int seatZ = z + (side < 0 ? 1 : -1);
+                for (int dx = -2; dx <= 2; dx++) {
+                    put(level, loungeX + dx, floorY + 1, seatZ, Blocks.DARK_OAK_STAIRS);
+                    put(level, loungeX + dx, floorY + 2, seatZ + (side < 0 ? 1 : -1), Blocks.DARK_OAK_SLAB);
+                }
+                // Low table with a glass centre and a discreet light below it.
+                int tableZ = z + (side < 0 ? -1 : 1);
+                put(level, loungeX, floorY + 1, tableZ, Blocks.POLISHED_BLACKSTONE_SLAB);
+                put(level, loungeX, floorY + 2, tableZ, Blocks.CYAN_STAINED_GLASS);
+                put(level, loungeX, floorY + 1, tableZ + (side < 0 ? -1 : 1), Blocks.SEA_LANTERN);
+                // Corner planters give the bays scale and soften the blackstone palette.
+                for (int dx : new int[]{-3, 3}) {
+                    put(level, loungeX + dx, floorY + 1, z - 1, Blocks.MOSS_BLOCK);
+                    put(level, loungeX + dx, floorY + 2, z - 1, Blocks.FLOWERING_AZALEA);
+                }
+            }
+        }
+
+        // Architectural wall panels along both long sides: repeated, symmetrical and integrated.
+        for (int side : new int[]{-1, 1}) {
+            int wallX = side < 0 ? minX : maxX;
+            for (int z = minZ + 10; z <= maxZ - 12; z += 12) {
+                for (int y = floorY + 3; y <= floorY + 8; y++) {
+                    put(level, wallX, y, z, Blocks.BLACK_CONCRETE);
+                    put(level, wallX, y, z + 1, Blocks.BLACK_CONCRETE);
+                }
+                for (int y = floorY + 4; y <= floorY + 7; y++) {
+                    put(level, wallX, y, z + 2, Blocks.PURPLE_STAINED_GLASS);
+                }
+                put(level, wallX, floorY + 2, z, Blocks.CYAN_CONCRETE);
+                put(level, wallX, floorY + 9, z, Blocks.MAGENTA_CONCRETE);
+                put(level, wallX - side, floorY + 5, z + 1,
+                        Blocks.SEA_LANTERN);
+            }
+        }
+
+        // Framed entrance portal at the front: visual focus when entering the club.
+        for (int x = centerX - 12; x <= centerX + 12; x++) {
+            put(level, x, floorY + 10, minZ, Blocks.PURPLE_CONCRETE);
+            put(level, x, floorY + 11, minZ, Blocks.BLACK_CONCRETE);
+        }
+        for (int side : new int[]{-1, 1}) {
+            int x = centerX + side * 12;
+            for (int y = floorY + 1; y <= floorY + 10; y++) {
+                put(level, x, y, minZ, Blocks.POLISHED_BLACKSTONE_BRICKS);
+                put(level, x + side, y, minZ, Blocks.MAGENTA_CONCRETE);
+            }
+            put(level, x, floorY + 5, minZ + 1, Blocks.SEA_LANTERN);
+        }
+
+        // Slim ceiling trusses and pendant fixtures align with the lounge bays, not random points.
+        int ceilingY = floorY + 14;
+        for (int z : new int[]{minZ + 15, minZ + 29, minZ + 43}) {
+            for (int x = minX + 5; x <= maxX - 5; x++) {
+                if (Math.abs(x - centerX) > 10) put(level, x, ceilingY, z, Blocks.POLISHED_BLACKSTONE_BRICKS);
+            }
+            for (int side : new int[]{-1, 1}) {
+                int x = centerX + side * 17;
+                put(level, x, ceilingY - 1, z, Blocks.CHAIN);
+                put(level, x, ceilingY - 2, z, Blocks.SEA_LANTERN);
+                put(level, x, ceilingY - 3, z, Blocks.PURPLE_STAINED_GLASS);
+            }
+        }
+
+        // Symmetrical subwoofer stacks frame the dance floor without blocking its playable area.
         for (int side : new int[]{-1, 1}) {
             int x = centerX + side * 13;
-            int z = minZ + 20;
+            int z = minZ + 21;
             for (int y = floorY + 1; y <= floorY + 4; y++) {
-                put(level, x, y, z, Blocks.BLACKSTONE);
+                put(level, x, y, z, Blocks.BLACK_CONCRETE);
             }
-            for (int y : new int[]{floorY + 2, floorY + 4}) {
-                put(level, x, y, z - 1, Blocks.SEA_LANTERN);
-                put(level, x, y + 1, z - 1, Blocks.PURPLE_STAINED_GLASS);
-            }
+            put(level, x, floorY + 2, z - 1, Blocks.NOTE_BLOCK);
+            put(level, x, floorY + 3, z - 1, Blocks.CYAN_STAINED_GLASS);
+            put(level, x, floorY + 4, z - 1, Blocks.MAGENTA_STAINED_GLASS);
         }
     }
 

@@ -787,13 +787,13 @@ public final class Arena {
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
         BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 9.0, wallZ - 0.72,
-                180.0F, Component.literal("FOLKETS FAVORITT")
+                180.0F, Component.literal("MEST STEMTE LÅT")
                         .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 6.9, wallZ - 0.72,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "INGEN LEDER ENNÅ" : leader.name())
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 6.7, wallZ - 0.72,
+                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 5.5, wallZ - 0.72,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ DIN FAVORITT"
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 5.2, wallZ - 0.72,
+                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
                         : leader.artist() + "  •  " + leaderVotes + " STEMMER")
                         .withStyle(ChatFormatting.YELLOW), 0.72F, tag);
         BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 3.8, wallZ - 0.72,
