@@ -8,6 +8,10 @@ import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
@@ -38,9 +42,11 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(this::onRightClickItem);
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
+        NeoForge.EVENT_BUS.addListener(this::onEntityJoinLevel);
+        NeoForge.EVENT_BUS.addListener(this::onLivingDeath);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.9.6-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.10.9-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -49,6 +55,18 @@ public final class BlockPartyMod {
         event.registrar("1").playToClient(MusicControlPayload.TYPE, MusicControlPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
                         no.bangerfabrikken.blockparty.client.ClientMusicController.handle(payload)));
+    }
+
+    private void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (!(event.getEntity() instanceof Mob mob) || !(event.getLevel() instanceof ServerLevel serverLevel)) return;
+        if (ArenaManager.get().isProtectedMobLocation(serverLevel, mob.getX(), mob.getY(), mob.getZ())) {
+            event.setCanceled(true);
+        }
+    }
+
+    private void onLivingDeath(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (ArenaManager.get().handleOutOfBoundsDeath(player)) event.setCanceled(true);
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {

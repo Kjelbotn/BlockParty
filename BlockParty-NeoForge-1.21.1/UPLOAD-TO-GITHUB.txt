@@ -1,3 +1,3 @@
-BlockParty 0.9.6-alpha
-
-Upload the complete contents of this project folder to your GitHub repository, replacing the previous source files. Then run the GitHub Actions build and share the full log if it fails.
+BlockParty 0.10.9-alpha
+Minecraft 1.21.1 / NeoForge 21.1.265
+Upload the complete project folder to GitHub and run the Gradle build workflow.

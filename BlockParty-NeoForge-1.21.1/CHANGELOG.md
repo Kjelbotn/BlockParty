@@ -1,3 +1,10 @@
+## 0.10.9-alpha
+- Prevented natural and other mob spawns inside the configured BlockParty arena, spectator walkway, pit and lobby; existing mobs in those footprints are periodically removed.
+- Disabled hunger and exhaustion for joined BlockParty players while preserving and restoring their original food level, saturation and exhaustion when they leave.
+- Locked the world time to 13500 throughout countdown and match phases, reasserting the fixed time each tick, then restored the original time and daylight-cycle rule when the match ends.
+- Hardened out-of-bounds elimination: active players crossing three blocks below the arena floor are eliminated and moved to the spectator walkway; fall/void death is intercepted at that threshold.
+- Corrected the completed-match announcement to 25 rounds.
+
 ## 0.10.8-alpha
 - Fixed out-of-bounds elimination, late joining, Personal Best display and lobby leaderboard refresh.
 

@@ -28,6 +28,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.core.particles.ParticleTypes;
@@ -109,6 +110,7 @@ public final class Arena {
     private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
     private final Map<UUID, InventorySnapshot> originalHeldItems = new HashMap<>();
+    private final Map<UUID, FoodSnapshot> originalFoodStates = new HashMap<>();
     private final Map<UUID, ReturnLocation> returnLocations = new HashMap<>();
     private record ReturnLocation(ServerLevel level, double x, double y, double z, float yaw, float pitch) { }
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
@@ -193,6 +195,63 @@ public final class Arena {
         return isGameInProgress() && (players.contains(player.getUUID()) || canLocatePlayerForLeave(player));
     }
 
+    /** True for the generated arena, spectator ring, pit and separate lobby footprint. */
+    public boolean protectsLocation(ServerLevel candidateLevel, double x, double y, double z) {
+        if (level == null || candidateLevel != level || !lobbySet || pos1 == null || pos2 == null) return false;
+        int floorY = pos1.getY();
+        int floorMinX = Math.min(pos1.getX(), pos2.getX());
+        int floorMaxX = Math.max(pos1.getX(), pos2.getX());
+        int floorMinZ = Math.min(pos1.getZ(), pos2.getZ());
+        int floorMaxZ = Math.max(pos1.getZ(), pos2.getZ());
+        boolean arenaArea = x >= floorMinX - 14 && x <= floorMaxX + 14
+                && z >= floorMinZ - 14 && z <= floorMaxZ + 14
+                && y >= floorY - 18 && y <= floorY + 30;
+        // ArenaGenerator builds a 64x56 lobby; lobbyX is its centre and lobbyZ is 20 blocks
+        // from its rear edge. Include the roofless lobby volume and a small vertical margin.
+        boolean lobbyArea = Math.abs(x - lobbyX) <= 34
+                && z >= lobbyZ - 22 && z <= lobbyZ + 38
+                && y >= lobbyY - 3 && y <= lobbyY + 28;
+        return arenaArea || lobbyArea;
+    }
+
+    /** Stops a vanilla fall/void death if the active player crossed the elimination threshold. */
+    public boolean handleOutOfBoundsDeath(ServerPlayer player) {
+        if (player == null || level == null || player.serverLevel() != level || !alive.contains(player.getUUID())
+                || !isGameInProgress() || pos1 == null) return false;
+        if (player.getY() > pos1.getY() - 3.0) return false;
+        // A fall/void death event can arrive before the regular arena tick. Revive the
+        // player just enough for the normal elimination teleport to complete cleanly.
+        if (player.getHealth() <= 0.0F) player.setHealth(1.0F);
+        player.fallDistance = 0.0F;
+        eliminate(player);
+        return true;
+    }
+
+    private void enforceBlockPartyNeeds(MinecraftServer server) {
+        for (UUID uuid : players) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null || player.serverLevel() != level) continue;
+            var food = player.getFoodData();
+            if (food.getFoodLevel() != 20) food.setFoodLevel(20);
+            if (food.getSaturationLevel() != 20.0F) food.setSaturation(20.0F);
+            if (food.getExhaustionLevel() != 0.0F) food.setExhaustion(0.0F);
+        }
+    }
+
+    private void removeMobsFromProtectedArea() {
+        if (level == null || !lobbySet || pos1 == null || pos2 == null) return;
+        int minX = Math.min(pos1.getX(), pos2.getX()) - 14;
+        int maxX = Math.max(pos1.getX(), pos2.getX()) + 14;
+        int minZ = Math.min(pos1.getZ(), pos2.getZ()) - 14;
+        int maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 14;
+        int floorY = pos1.getY();
+        AABB arenaArea = new AABB(minX, floorY - 18, minZ, maxX + 1, floorY + 31, maxZ + 1);
+        AABB lobbyArea = new AABB(lobbyX - 34, lobbyY - 3, lobbyZ - 22,
+                lobbyX + 34, lobbyY + 29, lobbyZ + 39);
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, arenaArea)) mob.discard();
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, lobbyArea)) mob.discard();
+    }
+
     public boolean isConfigured() {
         return level != null && pos1 != null && pos2 != null && lobbySet;
     }
@@ -248,6 +307,7 @@ public final class Arena {
         returnLocations.putIfAbsent(joiningId, new ReturnLocation(player.serverLevel(), player.getX(), player.getY(),
                 player.getZ(), player.getYRot(), player.getXRot()));
         originalHeldItems.putIfAbsent(joiningId, InventorySnapshot.capture(player));
+        originalFoodStates.putIfAbsent(joiningId, FoodSnapshot.capture(player));
         player.getInventory().clearContent();
         player.inventoryMenu.broadcastChanges();
         players.add(joiningId);
@@ -272,6 +332,7 @@ public final class Arena {
         // if the live-player set ever gets out of sync during a phase transition.
         boolean wasMember = players.contains(uuid) || returnLocations.containsKey(uuid)
                 || originalHeldItems.containsKey(uuid) || originalGameModes.containsKey(uuid)
+                || originalFoodStates.containsKey(uuid)
                 || canLocatePlayerForLeave(player);
         if (wasMember && activeMusicId != null) {
             PacketDistributor.sendToPlayer(player,
@@ -1091,7 +1152,13 @@ public final class Arena {
 
     public void tick(MinecraftServer server) {
         scoreboardTick++;
-        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION) {
+        enforceBlockPartyNeeds(server);
+        if (phase != Phase.WAITING && level != null) {
+            // Keep the match lighting fixed even if another command changes the time mid-game.
+            if (level.getDayTime() != 13_500L) level.setDayTime(13_500L);
+        }
+        if (scoreboardTick % 20 == 0) removeMobsFromProtectedArea();
+        if (isGameInProgress()) {
             // Leaving the playable floor is an elimination, not a vanilla fall death.
             // Check every active player independently of target-contact bookkeeping so
             // jumping deliberately over the edge cannot bypass the normal elimination flow.
@@ -1666,7 +1733,7 @@ public final class Arena {
         } else if (alive.isEmpty()) {
             broadcast(Component.literal("BlockParty er ferdig – ingen overlevde denne gangen.").withStyle(ChatFormatting.GRAY));
         } else {
-            broadcast(Component.literal("🏆 15 RUNDER FULLFØRT! Alle gjenværende spillere vinner! 🏆")
+            broadcast(Component.literal("🏆 25 RUNDER FULLFØRT! Alle gjenværende spillere vinner! 🏆")
                     .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         }
         phase = Phase.FINISHING;
@@ -1752,6 +1819,8 @@ public final class Arena {
         // of the mode they were placed in during the minigame.
         originalGameModes.remove(uuid);
         player.setGameMode(GameType.SURVIVAL);
+        FoodSnapshot food = originalFoodStates.remove(uuid);
+        if (food != null) food.restore(player);
         InventorySnapshot held = originalHeldItems.remove(uuid);
         if (held != null) held.restore(player);
         player.inventoryMenu.broadcastChanges();
@@ -1936,6 +2005,20 @@ public final class Arena {
 
     public String getDimensionId() {
         return level.dimension().location().toString();
+    }
+
+    private record FoodSnapshot(int foodLevel, float saturation, float exhaustion) {
+        private static FoodSnapshot capture(ServerPlayer player) {
+            var food = player.getFoodData();
+            return new FoodSnapshot(food.getFoodLevel(), food.getSaturationLevel(), food.getExhaustionLevel());
+        }
+
+        private void restore(ServerPlayer player) {
+            var food = player.getFoodData();
+            food.setFoodLevel(foodLevel);
+            food.setSaturation(saturation);
+            food.setExhaustion(exhaustion);
+        }
     }
 
     private record InventorySnapshot(List<ItemStack> main, List<ItemStack> armor,

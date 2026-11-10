@@ -143,6 +143,20 @@ public final class ArenaManager {
         }
     }
 
+    /** Whether a location belongs to any configured BlockParty arena/lobby footprint. */
+    public boolean isProtectedMobLocation(ServerLevel level, double x, double y, double z) {
+        for (Arena arena : arenas.values()) {
+            if (arena.protectsLocation(level, x, y, z)) return true;
+        }
+        return false;
+    }
+
+    /** Cancels fall/void deaths for active players once they cross the arena elimination line. */
+    public boolean handleOutOfBoundsDeath(ServerPlayer player) {
+        Arena arena = findArena(player.getUUID());
+        return arena != null && arena.handleOutOfBoundsDeath(player);
+    }
+
     public void refreshLobbyDisplays() {
         for (Arena arena : arenas.values()) arena.refreshLobbyDisplays();
     }
