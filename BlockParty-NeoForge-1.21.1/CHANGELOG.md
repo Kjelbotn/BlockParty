@@ -1,4 +1,4 @@
-# BlockParty 0.15.3-alpha
+# BlockParty 0.15.6-alpha – Hotfix\n\n- Night Vision power-up duration reduced from 60 seconds to 10 seconds maximum.\n- Fixed match sidebar visibility: active participants see the BlockParty sidebar; non-participants are explicitly sent no sidebar.\n- Players joining during a match are also kept free of the BlockParty sidebar.\n- At match end, the sidebar is removed for everyone.\n\n# BlockParty 0.15.5-alpha\n\n- Fixed the sidebar disappearing for BlockParty participants after the 0.15.3 visibility change.\n- The server now broadcasts the sidebar objective normally, then immediately restores the previous sidebar for non-participants.\n- Players outside the active match should no longer see BlockParty information; active participants should see the match sidebar again.\n\n# BlockParty 0.15.3-alpha
 
 - Fixed the match sidebar being displayed to every player on the server.
 - The BlockParty sidebar is now sent only to players registered in the active match.

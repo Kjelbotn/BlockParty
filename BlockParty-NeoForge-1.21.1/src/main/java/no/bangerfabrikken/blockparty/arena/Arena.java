@@ -828,7 +828,7 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.").withStyle(ChatFormatting.YELLOW));
         } else {
             // Removed at the end of this round; the long vanilla duration is only a safety net.
-            player.addEffect(new MobEffectInstance(effect, 20 * 60, amplifier, false, true, true));
+            player.addEffect(new MobEffectInstance(effect, powerUp == PowerUp.NIGHT_VISION ? 20 * 10 : 20 * 60, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(player.getUUID(), ignored -> new HashSet<>()).add(effect);
         }
         if (activated) {
@@ -1625,29 +1625,28 @@ public final class Arena {
         } else {
             current.setDisplayName(Component.literal("BlockParty").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         }
-        if (sidebarObjective == null) {
-            Objective globalSidebar = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
-            // Older BlockParty versions assigned this objective globally. Do not preserve
-            // that as the previous sidebar; clear it for everyone before targeting players.
-            previousSidebarObjective = globalSidebar == current ? null : globalSidebar;
-            sidebarObjective = current;
-        }
-        if (scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR) == sidebarObjective) {
-            scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, previousSidebarObjective);
-        }
-        // Display the shared match objective only to players registered in this match.
-        for (UUID uuid : players) {
-            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
-            if (participant != null) {
-                participant.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, sidebarObjective));
+        sidebarObjective = current;
+
+        // Use the server scoreboard so participants receive objective and score updates
+        // reliably, then hide the sidebar from every non-participant.
+        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, sidebarObjective);
+        hideSidebarFromNonParticipants(server);
+        updateScoreboard(server);
+    }
+
+    private void hideSidebarFromNonParticipants(MinecraftServer server) {
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            if (!players.contains(online.getUUID())) {
+                online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
             }
         }
-        updateScoreboard(server);
     }
 
     private void updateScoreboard(MinecraftServer server) {
         if (sidebarObjective == null) return;
         Scoreboard scoreboard = server.getScoreboard();
+        // Also suppress the sidebar for players who join after the match has started.
+        hideSidebarFromNonParticipants(server);
 
         ServerPlayer profilePlayer = null;
         for (UUID uuid : players) {
@@ -1697,15 +1696,11 @@ public final class Arena {
         if (sidebarObjective == null) return;
         Scoreboard scoreboard = server.getScoreboard();
         if (scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR) == sidebarObjective) {
-            scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, previousSidebarObjective);
+            scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, null);
         }
-        // Explicitly restore each participant's display slot as well. Non-participants
-        // never receive the BlockParty display objective.
-        for (UUID uuid : players) {
-            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
-            if (participant != null) {
-                participant.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, previousSidebarObjective));
-            }
+        // No player should retain a sidebar after the match ends.
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
         }
         sidebarObjective = null;
         previousSidebarObjective = null;
