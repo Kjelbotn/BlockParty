@@ -90,6 +90,7 @@ public final class BlockPartyCommands {
                                 .executes(context -> resetStats(context.getSource(),
                                         StringArgumentType.getString(context, "player")))))
                 .then(Commands.literal("rank").executes(context -> rank(context.getSource())))
+                .then(Commands.literal("ranklist").executes(context -> rankList(context.getSource())))
                 .then(Commands.literal("profile").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("vote")
                         .then(Commands.argument("track", StringArgumentType.word())
@@ -363,6 +364,12 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int rankList(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        PlayerStatsManager.sendRankList(player);
+        return 1;
+    }
+
     private static int vote(CommandSourceStack source, String trackId) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         Arena arena = ArenaManager.get().findLobbyArenaFor(player);
@@ -393,9 +400,9 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
-        source.sendSuccess(() -> Component.literal("15 runder, 10 til 0,5 sekunder. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
+        source.sendSuccess(() -> Component.literal("20 runder, fra maks 10 til minst 2,5 sekunder per runde. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
-        source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 10 | /bp rank eller /bp profile – se spillerprofil"), false);
+        source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 5 | /bp rank – spillerprofil | /bp ranklist – alle ranker og poengkrav"), false);
         source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);
         source.sendSuccess(() -> Component.literal("Lobbyen teller ned fra 60 sekunder. /bp start <id> starter umiddelbart."), false);
         source.sendSuccess(() -> Component.literal("/bp music reload – last inn egendefinert spilleliste (admin)"), false);
