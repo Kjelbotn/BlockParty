@@ -94,10 +94,14 @@ public final class Arena {
     private static final int SHORT_TRACK_ROUNDS = 10;
     private static final int SHORT_TRACK_CUTOFF_TICKS = 90 * 20;
 
-    private int getMatchRoundLimit() {
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+    public static int getTrackRoundLimit(Track track) {
         return track != null && track.durationTicks() < SHORT_TRACK_CUTOFF_TICKS
                 ? SHORT_TRACK_ROUNDS : MAX_ROUNDS;
+    }
+
+    private int getMatchRoundLimit() {
+        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        return getTrackRoundLimit(track);
     }
 
     private int getRoundDurationTicks(int roundNumber) {

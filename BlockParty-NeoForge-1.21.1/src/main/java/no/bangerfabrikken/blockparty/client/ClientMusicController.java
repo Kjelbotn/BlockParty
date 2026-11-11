@@ -110,8 +110,10 @@ public final class ClientMusicController {
     public static void onClientTick(ClientTickEvent.Post event) {
         if (currentSound == null) return;
         if (!paused && !playbackFailureLogged) {
-            ChannelAccess.ChannelHandle handle = findCurrentChannel();
-            if (handle != null && !handle.isStopped()) {
+            // Detect starts with the public SoundManager API. Reflection is only needed
+            // to pause/resume the individual OpenAL channel without pausing other sounds.
+            boolean active = Minecraft.getInstance().getSoundManager().isActive(currentSound);
+            if (active) {
                 ticksWaitingForChannel = 0;
             } else if (++ticksWaitingForChannel >= 60) {
                 if (playbackRetries < 2 && activeSoundId != null) {

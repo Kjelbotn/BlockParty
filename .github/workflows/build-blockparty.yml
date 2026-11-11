@@ -36,8 +36,10 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
-          asset_dir="BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty"
+          assets_dir="BlockParty-NeoForge-1.21.1/src/main/resources/assets"
+          asset_dir="$assets_dir/blockparty"
           music_dir="$asset_dir/sounds/music"
+          music_events="$assets_dir/blockparty_music/sounds.json"
           duration_file="$asset_dir/music_durations.properties"
           tracks=(
             bangerfabrikken:bangerfabrikken.ogg
@@ -76,7 +78,7 @@ jobs:
             fi
 
             # Decode the complete OGG and reject empty or silent tracks.
-            ffmpeg -hide_banner -nostats -v error -i "$input" -af volumedetect -f null - 2> "$decode_log"
+            ffmpeg -hide_banner -nostats -v info -i "$input" -af volumedetect -f null - 2> "$decode_log"
             mean_volume="$(sed -n "s/.*mean_volume: //p" "$decode_log" | tail -n 1 | awk "{print \$1}")"
             if [[ -z "$mean_volume" || "$mean_volume" == "-inf" ]]; then
               echo "No decodable audio signal found in $track_file" >&2
@@ -91,8 +93,8 @@ jobs:
             echo "Validated $track_file: $codec_info, ${duration_seconds}s, mean volume ${mean_volume}dB"
           done
 
-          # Ensure every registered music event points to the exact built-in file in sounds.json.
-          python3 - "$asset_dir/sounds.json" "$music_dir" <<'PY'
+          # Ensure every dedicated built-in music event maps to its matching packaged OGG.
+          python3 - "$music_events" "$music_dir" <<'PY'
           import json, pathlib, sys
           sound_manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
           music_dir = pathlib.Path(sys.argv[2])
@@ -127,6 +129,7 @@ jobs:
           test -n "$jar_file"
           jar tf "$jar_file" > "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          grep -Fxq "assets/blockparty_music/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/music_durations.properties" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best; do
             grep -Fxq "assets/blockparty/sounds/music/$track.ogg" "$RUNNER_TEMP/blockparty-jar-contents.txt"
