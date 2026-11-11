@@ -92,9 +92,9 @@ public final class Arena {
     // descend more quickly; longer songs keep more time in the middle rounds.
     private static final int FIRST_ROUND_DURATION_TICKS = 10 * 20;
     private static final int LAST_ROUND_DURATION_TICKS = 50;
-    // A 70-second pacing floor prevents very short tracks from collapsing every
-    // intermediate round to 2.5 seconds while preserving the fixed first/last rounds.
-    private static final int MIN_MATCH_ROUND_TICKS = 70 * 20;
+    // A 125-second pacing floor keeps the full 20-round progression smooth for short tracks.
+    // This is the total of a linear 10s-to-2.5s sequence; longer tracks may stretch it further.
+    private static final int MIN_MATCH_ROUND_TICKS = 125 * 20;
     private static final int MAX_MATCH_ROUND_TICKS =
             (MAX_ROUNDS - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
 
@@ -110,9 +110,9 @@ public final class Arena {
                     + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
         }
 
-        // Keep enough total time for a visible, gradual descent across the middle rounds.
-        // Songs below 70 seconds use the 70-second pacing floor; longer songs continue
-        // to scale up to the maximum possible budget of 192.5 seconds.
+        // Keep enough total time for a smooth descent across all 20 rounds.
+        // Songs below 125 seconds use a linear-equivalent 125-second pacing floor;
+        // longer songs continue to scale up to the maximum possible budget of 192.5 seconds.
         long targetTicks = Math.max(MIN_MATCH_ROUND_TICKS,
                 Math.min(MAX_MATCH_ROUND_TICKS, (long) track.durationTicks()));
 
