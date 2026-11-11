@@ -450,6 +450,13 @@ public final class Arena {
 
     public void leave(ServerPlayer player, boolean teleport) {
         UUID uuid = player.getUUID();
+        // A manual/early exit must cancel any remaining podium freeze before teleporting.
+        boolean wasPodiumFrozen = podiumFreezeTicks.remove(uuid) != null;
+        wasPodiumFrozen |= podiumFreezePositions.remove(uuid) != null;
+        if (wasPodiumFrozen) {
+            player.setNoGravity(false);
+            player.setDeltaMovement(0.0, 0.0, 0.0);
+        }
         // Treat any retained session snapshot as membership too. This protects /bp leave
         // if the live-player set ever gets out of sync during a phase transition.
         boolean wasMember = players.contains(uuid) || returnLocations.containsKey(uuid)
@@ -776,6 +783,9 @@ public final class Arena {
                 podiumFreezePositions.remove(uuid);
                 player.setNoGravity(false);
                 player.setDeltaMovement(0.0, 0.0, 0.0);
+                // The exit control only becomes available once the podium lock is fully released.
+                ensureLeaveLobbyItem(player);
+                player.inventoryMenu.broadcastChanges();
                 player.sendSystemMessage(Component.literal("Du kan nå bevege deg fritt i lobbyen!")
                         .withStyle(ChatFormatting.GREEN));
             } else {
@@ -1375,6 +1385,19 @@ public final class Arena {
     }
 
     private void ensureLeaveLobbyItem(ServerPlayer player) {
+        // Podium finishers remain pinned in place for five seconds. Withhold the exit item
+        // during that window so they cannot restore their inventory while the freeze is active.
+        if (podiumFreezeTicks.containsKey(player.getUUID())) {
+            boolean changed = false;
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                if (isLeaveLobbyItem(player.getInventory().getItem(i))) {
+                    player.getInventory().setItem(i, ItemStack.EMPTY);
+                    changed = true;
+                }
+            }
+            if (changed) player.inventoryMenu.broadcastChanges();
+            return;
+        }
         // Lobby inventories are cleared on join, so slot 9 is reserved for the leave control.
         // Remove any stale copies first to prevent duplication if ensureLobbyItems runs repeatedly.
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
@@ -2615,11 +2638,15 @@ public final class Arena {
             // The Nether Star is the explicit opt-in; only then is the vote book granted.
             player.getInventory().setItem(0, createJoinGameItem());
             player.getInventory().setItem(6, createHubItem());
-            player.getInventory().setItem(8, createLeaveLobbyItem());
-            player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);
             int podiumRank = lastPodiumPlayers.indexOf(uuid);
             if (matchWinnerId != null && podiumRank >= 0) teleportPlayerToPodium(player, podiumRank);
+            // Non-podium participants can leave immediately. Podium finishers receive
+            // Redstone Dust from tickWinnerPodiumFreeze after their five-second lock ends.
+            if (!podiumFreezeTicks.containsKey(uuid)) {
+                player.getInventory().setItem(8, createLeaveLobbyItem());
+            }
+            player.inventoryMenu.broadcastChanges();
             player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
                     .withStyle(ChatFormatting.GREEN));
         }
