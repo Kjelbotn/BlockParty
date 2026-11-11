@@ -48,6 +48,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import no.bangerfabrikken.blockparty.BlockPartyMod;
 import no.bangerfabrikken.blockparty.util.BlockPartyColors;
@@ -194,6 +195,8 @@ public final class Arena {
     private boolean musicFinished;
     private boolean musicPaused;
     private int lastPowerupRound = -10;
+    /** Seven-second INNI/HODET/DITT screen cycle for the BareTruls track. */
+    private int specialScreenTicks;
     /** COLOR RAIN collected in one round is applied only to the next generated floor. */
     private boolean colorRainNextRound;
     /** New floor colors waiting to land during the two-second reveal window. */
@@ -544,6 +547,7 @@ public final class Arena {
         pendingColorRainBlocks.clear();
         stopMusic();
         selectedMusicTrackId = selectWinningSong();
+        specialScreenTicks = 0;
         Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (winningTrack != null) {
             broadcast(Component.literal("Vote ended. " + winningTrack.name() + " by " + winningTrack.artist() + " won.")
@@ -857,12 +861,20 @@ public final class Arena {
     private void tickMusicEffects() {
         if (activeMusicId == null || selectedMusicTrackId == null || level == null || musicPaused) return;
         if (musicTicksRemaining > 0 && --musicTicksRemaining == 0) {
-            // Play once only. The 20-round schedule is scaled to fit the song;
-            // if tick rounding differs, continue silently rather than replaying it.
-            sendMusicControl(MusicControlPayload.STOP);
-            activeMusicId = null;
-            musicFinished = true;
-            musicPaused = false;
+            // The match always has 25 rounds. Restart short tracks instead of
+            // allowing the remaining rounds to continue in silence.
+            Track track = MusicTrackManager.get(selectedMusicTrackId);
+            if (track == null) {
+                sendMusicControl(MusicControlPayload.STOP);
+                activeMusicId = null;
+                musicFinished = true;
+                musicPaused = false;
+                return;
+            }
+            musicTicksRemaining = track.durationTicks();
+            musicFinished = false;
+            sendMusicControl(MusicControlPayload.PLAY);
+            BlockPartyMod.LOGGER.info("Looping BlockParty track '{}' for the remaining match rounds.", track.name());
         }
     }
 
@@ -950,6 +962,23 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
+
+        if ("inni_hodet_ditt".equals(selectedMusicTrackId)) {
+            int frame = Math.floorMod(specialScreenTicks, 140) / 20;
+            String lyric = switch (frame) {
+                case 0 -> "INNI";
+                case 2 -> "HODET";
+                case 4 -> "DITT!";
+                default -> "";
+            };
+            if (!lyric.isEmpty()) {
+                BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+                        displayCenter.getZ() + 1.15, 0.0F,
+                        Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
+                        12.0F, tag);
+            }
+            return;
+        }
 
         ChatFormatting textColor = switch (targetColor) {
             case WHITE, LIGHT_GRAY, YELLOW, LIME -> ChatFormatting.WHITE;
@@ -1700,6 +1729,7 @@ public final class Arena {
         if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
+        tickSpecialSongScreen();
         if (scannerTicks > 0 && --scannerTicks % 20 == 0 && targetColor != null && level != null) {
             for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
                 if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
@@ -1781,6 +1811,14 @@ public final class Arena {
                 rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
+                if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                    float pitch = switch (timerTicks / 20) {
+                        case 3 -> 0.95F;
+                        case 2 -> 0.75F;
+                        default -> 0.55F;
+                    };
+                    playSound(SoundEvents.NOTE_BLOCK_BASEDRUM, SoundSource.PLAYERS, 0.9F, pitch);
+                }
                 if (timerTicks <= 0) {
                     rememberTargetContacts(server);
                     resolveRound();
@@ -1832,8 +1870,8 @@ public final class Arena {
                 tickColorRain();
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("WAITING FOR COLOR...")
-                            .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                    broadcastActionBar(Component.literal("Waiting...")
+                            .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
                 }
                 if (timerTicks <= 0) startRoundCountdown(server);
             }
@@ -1940,8 +1978,8 @@ public final class Arena {
             }
             phase = Phase.WAITING_FOR_COLOR;
             timerTicks = WAITING_FOR_COLOR_TICKS;
-            broadcastActionBar(Component.literal("WAITING FOR COLOR...")
-                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+            broadcastActionBar(Component.literal("Waiting...")
+                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
             updateScoreboard(server);
         }
     }
@@ -2027,6 +2065,16 @@ public final class Arena {
         }
     }
 
+    /** INNI (1s), blank (1s), HODET (1s), blank (1s), DITT! (1s), blank (2s). */
+    private void tickSpecialSongScreen() {
+        if (!"inni_hodet_ditt".equals(selectedMusicTrackId)
+                || (phase != Phase.PREPARE && phase != Phase.FALL && phase != Phase.WAITING_FOR_COLOR)) return;
+        int oldFrame = Math.floorMod(specialScreenTicks, 140) / 20;
+        specialScreenTicks = (specialScreenTicks + 1) % 140;
+        int newFrame = Math.floorMod(specialScreenTicks, 140) / 20;
+        if (oldFrame != newFrame) updateColorDisplay();
+    }
+
     private void broadcastTargetHud() {
         if (targetColor == null || level == null) return;
         ChatFormatting color = switch (targetColor) {
@@ -2100,31 +2148,35 @@ public final class Arena {
         // During a match, show points earned in this session rather than lifetime progression.
         int matchPoints = profilePlayer == null ? 0 : points.getOrDefault(profilePlayer.getUUID(), 0);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
-        String timeText = (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN) ? "NEDTELLING" :
-                phase == Phase.WAITING_FOR_COLOR ? "WAITING FOR COLOR" :
-                (phase == Phase.PREPARE || phase == Phase.FALL)
-                        ? formatSeconds(getRoundDurationTicks(round)) + "s" : "--";
-        PlayerStatsManager.PlayerRecord profile = profilePlayer == null
-                ? null : PlayerStatsManager.getRecord(profilePlayer.getUUID());
-        int currentStreak = profile == null ? 0 : profile.currentStreak();
-        int bestStreak = profile == null ? 0 : profile.bestStreak();
+        String roundSpeed = phase == Phase.PREPARE
+                ? formatSeconds(Math.max(0, timerTicks)) + "s"
+                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..." : "--";
         String[] ids = {
-                "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4", "bp_line_5",
-                "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10", "bp_line_11"
+                "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
+                "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10"
         };
+        Component roundLine = Component.literal("Round: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(Integer.toString(round)).withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(" / ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(Integer.toString(getMatchRoundLimit())).withStyle(ChatFormatting.GRAY));
+        Component speedLine = Component.literal("Round Speed: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(roundSpeed).withStyle(ChatFormatting.WHITE));
+        Component pointsLine = Component.literal("Points: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(Integer.toString(matchPoints)).withStyle(ChatFormatting.WHITE));
+        Component powerupsLine = Component.literal("Powerups: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(Integer.toString(personalPowerups)).withStyle(ChatFormatting.WHITE));
         Component[] lines = {
-                Component.literal("Dancers Left").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
-                Component.literal(Integer.toString(alive.size())).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
-                Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
+                Component.literal(" "),
+                Component.literal("Dancers Left").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+                Component.literal(alive.size() + " Dancers").withStyle(ChatFormatting.GRAY),
+                Component.literal(" "),
                 Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
-                Component.literal("Round: " + round + " / " + getMatchRoundLimit()).withStyle(ChatFormatting.WHITE),
-                Component.literal("Round Length: " + timeText).withStyle(ChatFormatting.GRAY),
-                Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
+                roundLine,
+                speedLine,
+                Component.literal(" "),
                 Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-                Component.literal("Points: " + matchPoints).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
-                Component.literal("Win Streak: " + currentStreak).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-                Component.literal("Best Win Streak: " + bestStreak).withStyle(ChatFormatting.LIGHT_PURPLE),
-                Component.literal("Powerups: " + personalPowerups).withStyle(ChatFormatting.GRAY)
+                pointsLine,
+                powerupsLine
         };
         for (int i = 0; i < ids.length; i++) {
             ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(ids[i]), sidebarObjective);
@@ -2132,7 +2184,8 @@ public final class Arena {
             score.display(lines[i]);
             score.numberFormatOverride(BlankFormat.INSTANCE);
         }
-        // Remove entries from the previous 14-line layout so old rank lines cannot linger.
+        // Remove old rows from the previous scoreboard layouts.
+        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_11"), sidebarObjective);
         scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_12"), sidebarObjective);
         scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_13"), sidebarObjective);
     }
@@ -2332,7 +2385,9 @@ public final class Arena {
         pauseMusic();
         phase = Phase.FALL;
         timerTicks = getFallDurationTicks();
-        broadcastActionBar(Component.literal("FEIL FARGE FORSVINNER!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        broadcastActionBar(Component.literal("✖ ").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Component.literal("STOP!").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
+                .append(Component.literal(" ✖").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)));
     }
 
     private void eliminate(ServerPlayer player) {
