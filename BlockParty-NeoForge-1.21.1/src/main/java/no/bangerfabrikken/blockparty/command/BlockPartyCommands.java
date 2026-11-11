@@ -400,7 +400,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
-        source.sendSuccess(() -> Component.literal("20 runder, fra maks 10 til minst 2,5 sekunder per runde. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
+        source.sendSuccess(() -> Component.literal("Sanger under 1:30 spilles med 10 runder. Sanger på 1:30 eller mer spilles med 20 runder. Rundetiden skaleres etter låtlengden."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 5 | /bp rank – spillerprofil | /bp ranklist – alle ranker og poengkrav"), false);
         source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);
