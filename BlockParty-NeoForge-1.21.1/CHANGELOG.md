@@ -4,7 +4,7 @@
 - Reworked the DJ voting wall: larger, lighter text; correct left-to-right song numbering; and all ten playlist entries displayed.
 - The arena's main screen now displays “BlockParty” during the pre-round countdown, then switches to the target color on round one.
 - Simplified lobby item labels to “Join game”, “Leave lobby”, “Menu” and “Vote”; removed bold/italic styling and normalized already-issued items.
-- Removed bold styling from lobby join and music-vote chat confirmations.
+- Removed bold styling from player-facing BlockParty chat notifications and music-vote confirmations.
 - Fixed winner podium placement so it only replaces its three support columns and restores the original lobby floor when removed; the refresh pass also repairs old podium-footprint holes.
 
 # BlockParty 0.19.4-alpha
