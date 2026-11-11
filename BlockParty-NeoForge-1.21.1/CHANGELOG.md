@@ -1,3 +1,10 @@
+# BlockParty 0.19.10-alpha — Smooth Round Timing
+
+- Reworked short-song pacing so the 20 rounds descend much more evenly from 10 seconds on round 1 to 2.5 seconds on round 20.
+- Raised the minimum combined round-timer budget from 70 to 125 seconds, matching a linear 10-to-2.5-second progression.
+- Round 10 is now approximately 6.45 seconds for tracks shorter than 125 seconds, instead of collapsing to approximately 2.55 seconds.
+- Longer tracks continue to stretch the intermediate rounds according to their duration; the fixed first and last round times remain unchanged.
+
 # BlockParty 0.19.9-alpha — Short Song Round Timing Hotfix
 
 - Fixed short-song timing curves that caused nearly every round after round 1 to fall to 2.5 seconds.
