@@ -8,6 +8,7 @@ import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.CommandEvent;
+import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
@@ -17,6 +18,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -39,6 +42,7 @@ public final class BlockPartyMod {
         modEventBus.addListener(this::registerPayloads);
         NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(this::onCommand);
+        NeoForge.EVENT_BUS.addListener(this::onServerChat);
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
@@ -120,6 +124,40 @@ public final class BlockPartyMod {
         }
     }
 
+
+    /**
+     * Give active BlockParty participants a rank-colored chat name without
+     * changing chat formatting for players outside a joined BlockParty session.
+     */
+    private void onServerChat(ServerChatEvent event) {
+        ServerPlayer player = event.getPlayer();
+        if (ArenaManager.get().findArenaForLeave(player) == null) return;
+
+        PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
+        PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
+        ChatFormatting rankColor = switch (rank.name()) {
+            case "Rookie" -> ChatFormatting.GRAY;
+            case "Bronze Dancer" -> ChatFormatting.GOLD;
+            case "Silver Dancer" -> ChatFormatting.AQUA;
+            case "Gold Dancer" -> ChatFormatting.YELLOW;
+            case "Platinum Dancer" -> ChatFormatting.LIGHT_PURPLE;
+            case "Diamond Dancer" -> ChatFormatting.BLUE;
+            case "Superstar" -> ChatFormatting.RED;
+            case "BlockParty Legend" -> ChatFormatting.DARK_PURPLE;
+            default -> ChatFormatting.WHITE;
+        };
+
+        Component formattedMessage = Component.literal("[" + rank.name() + "] ")
+                .withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(player.getGameProfile().getName()).withStyle(rankColor))
+                .append(Component.literal(": ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(event.getRawText()).withStyle(ChatFormatting.WHITE));
+
+        // Replace vanilla's <name> message rendering with the requested BlockParty
+        // format. broadcastSystemMessage does not re-fire ServerChatEvent.
+        event.setCanceled(true);
+        player.getServer().getPlayerList().broadcastSystemMessage(formattedMessage, false);
+    }
 
     private void onServerTick(ServerTickEvent.Post event) {
         ArenaManager.get().tick(event.getServer());
