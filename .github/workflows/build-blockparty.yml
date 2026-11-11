@@ -128,7 +128,7 @@ jobs:
               names = [entry.get("name") for entry in event.get("sounds", []) if isinstance(entry, dict)]
               if f"blockparty:music/{track}" not in names:
                   raise SystemExit(f"Sound event music_{track} does not map to blockparty:music/{track}")
-          print("All ten built-in BlockParty sound events map to packaged OGG tracks.")
+          print("All seventeen built-in BlockParty sound events map to packaged OGG tracks.")
           PY
 
       - name: Build BlockParty
@@ -149,7 +149,7 @@ jobs:
           for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best stianorway_damer_objekter stianorway_vi_maa_ikke_si_et_ord luxus_leverpostei_plastisk_kirurgi kaptein_sabeltann_pinkys_sang luxus_leverpostei_195 luxus_leverpostei_sur_mus oingo_boingo_little_girls_pedobear; do
             grep -Fxq "assets/blockparty/sounds/music/$track.ogg" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           done
-          echo "All ten built-in BlockParty tracks and the measured-duration manifest are packaged."
+          echo "All seventeen built-in BlockParty tracks and the measured-duration manifest are packaged."
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
