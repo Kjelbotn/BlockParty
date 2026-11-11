@@ -182,6 +182,8 @@ public final class Arena {
     private final List<String> lastPodium = new ArrayList<>();
     private final Map<UUID, Integer> podiumFreezeTicks = new HashMap<>();
     private final Map<UUID, BlockPos> podiumFreezePositions = new HashMap<>();
+    /** Original lobby floor blocks temporarily replaced by winner podium columns. */
+    private final Map<BlockPos, BlockState> podiumFloorSnapshot = new HashMap<>();
     private BlockPos winnerPodiumSpawn;
     private int lastDancePattern = -1;
 
@@ -403,10 +405,10 @@ public final class Arena {
     private void announceLobbyJoin(ServerPlayer joiningPlayer) {
         if (level == null || level.getServer() == null) return;
         Component announcement = Component.literal(joiningPlayer.getName().getString())
-                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                .withStyle(ChatFormatting.GREEN)
                 .append(Component.literal(" ble med i BlockParty-lobbyen! Bli med du også: ")
                         .withStyle(ChatFormatting.YELLOW))
-                .append(Component.literal("/bp").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                .append(Component.literal("/bp").withStyle(ChatFormatting.AQUA));
         for (ServerPlayer online : level.getServer().getPlayerList().getPlayers()) {
             if (online.gameMode.getGameModeForPlayer() == GameType.SURVIVAL) {
                 online.sendSystemMessage(announcement);
@@ -518,6 +520,7 @@ public final class Arena {
         int screenFloorY = pos1.getY();
         int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
         displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+        updateArenaWelcomeDisplay();
         alive.clear();
         alive.addAll(players);
         pendingEliminations.clear();
@@ -664,19 +667,14 @@ public final class Arena {
         AABB area = new AABB(centerX - 8, floorY, podiumZ - 4, centerX + 8, floorY + 8, podiumZ + 4);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        for (int x = centerX - 4; x <= centerX + 4; x++) {
-            for (int z = podiumZ - 2; z <= podiumZ + 2; z++) {
-                for (int y = floorY; y <= floorY + 3; y++) {
-                    level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 3);
-                }
-            }
-        }
         int[] heights = {1, 2, 1};
         Block[] blocks = {Blocks.IRON_BLOCK, Blocks.GOLD_BLOCK, Blocks.COPPER_BLOCK};
         for (int i = 0; i < 3; i++) {
             int x = centerX - 2 + i * 2;
             for (int h = 0; h < heights[i]; h++) {
-                level.setBlock(new BlockPos(x, floorY + h, podiumZ), blocks[i].defaultBlockState(), 3);
+                BlockPos podiumBlock = new BlockPos(x, floorY + h, podiumZ);
+                podiumFloorSnapshot.putIfAbsent(podiumBlock.immutable(), level.getBlockState(podiumBlock));
+                level.setBlock(podiumBlock, blocks[i].defaultBlockState(), 3);
             }
         }
         BlockPos goldTop = new BlockPos(centerX, floorY + 1, podiumZ);
@@ -702,13 +700,23 @@ public final class Arena {
         AABB area = new AABB(centerX - 8, floorY, podiumZ - 4, centerX + 8, floorY + 8, podiumZ + 4);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        for (int x = centerX - 4; x <= centerX + 4; x++) {
-            for (int z = podiumZ - 2; z <= podiumZ + 2; z++) {
-                for (int y = floorY; y <= floorY + 3; y++) {
-                    BlockPos pos = new BlockPos(x, y, z);
+        // Restore the exact blocks the podium covered instead of leaving holes in the lobby.
+        if (!podiumFloorSnapshot.isEmpty()) {
+            for (Map.Entry<BlockPos, BlockState> entry : podiumFloorSnapshot.entrySet()) {
+                level.setBlock(entry.getKey(), entry.getValue(), 3);
+            }
+            podiumFloorSnapshot.clear();
+        } else {
+            // Backwards-compatible cleanup for podiums created before floor snapshots existed.
+            int[] heights = {1, 2, 1};
+            for (int i = 0; i < 3; i++) {
+                BlockPos base = new BlockPos(centerX - 2 + i * 2, floorY, podiumZ);
+                for (int h = 0; h < heights[i]; h++) {
+                    BlockPos pos = base.above(h);
                     Block block = level.getBlockState(pos).getBlock();
                     if (block == Blocks.IRON_BLOCK || block == Blocks.GOLD_BLOCK || block == Blocks.COPPER_BLOCK) {
-                        level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+                        level.setBlock(pos, h == 0 ? Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState()
+                                : Blocks.AIR.defaultBlockState(), 3);
                     }
                 }
             }
@@ -771,33 +779,34 @@ public final class Arena {
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
 
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.2, wallZ - 0.72,
-                180.0F, Component.literal("BLOCKPARTY  •  MUSIKKAVSTEMNING")
-                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.55F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 14.0, lobbyY + 9.45, wallZ - 0.72,
+                180.0F, Component.literal("MUSIKKAVSTEMNING")
+                        .withStyle(ChatFormatting.YELLOW), 1.8F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX - 8.0, lobbyY + 9.45, wallZ - 0.72,
                 180.0F, Component.literal("SPILLELISTE")
-                        .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.15F, tag);
+                        .withStyle(ChatFormatting.AQUA), 1.4F, tag);
 
         List<Track> catalogue = MusicTrackManager.getTracks();
-        int visible = Math.min(catalogue.size(), 8);
+        int visible = Math.min(catalogue.size(), 10);
         for (int i = 0; i < visible; i++) {
             Track track = catalogue.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = i / 4;
-            int row = i % 4;
+            // Text displays face the lobby, so swap physical columns to keep song 01 at upper left.
+            int column = 1 - (i / 5);
+            int row = i % 5;
             double x = centerX - 14.0 + column * 12.0;
-            double y = lobbyY + 8.0 - row * 1.55;
+            double y = lobbyY + 8.1 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
-                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+                    .withStyle(ChatFormatting.GOLD)
+                    .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
             Component details = Component.literal(track.artist())
                     .withStyle(ChatFormatting.GRAY)
                     .append(Component.literal("   •   " + votes + " STEMMER")
                             .withStyle(ChatFormatting.AQUA));
-            BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.72, 180.0F, title, 0.92F, tag);
-            BlockPartyText.spawnTextDisplay(level, x, y - 0.55, wallZ - 0.72, 180.0F, details, 0.66F, tag);
+            BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.72, 180.0F, title, 1.2F, tag);
+            BlockPartyText.spawnTextDisplay(level, x, y - 0.45, wallZ - 0.72, 180.0F, details, 0.84F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 14.0, lobbyY + 1.6, wallZ - 0.72,
+            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, lobbyY + 1.6, wallZ - 0.72,
                     180.0F, Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB")
                             .withStyle(ChatFormatting.GRAY), 0.75F, tag);
         }
@@ -894,6 +903,19 @@ public final class Arena {
         }
         originalArenaAccentSnapshot.clear();
         setDjLights(true);
+    }
+
+    /** Shows the arena title during the pre-round countdown; round one replaces it with the target color. */
+    private void updateArenaWelcomeDisplay() {
+        if (displayCenter == null || level == null) return;
+        String tag = "bp_target_" + id;
+        AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
+                displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                entity -> entity.getTags().contains(tag))) old.discard();
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+                displayCenter.getZ() + 1.15, 0.0F,
+                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE), 12.0F, tag);
     }
 
     private void updateColorDisplay() {
@@ -1205,29 +1227,35 @@ public final class Arena {
                 || isTargetColorBlock(stack) || isLeapFeather(stack);
     }
 
+    private static Component simpleLobbyItemName(String name, ChatFormatting color) {
+        return Component.literal(name).withStyle(style -> style.withColor(color).withBold(false).withItalic(false));
+    }
+
     public static boolean isMusicVotingBook(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !stack.is(Items.BOOK)) return false;
         Component customName = stack.get(DataComponents.CUSTOM_NAME);
-        return customName != null && "BlockParty Music Vote".equals(customName.getString());
+        return customName != null && ("BlockParty Music Vote".equals(customName.getString())
+                || "Vote".equals(customName.getString()));
     }
 
     /** The lobby play token is an ordinary nether star with a unique custom name. */
     public static boolean isJoinGameItem(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !stack.is(Items.NETHER_STAR)) return false;
         Component customName = stack.get(DataComponents.CUSTOM_NAME);
-        return customName != null && "BlockParty Join Game".equals(customName.getString());
+        return customName != null && ("BlockParty Join Game".equals(customName.getString())
+                || "Join game".equals(customName.getString()));
     }
 
     public static boolean isHubItem(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !stack.is(Items.COMPASS)) return false;
         Component customName = stack.get(DataComponents.CUSTOM_NAME);
-        return customName != null && "BlockParty HUB".equals(customName.getString());
+        return customName != null && ("BlockParty HUB".equals(customName.getString())
+                || "Menu".equals(customName.getString()));
     }
 
     private ItemStack createHubItem() {
         ItemStack compass = new ItemStack(Items.COMPASS);
-        compass.set(DataComponents.CUSTOM_NAME, Component.literal("BlockParty HUB")
-                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        compass.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Menu", ChatFormatting.LIGHT_PURPLE));
         return compass;
     }
 
@@ -1235,7 +1263,8 @@ public final class Arena {
     public static boolean isLeaveLobbyItem(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !stack.is(Items.REDSTONE)) return false;
         Component customName = stack.get(DataComponents.CUSTOM_NAME);
-        return customName != null && "BlockParty Leave Lobby".equals(customName.getString());
+        return customName != null && ("BlockParty Leave Lobby".equals(customName.getString())
+                || "Leave lobby".equals(customName.getString()));
     }
 
     /** True when a player is physically inside this lobby, regardless of match phase. */
@@ -1267,9 +1296,27 @@ public final class Arena {
         }
         if (!isHubItem(player.getInventory().getItem(6))) player.getInventory().setItem(6, createHubItem());
         ensureLeaveLobbyItem(player);
+        normalizeLobbyItemNames(player);
         if (hasLobbyItem(player, Arena::isJoinGameItem)) {
             fullLobbyInventoryNotices.remove(player.getUUID());
         }
+    }
+
+    /** Upgrade old control labels in-place without duplicating items or breaking their matchers. */
+    private void normalizeLobbyItemNames(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (isJoinGameItem(stack)) {
+                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Join game", ChatFormatting.AQUA));
+            } else if (isHubItem(stack)) {
+                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Menu", ChatFormatting.LIGHT_PURPLE));
+            } else if (isLeaveLobbyItem(stack)) {
+                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Leave lobby", ChatFormatting.RED));
+            } else if (isMusicVotingBook(stack)) {
+                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Vote", ChatFormatting.LIGHT_PURPLE));
+            }
+        }
+        player.inventoryMenu.broadcastChanges();
     }
 
     private void ensureLeaveLobbyItem(ServerPlayer player) {
@@ -1287,8 +1334,7 @@ public final class Arena {
 
     private ItemStack createLeaveLobbyItem() {
         ItemStack dust = new ItemStack(Items.REDSTONE);
-        dust.set(DataComponents.CUSTOM_NAME, Component.literal("BlockParty Leave Lobby")
-                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        dust.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Leave lobby", ChatFormatting.RED));
         return dust;
     }
 
@@ -1324,8 +1370,7 @@ public final class Arena {
 
     private ItemStack createJoinGameItem() {
         ItemStack star = new ItemStack(Items.NETHER_STAR);
-        star.set(DataComponents.CUSTOM_NAME, Component.literal("BlockParty Join Game")
-                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        star.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Join game", ChatFormatting.AQUA));
         return star;
     }
 
@@ -1362,7 +1407,11 @@ public final class Arena {
 
     private void giveMusicVotingBook(ServerPlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (isMusicVotingBook(player.getInventory().getItem(i))) return;
+            ItemStack existing = player.getInventory().getItem(i);
+            if (isMusicVotingBook(existing)) {
+                existing.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Vote", ChatFormatting.LIGHT_PURPLE));
+                return;
+            }
         }
         ItemStack book = createMusicVotingBook();
         int slot = -1;
@@ -1386,8 +1435,7 @@ public final class Arena {
 
     private ItemStack createMusicVotingBook() {
         ItemStack book = new ItemStack(Items.BOOK);
-        book.set(DataComponents.CUSTOM_NAME, Component.literal("BlockParty Music Vote")
-                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        book.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Vote", ChatFormatting.LIGHT_PURPLE));
         return book;
     }
 
@@ -1477,7 +1525,7 @@ public final class Arena {
 
     void sendAlreadyVotedMessage(ServerPlayer player) {
         player.sendSystemMessage(Component.literal("Du har allerede stemt! Du kan bare stemme én gang per match.")
-                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                .withStyle(ChatFormatting.RED));
     }
 
     public boolean voteMusic(ServerPlayer player, String trackId) {
@@ -1502,10 +1550,10 @@ public final class Arena {
                     .withStyle(ChatFormatting.YELLOW));
         } else if (previousVote != null) {
             player.sendSystemMessage(Component.literal("Stemmen din er endret til " + track.name() + " — " + track.artist() + ".")
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                    .withStyle(ChatFormatting.GREEN));
         } else {
             player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                    .withStyle(ChatFormatting.GREEN));
         }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
@@ -1514,7 +1562,7 @@ public final class Arena {
         if (phase == Phase.WAITING && players.size() >= MIN_PLAYERS && validVotes >= requiredVotes) {
             try {
                 start(player.serverLevel().getServer());
-                broadcast(Component.literal("Flertallet har stemt! BlockParty starter om 10 sekunder.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                broadcast(Component.literal("Flertallet har stemt! BlockParty starter om 10 sekunder.").withStyle(ChatFormatting.GREEN));
             } catch (IllegalStateException exception) {
                 broadcast(Component.literal("Kunne ikke starte BlockParty: " + exception.getMessage()).withStyle(ChatFormatting.RED));
             }
