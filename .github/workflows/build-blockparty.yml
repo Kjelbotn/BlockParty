@@ -27,6 +27,48 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Normalize bundled music for Minecraft Vorbis playback
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
+          music_dir="BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/sounds/music"
+          tracks=(
+            bangerfabrikken.ogg
+            odin_moon.ogg
+            stille_anders.ogg
+            hjulene_pa_bussen_olli.ogg
+            odin_terrorist.ogg
+            exige_2014_launchpad_mix.ogg
+            hau_hau_hau.ogg
+            fest_hos_toby.ogg
+            konfliktpartiet.ogg
+            hms_er_best.ogg
+          )
+
+          for track in "${tracks[@]}"; do
+            input="$music_dir/$track"
+            output="$music_dir/${track%.ogg}.normalized.ogg"
+            test -s "$input"
+            ffmpeg -hide_banner -loglevel error -y -i "$input" \
+              -map 0:a:0 -vn -map_metadata -1 \
+              -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "$output"
+            test -s "$output"
+            mv "$output" "$input"
+
+            codec_info="$(ffprobe -v error -select_streams a:0 \
+              -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$input")"
+            if [[ "$codec_info" != "vorbis,44100,2" ]]; then
+              echo "Unexpected normalized audio format for $track: $codec_info" >&2
+              exit 1
+            fi
+            echo "Validated $track: $codec_info"
+          done
+
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
