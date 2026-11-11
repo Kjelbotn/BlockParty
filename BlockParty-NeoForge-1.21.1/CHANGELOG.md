@@ -1,3 +1,10 @@
+# BlockParty 0.19.13-alpha — Normalize All Music Audio
+
+- Restored all music sound events to the mod's original `blockparty` registry and built-in `assets/blockparty/sounds.json` flow. No external resource pack or separate music namespace is required.
+- The build now normalizes all ten official OGG tracks to a consistent 44.1 kHz, stereo, Vorbis profile and removes embedded metadata before packaging.
+- Added an FFprobe validation step that fails the build if any official track is missing or does not match the expected Vorbis format.
+- This targets potential decoder incompatibilities between individually encoded OGG streams while retaining each original track's audio content and duration.
+
 # BlockParty 0.19.12-alpha — Isolated Music Resource Namespace
 
 - Moved all ten music sound events into a dedicated `blockparty_music` namespace, separate from the general `blockparty` sound definitions.
