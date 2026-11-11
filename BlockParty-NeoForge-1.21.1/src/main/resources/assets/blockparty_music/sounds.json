@@ -98,5 +98,75 @@
         "volume": 1
       }
     ]
+  },
+  "music_stianorway_damer_objekter": {
+    "subtitle": "subtitles.blockparty.music_stianorway_damer_objekter",
+    "sounds": [
+      {
+        "name": "blockparty:music/stianorway_damer_objekter",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_stianorway_vi_maa_ikke_si_et_ord": {
+    "subtitle": "subtitles.blockparty.music_stianorway_vi_maa_ikke_si_et_ord",
+    "sounds": [
+      {
+        "name": "blockparty:music/stianorway_vi_maa_ikke_si_et_ord",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_luxus_leverpostei_plastisk_kirurgi": {
+    "subtitle": "subtitles.blockparty.music_luxus_leverpostei_plastisk_kirurgi",
+    "sounds": [
+      {
+        "name": "blockparty:music/luxus_leverpostei_plastisk_kirurgi",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_kaptein_sabeltann_pinkys_sang": {
+    "subtitle": "subtitles.blockparty.music_kaptein_sabeltann_pinkys_sang",
+    "sounds": [
+      {
+        "name": "blockparty:music/kaptein_sabeltann_pinkys_sang",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_luxus_leverpostei_195": {
+    "subtitle": "subtitles.blockparty.music_luxus_leverpostei_195",
+    "sounds": [
+      {
+        "name": "blockparty:music/luxus_leverpostei_195",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_luxus_leverpostei_sur_mus": {
+    "subtitle": "subtitles.blockparty.music_luxus_leverpostei_sur_mus",
+    "sounds": [
+      {
+        "name": "blockparty:music/luxus_leverpostei_sur_mus",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_oingo_boingo_little_girls_pedobear": {
+    "subtitle": "subtitles.blockparty.music_oingo_boingo_little_girls_pedobear",
+    "sounds": [
+      {
+        "name": "blockparty:music/oingo_boingo_little_girls_pedobear",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }

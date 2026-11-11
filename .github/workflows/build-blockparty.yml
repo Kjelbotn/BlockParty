@@ -53,6 +53,13 @@ jobs:
             fest_hos_toby:fest_hos_toby.ogg
             konfliktpartiet:konfliktpartiet.ogg
             hms_er_best:hms_er_best.ogg
+            stianorway_damer_objekter:stianorway_damer_objekter.ogg
+            stianorway_vi_maa_ikke_si_et_ord:stianorway_vi_maa_ikke_si_et_ord.ogg
+            luxus_leverpostei_plastisk_kirurgi:luxus_leverpostei_plastisk_kirurgi.ogg
+            kaptein_sabeltann_pinkys_sang:kaptein_sabeltann_pinkys_sang.ogg
+            luxus_leverpostei_195:luxus_leverpostei_195.ogg
+            luxus_leverpostei_sur_mus:luxus_leverpostei_sur_mus.ogg
+            oingo_boingo_little_girls_pedobear:oingo_boingo_little_girls_pedobear.ogg
           )
 
           printf "# Measured from the final, normalized OGG files by FFprobe.\n" > "$duration_file"
@@ -102,7 +109,14 @@ jobs:
           tracks = [
               "bangerfabrikken", "odin_moon", "stille_anders", "hjulene_pa_bussen_olli",
               "odin_terrorist", "exige_2014_launchpad_mix", "hau_hau_hau", "fest_hos_toby",
-              "konfliktpartiet", "hms_er_best"
+              "konfliktpartiet", "hms_er_best",
+              "stianorway_damer_objekter",
+              "stianorway_vi_maa_ikke_si_et_ord",
+              "luxus_leverpostei_plastisk_kirurgi",
+              "kaptein_sabeltann_pinkys_sang",
+              "luxus_leverpostei_195",
+              "luxus_leverpostei_sur_mus",
+              "oingo_boingo_little_girls_pedobear"
           ]
           for track in tracks:
               file = music_dir / f"{track}.ogg"
@@ -132,7 +146,7 @@ jobs:
           grep -Fxq "assets/blockparty/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty_music/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/music_durations.properties" "$RUNNER_TEMP/blockparty-jar-contents.txt"
-          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best; do
+          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best stianorway_damer_objekter stianorway_vi_maa_ikke_si_et_ord luxus_leverpostei_plastisk_kirurgi kaptein_sabeltann_pinkys_sang luxus_leverpostei_195 luxus_leverpostei_sur_mus oingo_boingo_little_girls_pedobear; do
             grep -Fxq "assets/blockparty/sounds/music/$track.ogg" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           done
           echo "All ten built-in BlockParty tracks and the measured-duration manifest are packaged."

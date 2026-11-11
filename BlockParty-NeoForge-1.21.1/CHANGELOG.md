@@ -1,3 +1,16 @@
+# BlockParty 0.19.17-alpha — Seven New Music Tracks
+
+- Added StianNorway — Damer, Objekter.
+- Added StianNorway — Vi må ikke si et ord.
+- Added Luxus Leverpostei — Plastisk Kirurgi.
+- Added Kaptein Sabeltann — Pinkys Sang.
+- Added Luxus Leverpostei — §195.
+- Added Luxus Leverpostei — Sur Mus.
+- Added Oingo Boingo — Little Girls [PedoBear].
+- Added all seven built-in sound events and measured track durations to the playlist manifest.
+- Added every new OGG to CI audio normalization, full-decode/audio-signal validation, sound-event mapping checks and final JAR asset verification.
+- Expanded the music voting menu capacity to 21 songs so the full playlist remains selectable.
+
 # BlockParty 0.19.16-alpha — Beta 1.0 Candidate
 
 - Music now loops automatically when a track ends before the 25-round match is complete.

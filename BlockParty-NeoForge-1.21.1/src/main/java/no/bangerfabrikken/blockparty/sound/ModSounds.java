@@ -35,6 +35,13 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_FEST_HOS_TOBY = musicSound("music_fest_hos_toby");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_KONFLIKTPARTIET = musicSound("music_konfliktpartiet");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_HMS_ER_BEST = musicSound("music_hms_er_best");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_STIANORWAY_DAMER_OBJEKTER = musicSound("music_stianorway_damer_objekter");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_STIANORWAY_VI_MAA_IKKE_SI_ET_ORD = musicSound("music_stianorway_vi_maa_ikke_si_et_ord");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_PLASTISK_KIRURGI = musicSound("music_luxus_leverpostei_plastisk_kirurgi");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_KAPTEIN_SABELTANN_PINKYS_SANG = musicSound("music_kaptein_sabeltann_pinkys_sang");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_195 = musicSound("music_luxus_leverpostei_195");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_SUR_MUS = musicSound("music_luxus_leverpostei_sur_mus");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR = musicSound("music_oingo_boingo_little_girls_pedobear");
 
     private ModSounds() { }
 
