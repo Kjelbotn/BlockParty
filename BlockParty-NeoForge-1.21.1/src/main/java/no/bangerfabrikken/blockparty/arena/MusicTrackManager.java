@@ -51,6 +51,27 @@ public final class MusicTrackManager {
                 ModSounds.MUSIC_KONFLIKTPARTIET, "music_konfliktpartiet");
         add("hms_er_best", "HMS er best!", "Bangerfabrikken", 0, duration(durations, "hms_er_best", 119.797551),
                 ModSounds.MUSIC_HMS_ER_BEST, "music_hms_er_best");
+        add("stianorway_damer_objekter", "Damer, Objekter", "StianNorway", 0,
+                duration(durations, "stianorway_damer_objekter", 75.680),
+                ModSounds.MUSIC_STIANORWAY_DAMER_OBJEKTER, "music_stianorway_damer_objekter");
+        add("stianorway_vi_maa_ikke_si_et_ord", "Vi må ikke si et ord", "StianNorway", 0,
+                duration(durations, "stianorway_vi_maa_ikke_si_et_ord", 193.980),
+                ModSounds.MUSIC_STIANORWAY_VI_MAA_IKKE_SI_ET_ORD, "music_stianorway_vi_maa_ikke_si_et_ord");
+        add("luxus_leverpostei_plastisk_kirurgi", "Plastisk Kirurgi", "Luxus Leverpostei", 0,
+                duration(durations, "luxus_leverpostei_plastisk_kirurgi", 241.429),
+                ModSounds.MUSIC_LUXUS_PLASTISK_KIRURGI, "music_luxus_leverpostei_plastisk_kirurgi");
+        add("kaptein_sabeltann_pinkys_sang", "Pinkys Sang", "Kaptein Sabeltann", 0,
+                duration(durations, "kaptein_sabeltann_pinkys_sang", 158.699),
+                ModSounds.MUSIC_KAPTEIN_SABELTANN_PINKYS_SANG, "music_kaptein_sabeltann_pinkys_sang");
+        add("luxus_leverpostei_195", "§195", "Luxus Leverpostei", 0,
+                duration(durations, "luxus_leverpostei_195", 196.011),
+                ModSounds.MUSIC_LUXUS_195, "music_luxus_leverpostei_195");
+        add("luxus_leverpostei_sur_mus", "Sur Mus", "Luxus Leverpostei", 0,
+                duration(durations, "luxus_leverpostei_sur_mus", 210.049),
+                ModSounds.MUSIC_LUXUS_SUR_MUS, "music_luxus_leverpostei_sur_mus");
+        add("oingo_boingo_little_girls_pedobear", "Little Girls [PedoBear]", "Oingo Boingo", 0,
+                duration(durations, "oingo_boingo_little_girls_pedobear", 136.928),
+                ModSounds.MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR, "music_oingo_boingo_little_girls_pedobear");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 

@@ -24,7 +24,7 @@ final class MusicVotingMenu extends ChestMenu {
     private static final int ROWS = 6;
     private static final int FIRST_ROW = 2;
     private static final int MAX_COLUMNS = 7;
-    private static final int MAX_VISIBLE_TRACKS = 14;
+    private static final int MAX_VISIBLE_TRACKS = 21;
     private final Arena arena;
     private final SimpleContainer songContainer;
     private final UUID viewerId;
