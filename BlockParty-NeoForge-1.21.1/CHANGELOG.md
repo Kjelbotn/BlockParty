@@ -1,3 +1,13 @@
+# BlockParty 0.19.6-alpha — Gameplay Hotfix
+
+- Round timers now follow a fixed gradual progression from 10 seconds on round 1 to 2.5 seconds on round 20, regardless of song length.
+- Reduced long-song opening rounds so rounds 1–10 no longer stretch excessively.
+- Winner podium and all podium hologram text are removed 20 seconds after participants return to the lobby.
+- Restores the exact lobby floor blocks underneath the podium when its display period expires.
+- Reduced the in-game lobby leaderboard and /bp leaderboard command to the top 5 players.
+- Added /bp ranklist to display every rank and its required point threshold.
+- Updated /bp help with the new round timing, top-five leaderboard and rank-list command.
+
 # BlockParty 0.19.5-alpha
 
 - Rebuilt the lobby dance floor as a framed, symmetrical neon panel design with a permanent podium plinth.
