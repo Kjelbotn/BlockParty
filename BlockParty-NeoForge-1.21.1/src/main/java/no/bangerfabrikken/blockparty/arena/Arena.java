@@ -76,7 +76,7 @@ public final class Arena {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING
     }
 
-    public static final int MAX_ROUNDS = 20;
+    public static final int MAX_ROUNDS = 25;
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
     private static final int MAX_FLOOR_BLOCKS = 50 * 50;
@@ -113,11 +113,13 @@ public final class Arena {
                     + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
         }
 
-        // The first and last timers are fixed. Clamp only to the mathematically possible
-        // total for this round count, then solve a smooth power curve for the selected song.
-        long minTotalTicks = FIRST_ROUND_DURATION_TICKS + (long) (roundLimit - 1) * LAST_ROUND_DURATION_TICKS;
-        long maxTotalTicks = (long) (roundLimit - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
-        long targetTicks = Math.max(minTotalTicks, Math.min(maxTotalTicks, (long) track.durationTicks()));
+        // Fit the round timers to the measured OGG duration. Preserve the 10s first round
+        // and 2.5s final round, but do not cap the total at 10 seconds per round: long tracks
+        // receive extra time across the middle rounds instead of being cut off early.
+        long minimumTicks = FIRST_ROUND_DURATION_TICKS + (long) (roundLimit - 1) * LAST_ROUND_DURATION_TICKS;
+        long maximumBaseTicks = (long) (roundLimit - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
+        long requestedTicks = Math.max(minimumTicks, track.durationTicks());
+        long curveTargetTicks = Math.min(requestedTicks, maximumBaseTicks);
 
         double low = 0.0001;
         double high = 10_000.0;
@@ -130,7 +132,7 @@ public final class Arena {
                         + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
                         * Math.pow(1.0 - progress, middle);
             }
-            if (total > targetTicks) low = middle;
+            if (total > curveTargetTicks) low = middle;
             else high = middle;
         }
 
@@ -138,8 +140,18 @@ public final class Arena {
         double duration = LAST_ROUND_DURATION_TICKS
                 + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
                 * Math.pow(1.0 - progress, (low + high) / 2.0);
-        return Math.max(LAST_ROUND_DURATION_TICKS,
-                Math.min(FIRST_ROUND_DURATION_TICKS, (int) Math.round(duration)));
+
+        if (requestedTicks > maximumBaseTicks) {
+            // A smooth bell-shaped bonus distributes any remaining long-track time over
+            // the middle rounds, leaving the fixed first and last round times unchanged.
+            double weightSum = 0.0;
+            for (int i = 1; i < roundLimit - 1; i++) {
+                weightSum += Math.sin(Math.PI * i / (double) (roundLimit - 1));
+            }
+            double weight = Math.sin(Math.PI * progress);
+            if (weightSum > 0.0) duration += (requestedTicks - maximumBaseTicks) * weight / weightSum;
+        }
+        return Math.max(LAST_ROUND_DURATION_TICKS, (int) Math.round(duration));
     }
 
     private int getFallDurationTicks() {
@@ -207,11 +219,12 @@ public final class Arena {
     private UUID lastEliminatedPlayer;
     private UUID matchWinnerId;
     private final List<String> lastPodium = new ArrayList<>();
+    /** Player UUIDs in podium order: first (gold), second (iron), third (copper). */
+    private final List<UUID> lastPodiumPlayers = new ArrayList<>();
     private final Map<UUID, Integer> podiumFreezeTicks = new HashMap<>();
     private final Map<UUID, BlockPos> podiumFreezePositions = new HashMap<>();
     /** Original lobby floor blocks temporarily replaced by winner podium columns. */
     private final Map<BlockPos, BlockState> podiumFloorSnapshot = new HashMap<>();
-    private BlockPos winnerPodiumSpawn;
     /** Ticks remaining before the post-match podium and its holograms are removed. */
     private int podiumDisplayTicks;
     private int lastDancePattern = -1;
@@ -457,18 +470,19 @@ public final class Arena {
                     .withStyle(ChatFormatting.YELLOW));
             return;
         }
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+            player.sendSystemMessage(Component.literal(
+                    "Matchen er allerede i gang! Vent til neste match åpner for påmelding, og prøv igjen da.")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         if (players.size() >= MAX_PLAYERS) {
             player.sendSystemMessage(Component.literal("Denne kampen er full (maks " + MAX_PLAYERS + " spillere).")
                     .withStyle(ChatFormatting.RED));
             return;
         }
         players.add(uuid);
-        if (phase == Phase.WAITING || phase == Phase.COUNTDOWN) {
-            unlockMusicVotingAfterStar(player);
-        } else {
-            player.sendSystemMessage(Component.literal("En kamp pågår. Du er påmeldt neste kamp og kan stemme når den er ferdig.")
-                    .withStyle(ChatFormatting.YELLOW));
-        }
+        unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
         player.sendSystemMessage(Component.literal("Du er påmeldt BlockParty! (" + players.size() + "/" + MAX_PLAYERS + ")")
@@ -545,6 +559,8 @@ public final class Arena {
 
         applyVisualUpgrade();
         clearWinnerPodiumAtDjBooth();
+        lastPodium.clear();
+        lastPodiumPlayers.clear();
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
@@ -712,8 +728,7 @@ public final class Arena {
                 level.setBlock(podiumBlock, blocks[i].defaultBlockState(), 3);
             }
         }
-        BlockPos goldTop = new BlockPos(centerX, floorY + 1, podiumZ);
-        winnerPodiumSpawn = goldTop.above();
+
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, floorY + 5.4, podiumZ - 1.2,
                 180.0F, Component.literal("BLOCKPARTY-VINNER")
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), 1.1F, tag);
@@ -757,19 +772,30 @@ public final class Arena {
                 }
             }
         }
-        winnerPodiumSpawn = null;
     }
 
-    private void teleportWinnerToPodium(ServerPlayer winner) {
-        if (winner == null || level == null || winnerPodiumSpawn == null) return;
-        BlockPos spawn = winnerPodiumSpawn;
-        winner.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, 180.0F, 0.0F);
-        winner.setDeltaMovement(0.0, 0.0, 0.0);
-        winner.setNoGravity(true);
-        podiumFreezeTicks.put(winner.getUUID(), 100);
-        podiumFreezePositions.put(winner.getUUID(), spawn);
-        winner.sendSystemMessage(Component.literal("Du er vinneren! Hold posisjonen på podiet i 5 sekunder.")
-                .withStyle(ChatFormatting.GOLD));
+    /** Places each of the top three players on the matching physical podium block. */
+    private void teleportPlayerToPodium(ServerPlayer player, int rank) {
+        if (player == null || level == null || !lobbySet || rank < 0 || rank >= 3) return;
+        int[] podiumOffsets = {0, -2, 2};
+        int[] podiumHeights = {2, 1, 1};
+        int centerX = (int) Math.floor(lobbyX);
+        int floorY = (int) Math.floor(lobbyY) - 1;
+        int podiumZ = (int) Math.floor(lobbyZ) + 22;
+        BlockPos spawn = new BlockPos(centerX + podiumOffsets[rank], floorY + podiumHeights[rank], podiumZ);
+        player.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, 180.0F, 0.0F);
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.setNoGravity(true);
+        podiumFreezeTicks.put(player.getUUID(), 100);
+        podiumFreezePositions.put(player.getUUID(), spawn);
+        String place = switch (rank) {
+            case 0 -> "1. plass";
+            case 1 -> "2. plass";
+            default -> "3. plass";
+        };
+        ChatFormatting colour = rank == 0 ? ChatFormatting.GOLD : rank == 1 ? ChatFormatting.GRAY : ChatFormatting.RED;
+        player.sendSystemMessage(Component.literal("Du tok " + place + "! Hold posisjonen på podiet i 5 sekunder.")
+                .withStyle(colour, ChatFormatting.BOLD));
     }
 
     private void tickWinnerPodiumFreeze(MinecraftServer server) {
@@ -2353,12 +2379,26 @@ public final class Arena {
 
         matchWinnerId = winner == null ? null : winner.getUUID();
         lastPodium.clear();
-        players.stream().sorted((a, b) -> Integer.compare(points.getOrDefault(b, 0), points.getOrDefault(a, 0)))
-                .limit(3).forEach(uuid -> {
-                    ServerPlayer ranked = level.getServer().getPlayerList().getPlayer(uuid);
-                    String name = ranked != null ? ranked.getName().getString() : PlayerStatsManager.getRecord(uuid).name();
-                    lastPodium.add(name + "  •  " + points.getOrDefault(uuid, 0) + " runder");
-                });
+        lastPodiumPlayers.clear();
+        UUID winnerUuid = winner == null ? null : winner.getUUID();
+        List<UUID> podiumOrder = new ArrayList<>(players);
+        podiumOrder.sort((first, second) -> {
+            if (winnerUuid != null) {
+                if (first.equals(winnerUuid)) return -1;
+                if (second.equals(winnerUuid)) return 1;
+            }
+            int byRounds = Integer.compare(points.getOrDefault(second, 0), points.getOrDefault(first, 0));
+            if (byRounds != 0) return byRounds;
+            return Integer.compare(powerupsCollected.getOrDefault(second, 0),
+                    powerupsCollected.getOrDefault(first, 0));
+        });
+        for (int i = 0; i < Math.min(3, podiumOrder.size()); i++) {
+            UUID uuid = podiumOrder.get(i);
+            lastPodiumPlayers.add(uuid);
+            ServerPlayer ranked = level.getServer().getPlayerList().getPlayer(uuid);
+            String name = ranked != null ? ranked.getName().getString() : PlayerStatsManager.getRecord(uuid).name();
+            lastPodium.add(name + "  •  " + points.getOrDefault(uuid, 0) + " runder");
+        }
         // A win streak counts consecutive match victories, never rounds survived.
         // Every participant other than the declared winner has lost this match.
         for (UUID participantId : players) {
@@ -2462,13 +2502,14 @@ public final class Arena {
             player.getInventory().setItem(8, createLeaveLobbyItem());
             player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);
-            if (matchWinnerId != null && uuid.equals(matchWinnerId)) teleportWinnerToPodium(player);
+            int podiumRank = lastPodiumPlayers.indexOf(uuid);
+            if (matchWinnerId != null && podiumRank >= 0) teleportPlayerToPodium(player, podiumRank);
             player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
                     .withStyle(ChatFormatting.GREEN));
         }
 
         // Start the 20-second podium display window only after all participants have returned.
-        podiumDisplayTicks = matchWinnerId != null ? 20 * 20 : 0;
+        podiumDisplayTicks = matchWinnerId != null && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
 
         alive.clear();
         pendingEliminations.clear();

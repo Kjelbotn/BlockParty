@@ -34,6 +34,10 @@ public final class ClientMusicController {
     private static boolean paused;
     private static boolean pauseStateApplied;
     private static boolean reflectionWarningLogged;
+    private static ResourceLocation activeSoundId;
+    private static int ticksWaitingForChannel;
+    private static int playbackRetries;
+    private static boolean playbackFailureLogged;
 
     private ClientMusicController() { }
 
@@ -56,15 +60,23 @@ public final class ClientMusicController {
         }
 
         // Use the Records/Jukebox category, matching the previous BlockParty music setup.
+        activeSoundId = soundId;
+        playbackRetries = 0;
+        ticksWaitingForChannel = 0;
+        playbackFailureLogged = false;
+        startSound(minecraft);
+    }
+
+    private static void startSound(Minecraft minecraft) {
         currentSound = new SimpleSoundInstance(
-                soundId, SoundSource.RECORDS, 1.0F, 1.0F, RandomSource.create(),
+                activeSoundId, SoundSource.RECORDS, 1.0F, 1.0F, RandomSource.create(),
                 false, 0, SoundInstance.Attenuation.NONE, 0.0D, 0.0D, 0.0D, true
         );
         paused = false;
-        // Normal playback needs no channel intervention; only PAUSE/RESUME trigger it.
         pauseStateApplied = true;
         minecraft.getSoundManager().play(currentSound);
-        BlockPartyMod.LOGGER.debug("Started client-side BlockParty music event {}", soundId);
+        BlockPartyMod.LOGGER.info("Requested built-in BlockParty music event {} (attempt {}).",
+                activeSoundId, playbackRetries + 1);
     }
 
     private static void pause() {
@@ -84,17 +96,38 @@ public final class ClientMusicController {
     }
 
     private static void stop() {
-        if (currentSound != null) {
-            Minecraft.getInstance().getSoundManager().stop(currentSound);
-            currentSound = null;
-        }
+        if (currentSound != null) Minecraft.getInstance().getSoundManager().stop(currentSound);
+        currentSound = null;
+        activeSoundId = null;
+        ticksWaitingForChannel = 0;
+        playbackRetries = 0;
+        playbackFailureLogged = false;
         paused = false;
         pauseStateApplied = false;
     }
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (currentSound != null && !pauseStateApplied) applyPauseState();
+        if (currentSound == null) return;
+        if (!paused && !playbackFailureLogged) {
+            ChannelAccess.ChannelHandle handle = findCurrentChannel();
+            if (handle != null && !handle.isStopped()) {
+                ticksWaitingForChannel = 0;
+            } else if (++ticksWaitingForChannel >= 60) {
+                if (playbackRetries < 2 && activeSoundId != null) {
+                    playbackRetries++;
+                    BlockPartyMod.LOGGER.warn("BlockParty music event {} has not opened an audio channel; retrying ({}/2).",
+                            activeSoundId, playbackRetries);
+                    startSound(Minecraft.getInstance());
+                    ticksWaitingForChannel = 0;
+                } else {
+                    playbackFailureLogged = true;
+                    BlockPartyMod.LOGGER.error("BlockParty music event {} did not start after 3 attempts. Check the bundled OGG and sound event mapping.",
+                            activeSoundId);
+                }
+            }
+        }
+        if (!pauseStateApplied) applyPauseState();
     }
 
     @SubscribeEvent

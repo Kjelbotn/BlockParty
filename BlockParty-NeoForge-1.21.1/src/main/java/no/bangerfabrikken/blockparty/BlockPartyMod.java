@@ -52,7 +52,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onLivingFall);
         ModSounds.SOUND_EVENTS.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "0.19.13-alpha");
+        LOGGER.info("BlockParty {} initialised", "0.19.14-alpha");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
