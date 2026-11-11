@@ -1,3 +1,12 @@
+# BlockParty 0.19.11-alpha — Track-Based Round Counts and Inventory Restore
+
+- Songs shorter than 1:30 now use 10 rounds; songs lasting 1:30 or longer use 20 rounds.
+- Round timers are fitted to the selected track duration and the active round count, keeping round 1 at 10 seconds and the final round at 2.5 seconds.
+- The 53.4-second “Konfliktpartiet” now has 10 rounds whose timers total the track length, so the song no longer ends around round 6.
+- The round counter, match-end checks, arena status and voting menu now display the correct 10- or 20-round limit.
+- Lobby inventories remain restricted to BlockParty items. The pre-lobby Survival inventory, including armor and offhand, is restored only when the player leaves via Redstone Dust or /bp leave.
+- Inventory restoration now happens after returning to the saved Survival location and explicitly marks all inventory containers dirty before synchronization, preventing armor/offhand state from being overwritten by a teleport update.
+
 # BlockParty 0.19.10-alpha — Smooth Round Timing
 
 - Reworked short-song pacing so the 20 rounds descend much more evenly from 10 seconds on round 1 to 2.5 seconds on round 20.
