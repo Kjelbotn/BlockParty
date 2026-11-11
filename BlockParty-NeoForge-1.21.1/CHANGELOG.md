@@ -1,3 +1,10 @@
+# BlockParty 0.19.9-alpha — Short Song Round Timing Hotfix
+
+- Fixed short-song timing curves that caused nearly every round after round 1 to fall to 2.5 seconds.
+- Raised the minimum combined round-timer budget to 70 seconds so short tracks retain a visible, gradual progression through the middle rounds.
+- Round 1 remains exactly 10 seconds and round 20 remains exactly 2.5 seconds for every track.
+- Tracks longer than 70 seconds continue to scale their intermediate round timers according to their actual duration, up to the 192.5-second maximum pacing budget.
+
 # BlockParty 0.19.8-alpha — Song-Scaled Round Timing Hotfix
 
 - Restored song-length-based round scaling while keeping fixed endpoints: round 1 is always 10 seconds and round 20 is always 2.5 seconds.
