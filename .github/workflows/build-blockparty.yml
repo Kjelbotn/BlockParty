@@ -3,6 +3,7 @@ name: Build BlockParty
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -36,42 +37,105 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
-          music_dir="BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/sounds/music"
+          assets_dir="BlockParty-NeoForge-1.21.1/src/main/resources/assets"
+          asset_dir="$assets_dir/blockparty"
+          music_dir="$asset_dir/sounds/music"
+          music_events="$assets_dir/blockparty_music/sounds.json"
+          duration_file="$asset_dir/music_durations.properties"
           tracks=(
-            bangerfabrikken.ogg
-            odin_moon.ogg
-            stille_anders.ogg
-            hjulene_pa_bussen_olli.ogg
-            odin_terrorist.ogg
-            exige_2014_launchpad_mix.ogg
-            hau_hau_hau.ogg
-            fest_hos_toby.ogg
-            konfliktpartiet.ogg
-            hms_er_best.ogg
+            bangerfabrikken:bangerfabrikken.ogg
+            odin_moon:odin_moon.ogg
+            stille_anders:stille_anders.ogg
+            hjulene_pa_bussen_olli:hjulene_pa_bussen_olli.ogg
+            odin_terrorist:odin_terrorist.ogg
+            exige_2014_launchpad_mix:exige_2014_launchpad_mix.ogg
+            hau_hau_hau:hau_hau_hau.ogg
+            fest_hos_toby:fest_hos_toby.ogg
+            konfliktpartiet:konfliktpartiet.ogg
+            hms_er_best:hms_er_best.ogg
           )
 
-          for track in "${tracks[@]}"; do
-            input="$music_dir/$track"
-            output="$music_dir/${track%.ogg}.normalized.ogg"
+          printf "# Measured from the final, normalized OGG files by FFprobe.\n" > "$duration_file"
+          for entry in "${tracks[@]}"; do
+            IFS=: read -r track_id track_file <<< "$entry"
+            input="$music_dir/$track_file"
+            output="$music_dir/${track_file%.ogg}.normalized.ogg"
+            decode_log="$RUNNER_TEMP/${track_id}-decode.log"
             test -s "$input"
+
+            # Put every official track into the same stereo Vorbis profile and loudness range.
             ffmpeg -hide_banner -loglevel error -y -i "$input" \
               -map 0:a:0 -vn -map_metadata -1 \
-              -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "$output"
+              -af "loudnorm=I=-14:TP=-1.0:LRA=11" -ac 2 -ar 44100 \
+              -c:a libvorbis -q:a 5 "$output"
             test -s "$output"
             mv "$output" "$input"
 
             codec_info="$(ffprobe -v error -select_streams a:0 \
               -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$input")"
             if [[ "$codec_info" != "vorbis,44100,2" ]]; then
-              echo "Unexpected normalized audio format for $track: $codec_info" >&2
+              echo "Unexpected normalized audio format for $track_file: $codec_info" >&2
               exit 1
             fi
-            echo "Validated $track: $codec_info"
+
+            # Decode the complete OGG and reject empty or silent tracks.
+            ffmpeg -hide_banner -nostats -v info -i "$input" -af volumedetect -f null - 2> "$decode_log"
+            mean_volume="$(sed -n "s/.*mean_volume: //p" "$decode_log" | tail -n 1 | awk "{print \$1}")"
+            if [[ -z "$mean_volume" || "$mean_volume" == "-inf" ]]; then
+              echo "No decodable audio signal found in $track_file" >&2
+              cat "$decode_log" >&2
+              exit 1
+            fi
+
+            duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$input")"
+            awk -v d="$duration" "BEGIN { exit !(d > 0 && d < 3600) }"
+            duration_seconds="$(awk -v d="$duration" "BEGIN { printf \"%.3f\", d }")"
+            printf "%s=%s\n" "$track_id" "$duration_seconds" >> "$duration_file"
+            echo "Validated $track_file: $codec_info, ${duration_seconds}s, mean volume ${mean_volume}dB"
           done
+
+          # Ensure every dedicated built-in music event maps to its matching packaged OGG.
+          python3 - "$music_events" "$music_dir" <<'PY'
+          import json, pathlib, sys
+          sound_manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          music_dir = pathlib.Path(sys.argv[2])
+          tracks = [
+              "bangerfabrikken", "odin_moon", "stille_anders", "hjulene_pa_bussen_olli",
+              "odin_terrorist", "exige_2014_launchpad_mix", "hau_hau_hau", "fest_hos_toby",
+              "konfliktpartiet", "hms_er_best"
+          ]
+          for track in tracks:
+              file = music_dir / f"{track}.ogg"
+              event = sound_manifest.get(f"music_{track}")
+              if not file.is_file() or file.stat().st_size == 0:
+                  raise SystemExit(f"Missing bundled OGG: {file}")
+              if event is None:
+                  raise SystemExit(f"Missing sound event: music_{track}")
+              names = [entry.get("name") for entry in event.get("sounds", []) if isinstance(entry, dict)]
+              if f"blockparty:music/{track}" not in names:
+                  raise SystemExit(f"Sound event music_{track} does not map to blockparty:music/{track}")
+          print("All ten built-in BlockParty sound events map to packaged OGG tracks.")
+          PY
 
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
+
+      - name: Verify all built-in tracks are present in the finished JAR
+        shell: bash
+        working-directory: BlockParty-NeoForge-1.21.1
+        run: |
+          set -euo pipefail
+          jar_file="$(find build/libs -maxdepth 1 -type f -name "blockparty-*.jar" ! -name "*sources*" | head -n 1)"
+          test -n "$jar_file"
+          jar tf "$jar_file" > "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          grep -Fxq "assets/blockparty/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          grep -Fxq "assets/blockparty_music/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          grep -Fxq "assets/blockparty/music_durations.properties" "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best; do
+            grep -Fxq "assets/blockparty/sounds/music/$track.ogg" "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          done
+          echo "All ten built-in BlockParty tracks and the measured-duration manifest are packaged."
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4

@@ -1,3 +1,11 @@
+# BlockParty 0.19.14-alpha — Reliable Music, Track Timing and Full Podium
+
+- Kept every song fully built into the mod under the original `blockparty` namespace. No external resource pack is required.
+- The build normalizes and fully decodes all ten official OGG tracks, verifies every sound-event/file mapping, measures the final audio duration, and packages those measurements with the mod.
+- Round lengths now use the measured duration of each packaged OGG file. Long tracks are no longer clamped to ten seconds per round; remaining time is smoothly distributed across the middle rounds. The 10-second first round and 2.5-second final round remain fixed.
+- All ten tracks are checked for decodable, non-silent audio and are loudness-normalized to a consistent playback level before packaging.
+- The lobby podium now places first, second and third on gold, iron and copper blocks respectively.
+- Players attempting to join after match start are told to wait for the next match and are not added to the active match.
 # BlockParty 0.19.13-alpha — Normalize All Music Audio
 
 - Restored all music sound events to the mod's original `blockparty` registry and built-in `assets/blockparty/sounds.json` flow. No external resource pack or separate music namespace is required.

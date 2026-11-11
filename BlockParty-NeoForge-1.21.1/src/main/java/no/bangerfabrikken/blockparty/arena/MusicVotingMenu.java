@@ -100,7 +100,7 @@ final class MusicVotingMenu extends ChestMenu {
             String difficulty = getDifficulty(matchSeconds);
             icon.set(DataComponents.LORE, new ItemLore(List.of(
                     Component.literal("Artist: " + track.artist()).withStyle(ChatFormatting.GRAY),
-                    Component.literal((track.durationTicks() < 90 * 20 ? "10 RUNDER" : "20 RUNDER")
+                    Component.literal(Arena.getTrackRoundLimit(track) + " RUNDER"
                             + " | " + difficulty + " | " + formatDuration(matchSeconds))
                             .withStyle(getDifficultyColor(difficulty), ChatFormatting.BOLD),
                     Component.literal("Stemmer: " + votes).withStyle(ChatFormatting.YELLOW),
