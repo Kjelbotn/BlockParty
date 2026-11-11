@@ -1,8 +1,10 @@
-# BlockParty 0.19.18-alpha — Podium Exit Item Fix
+# BlockParty 1.0.0 — First stable release
 
-- Podium finishers no longer receive the Redstone Dust leave control until their five-second podium freeze has ended and they can move freely.
-- The lobby item refresh also withholds/removes stale leave controls while a podium freeze is active.
-- Manually leaving during a podium freeze now cancels the freeze and clears no-gravity state before teleporting and restoring the player's inventory.
+- Declared BlockParty 1.0.0 as the first stable, fully playable release.
+- Added a playlist JSON manifest and eight pre-registered custom song slots. A new song now requires only an OGG file and one JSON entry—no per-song Java, sound-definition, duration-file or workflow edits.
+- GitHub Actions now reads the playlist automatically, normalizes each enabled OGG, measures its duration, validates sound-event mappings and verifies all active tracks in the final JAR.
+- Expanded the voting menu to support up to 27 songs, enough for the 17 current tracks plus all eight custom slots.
+- Fixed the podium exit control so podium finishers only receive Redstone Dust after their five-second freeze ends; manual early exit now also clears the freeze state.
 
 # BlockParty 0.19.17-alpha — Seven New Music Tracks
 

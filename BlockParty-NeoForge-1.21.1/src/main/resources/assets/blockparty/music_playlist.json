@@ -1,0 +1,106 @@
+{
+  "tracks": [
+    {
+      "id": "bangerfabrikken",
+      "name": "BlockParty",
+      "artist": "Bangerfabrikken",
+      "bpm": 128
+    },
+    {
+      "id": "odin_moon",
+      "name": "Odin er en alkis - Moon Edition",
+      "artist": "Bangerfabrikken",
+      "bpm": 128
+    },
+    {
+      "id": "stille_anders",
+      "name": "Stille Anders [Indiepop]",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "hjulene_pa_bussen_olli",
+      "name": "Hjulene på bussen (til Olli)",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "odin_terrorist",
+      "name": "Odin er en terrorist",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "exige_2014_launchpad_mix",
+      "name": "2014 Launchpad Mix",
+      "artist": "Exige",
+      "bpm": 0
+    },
+    {
+      "id": "hau_hau_hau",
+      "name": "Hau Hau Hau",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "fest_hos_toby",
+      "name": "Fest hos Toby",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "konfliktpartiet",
+      "name": "Konfliktpartiet",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "hms_er_best",
+      "name": "HMS er best!",
+      "artist": "Bangerfabrikken",
+      "bpm": 0
+    },
+    {
+      "id": "stianorway_damer_objekter",
+      "name": "Damer, Objekter",
+      "artist": "StianNorway",
+      "bpm": 0
+    },
+    {
+      "id": "stianorway_vi_maa_ikke_si_et_ord",
+      "name": "Vi må ikke si et ord",
+      "artist": "StianNorway",
+      "bpm": 0
+    },
+    {
+      "id": "luxus_leverpostei_plastisk_kirurgi",
+      "name": "Plastisk Kirurgi",
+      "artist": "Luxus Leverpostei",
+      "bpm": 0
+    },
+    {
+      "id": "kaptein_sabeltann_pinkys_sang",
+      "name": "Pinkys Sang",
+      "artist": "Kaptein Sabeltann",
+      "bpm": 0
+    },
+    {
+      "id": "luxus_leverpostei_195",
+      "name": "§195",
+      "artist": "Luxus Leverpostei",
+      "bpm": 0
+    },
+    {
+      "id": "luxus_leverpostei_sur_mus",
+      "name": "Sur Mus",
+      "artist": "Luxus Leverpostei",
+      "bpm": 0
+    },
+    {
+      "id": "oingo_boingo_little_girls_pedobear",
+      "name": "Little Girls [PedoBear]",
+      "artist": "Oingo Boingo",
+      "bpm": 0
+    }
+  ]
+}
