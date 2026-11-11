@@ -2572,22 +2572,25 @@ public final class Arena {
         }
         hideLobbyLeaderboard();
         double boardX = lobbyX + 30.0;
-        double topY = lobbyY + 13.0;
-        // Keep the leaderboard at the far end of the lobby, away from the arena entrance.
-        double boardZ = lobbyZ + 7.5; // Centre of the 56-block lobby wall, not the far-right edge.
-        BlockPos anchor = BlockPos.containing(boardX, topY, boardZ);
+        // The east wall is split into two balanced panels. Commands occupy the
+        // lower-Z side; the top-five leaderboard occupies the upper-Z side.
+        double boardZ = lobbyZ + 18.5;
+        double commandsZ = lobbyZ - 6.5;
+        BlockPos anchor = BlockPos.containing(boardX, lobbyY + 8.0, boardZ);
         if (!level.hasChunkAt(anchor)) return;
 
         String tag = "blockparty_lb_" + id;
-        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, boardZ - 31.0,
-                boardX + 5.0, lobbyY + 16.0, boardZ + 31.0);
+        // Both panels share one cleanup region and tag, so periodic refreshes cannot duplicate text.
+        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
+                boardX + 5.0, lobbyY + 16.0, lobbyZ + 32.0);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 display -> display.getTags().contains(tag))) old.discard();
         for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,
                 stand -> stand.getTags().contains(tag))) old.discard();
 
+        // LEADERBOARD PANEL — keep a constant vertical centre regardless of list length.
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("BLOCKPARTY LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        lines.add(Component.literal("LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         lines.add(Component.literal("TOP 5 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(5);
         if (top.isEmpty()) {
@@ -2605,11 +2608,33 @@ public final class Arena {
             }
         }
         lines.add(Component.literal("/bp leaderboard  •  /bp ranklist").withStyle(ChatFormatting.LIGHT_PURPLE));
-        // The panel faces west toward the lobby interior; text entities avoid mirrored block-built letters.
+
+        double panelCenterY = lobbyY + 7.0; // lowered from the previous layout
+        double lineSpacing = 0.95;
+        double firstLineY = panelCenterY + (lines.size() - 1) * lineSpacing / 2.0;
         for (int i = 0; i < lines.size(); i++) {
-            float scale = i == 0 ? 2.8F : (i == 1 ? 2.0F : (i == lines.size() - 1 ? 1.35F : 1.55F));
-            double y = topY - (i * 0.9);
+            float scale = i == 0 ? 1.9F : (i == 1 ? 1.25F : (i == lines.size() - 1 ? 0.95F : 1.0F));
+            double y = firstLineY - i * lineSpacing;
             BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, 90.0F, lines.get(i), scale, tag);
+        }
+
+        // COMMANDS PANEL — the three most useful player commands and what they do.
+        List<Component> commandLines = List.of(
+                Component.literal("NYTTIGE KOMMANDOER").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
+                Component.literal("/bp leaderboard").withStyle(ChatFormatting.AQUA),
+                Component.literal("Se topp 5 spillere").withStyle(ChatFormatting.GRAY),
+                Component.literal("/bp ranklist").withStyle(ChatFormatting.AQUA),
+                Component.literal("Se alle ranker og poengkrav").withStyle(ChatFormatting.GRAY),
+                Component.literal("/bp profile").withStyle(ChatFormatting.AQUA),
+                Component.literal("Se din rank, poeng og statistikk").withStyle(ChatFormatting.GRAY)
+        );
+        double commandSpacing = 1.05;
+        double commandFirstY = panelCenterY + (commandLines.size() - 1) * commandSpacing / 2.0;
+        for (int i = 0; i < commandLines.size(); i++) {
+            float scale = i == 0 ? 1.65F : (i % 2 == 1 ? 1.15F : 0.78F);
+            double y = commandFirstY - i * commandSpacing;
+            BlockPartyText.spawnTextDisplay(level, boardX, y, commandsZ, 90.0F,
+                    commandLines.get(i), scale, tag);
         }
     }
 
