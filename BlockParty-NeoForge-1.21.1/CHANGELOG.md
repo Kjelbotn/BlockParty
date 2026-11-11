@@ -1,3 +1,11 @@
+# BlockParty 0.19.12-alpha — Isolated Music Resource Namespace
+
+- Moved all ten music sound events into a dedicated `blockparty_music` namespace, separate from the general `blockparty` sound definitions.
+- Added a dedicated `assets/blockparty_music/sounds.json` mapping for every official track. The mappings reuse the existing packaged OGG files, so no audio was removed or replaced.
+- Prevents an older resource pack that overrides `assets/blockparty/sounds.json` from hiding newer playlist tracks.
+- Kept the original `blockparty` namespace for gameplay sound effects.
+- Confirmed that all ten packaged OGG music assets are present and decode successfully.
+
 # BlockParty 0.19.11-alpha — Track-Based Round Counts and Inventory Restore
 
 - Songs shorter than 1:30 now use 10 rounds; songs lasting 1:30 or longer use 20 rounds.
