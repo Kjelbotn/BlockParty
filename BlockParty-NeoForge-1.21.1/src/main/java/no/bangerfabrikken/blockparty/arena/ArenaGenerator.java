@@ -335,15 +335,9 @@ public final class ArenaGenerator {
             put(level, speakerX, floorY + 5, boothZ - 2, Blocks.NOTE_BLOCK);
             put(level, speakerX, floorY + 4, boothZ - 2, Blocks.SEA_LANTERN);
         }
-        // Compact neon dance floor between spawn and the DJ booth.
-        Block[] danceColours = {Blocks.CYAN_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.MAGENTA_CONCRETE,
-                Blocks.BLUE_CONCRETE, Blocks.BLACK_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE};
-        for (int x = centerX - 8; x <= centerX + 8; x++) {
-            for (int z = lobbyMinZ + 14; z <= lobbyMinZ + 28; z++) {
-                int colour = Math.floorMod((x + z), danceColours.length);
-                put(level, x, floorY, z, danceColours[colour]);
-            }
-        }
+        // A framed, symmetrical club dance floor replaces the unfinished checker pattern.
+        buildLobbyDanceFloor(level, centerX, lobbyMinZ, floorY);
+        buildLobbyPodiumPad(level, centerX, lobbyMinZ + 42, floorY);
         // Lounge seating and low tables on both sides of the lobby, leaving the centre aisle clear.
         for (int side : new int[]{-1, 1}) {
             int seatX = centerX + side * 23;
@@ -543,6 +537,56 @@ public final class ArenaGenerator {
         }
     }
 
+    /** Builds a deliberate club floor: dark frame, twin neon borders and inset colour panels. */
+    private static void buildLobbyDanceFloor(ServerLevel level, int centerX, int lobbyMinZ, int floorY) {
+        Block[] panelColours = {
+                Blocks.CYAN_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE,
+                Blocks.BLUE_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.MAGENTA_CONCRETE
+        };
+        int centreZ = lobbyMinZ + 21;
+        for (int x = centerX - 10; x <= centerX + 10; x++) {
+            for (int z = centreZ - 8; z <= centreZ + 8; z++) {
+                int dx = Math.abs(x - centerX);
+                int dz = Math.abs(z - centreZ);
+                Block floorBlock;
+                if (dx == 10 || dz == 8) {
+                    floorBlock = Blocks.POLISHED_BLACKSTONE;
+                } else if (dx == 9 || dz == 7) {
+                    floorBlock = Blocks.MAGENTA_CONCRETE;
+                } else if (dx == 8 || dz == 6) {
+                    floorBlock = Blocks.CYAN_CONCRETE;
+                } else {
+                    int localX = x - (centerX - 8);
+                    int localZ = z - (centreZ - 6);
+                    boolean seam = Math.floorMod(localX, 4) == 3 || Math.floorMod(localZ, 4) == 3;
+                    int panel = Math.floorDiv(localX, 4) + Math.floorDiv(localZ, 4);
+                    floorBlock = seam ? Blocks.BLACK_CONCRETE
+                            : panelColours[Math.floorMod(panel, panelColours.length)];
+                    if (dx <= 1 && dz <= 1) {
+                        floorBlock = dx == 0 && dz == 0 ? Blocks.WHITE_CONCRETE
+                                : (dx == dz ? Blocks.MAGENTA_CONCRETE : Blocks.LIGHT_BLUE_CONCRETE);
+                    }
+                }
+                put(level, x, floorY, z, floorBlock);
+            }
+        }
+    }
+
+    /** A permanent tiled plinth under the winner display; also repairs legacy podium-footprint holes. */
+    private static void buildLobbyPodiumPad(ServerLevel level, int centerX, int podiumZ, int floorY) {
+        for (int x = centerX - 5; x <= centerX + 5; x++) {
+            for (int z = podiumZ - 2; z <= podiumZ + 2; z++) {
+                int dx = Math.abs(x - centerX);
+                int dz = Math.abs(z - podiumZ);
+                Block floorBlock = Blocks.POLISHED_BLACKSTONE_BRICKS;
+                if (dx == 5 || dz == 2) {
+                    floorBlock = dx == 5 ? Blocks.CYAN_CONCRETE : Blocks.MAGENTA_CONCRETE;
+                }
+                put(level, x, floorY, z, floorBlock);
+            }
+        }
+    }
+
     private static void restoreSpectatorRails(ServerLevel level, int minX, int maxX, int minZ, int maxZ, int floorY) {
         int walkwayY = floorY + SPECTATOR_HEIGHT;
         for (int y = walkwayY + 1; y <= walkwayY + 2; y++) {
@@ -727,15 +771,9 @@ public final class ArenaGenerator {
             put(level, speakerX, floorY + 5, boothZ - 2, Blocks.NOTE_BLOCK);
             put(level, speakerX, floorY + 4, boothZ - 2, Blocks.SEA_LANTERN);
         }
-        Block[] danceColours = {Blocks.CYAN_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.MAGENTA_CONCRETE,
-                Blocks.BLUE_CONCRETE, Blocks.BLACK_CONCRETE, Blocks.LIGHT_BLUE_CONCRETE};
-        for (int x = centerX - 8; x <= centerX + 8; x++) {
-            for (int z = (int) Math.floor(lobbyZ) - 6; z <= (int) Math.floor(lobbyZ) + 8; z++) {
-                // Keep the dance tiles as a single floating layer; remove the old grey/terrain backing.
-                put(level, x, floorY - 1, z, Blocks.AIR);
-                put(level, x, floorY, z, danceColours[Math.floorMod(x + z, danceColours.length)]);
-            }
-        }
+        // Upgrade older lobbies in-place and repair the old podium footprint.
+        buildLobbyDanceFloor(level, centerX, lobbyMinZ, floorY);
+        buildLobbyPodiumPad(level, centerX, lobbyMinZ + 42, floorY);
 
         // Lounge seats and side tables. The centre aisle remains clear.
         for (int side : new int[]{-1, 1}) {
