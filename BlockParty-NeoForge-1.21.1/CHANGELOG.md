@@ -1,3 +1,11 @@
+# BlockParty 0.19.7-alpha — Lobby Information Panels
+
+- Added a dedicated “NYTTIGE KOMMANDOER” panel beside the lobby leaderboard with /bp leaderboard, /bp ranklist and /bp profile plus short descriptions.
+- Split the east lobby information wall into two balanced panels: commands and leaderboard.
+- Moved leaderboard text lower and vertically centres the full content dynamically, regardless of whether zero, one or five players are listed.
+- Adjusted text scales to fit the two-panel layout.
+- Both panels refresh and clean up together to prevent duplicate holograms.
+
 # BlockParty 0.19.6-alpha — Gameplay Hotfix
 
 - Round timers now follow a fixed gradual progression from 10 seconds on round 1 to 2.5 seconds on round 20, regardless of song length.
