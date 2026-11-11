@@ -53,6 +53,7 @@ jobs:
             fest_hos_toby:fest_hos_toby.ogg
             konfliktpartiet:konfliktpartiet.ogg
             hms_er_best:hms_er_best.ogg
+            inni_hodet_ditt:inni_hodet_ditt.ogg
           )
 
           printf "# Measured from the final, normalized OGG files by FFprobe.\n" > "$duration_file"
@@ -102,7 +103,7 @@ jobs:
           tracks = [
               "bangerfabrikken", "odin_moon", "stille_anders", "hjulene_pa_bussen_olli",
               "odin_terrorist", "exige_2014_launchpad_mix", "hau_hau_hau", "fest_hos_toby",
-              "konfliktpartiet", "hms_er_best"
+              "konfliktpartiet", "hms_er_best", "inni_hodet_ditt"
           ]
           for track in tracks:
               file = music_dir / f"{track}.ogg"
@@ -132,7 +133,7 @@ jobs:
           grep -Fxq "assets/blockparty/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty_music/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/music_durations.properties" "$RUNNER_TEMP/blockparty-jar-contents.txt"
-          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best; do
+          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best inni_hodet_ditt; do
             grep -Fxq "assets/blockparty/sounds/music/$track.ogg" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           done
           echo "All ten built-in BlockParty tracks and the measured-duration manifest are packaged."

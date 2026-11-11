@@ -98,5 +98,15 @@
         "volume": 1
       }
     ]
+  },
+  "music_inni_hodet_ditt": {
+    "subtitle": "subtitles.blockparty.music_inni_hodet_ditt",
+    "sounds": [
+      {
+        "name": "blockparty:music/inni_hodet_ditt",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }

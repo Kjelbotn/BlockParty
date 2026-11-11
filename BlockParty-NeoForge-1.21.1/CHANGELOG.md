@@ -1,3 +1,10 @@
+# BlockParty 0.19.17-alpha — BareTruls track activated
+
+- Added `Inni Hodet Ditt (Odin's ønskelåt)` by BareTruls as a selectable built-in song.
+- Registered its dedicated music sound event and manifest mapping, and included its OGG in the build-time normalization, duration measurement, full decode/audio-signal check and final JAR verification.
+- The existing track-specific arena display sequence is now activated when this song is selected: INNI (1s), blank (1s), HODET (1s), blank (1s), DITT! (1s), blank (2s), looping throughout gameplay.
+- Measured source duration: 220.891429 seconds.
+
 # BlockParty 0.19.16-alpha — Beta 1.0 Candidate
 
 - Music now loops automatically when a track ends before the 25-round match is complete.
