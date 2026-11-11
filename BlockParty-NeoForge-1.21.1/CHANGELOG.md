@@ -1,3 +1,9 @@
+# BlockParty 0.19.18-alpha — Podium Exit Item Fix
+
+- Podium finishers no longer receive the Redstone Dust leave control until their five-second podium freeze has ended and they can move freely.
+- The lobby item refresh also withholds/removes stale leave controls while a podium freeze is active.
+- Manually leaving during a podium freeze now cancels the freeze and clears no-gravity state before teleporting and restoring the player's inventory.
+
 # BlockParty 0.19.17-alpha — Seven New Music Tracks
 
 - Added StianNorway — Damer, Objekter.
