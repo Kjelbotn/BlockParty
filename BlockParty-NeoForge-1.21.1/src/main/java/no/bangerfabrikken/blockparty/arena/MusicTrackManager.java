@@ -51,6 +51,9 @@ public final class MusicTrackManager {
                 ModSounds.MUSIC_KONFLIKTPARTIET, "music_konfliktpartiet");
         add("hms_er_best", "HMS er best!", "Bangerfabrikken", 0, duration(durations, "hms_er_best", 119.797551),
                 ModSounds.MUSIC_HMS_ER_BEST, "music_hms_er_best");
+        add("inni_hodet_ditt", "Inni Hodet Ditt (Odin's ønskelåt)", "BareTruls", 0,
+                duration(durations, "inni_hodet_ditt", 220.891429),
+                ModSounds.MUSIC_INNI_HODET_DITT, "music_inni_hodet_ditt");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 
