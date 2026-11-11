@@ -93,7 +93,7 @@ final class MusicVotingMenu extends ChestMenu {
             });
             boolean selected = track.id().equals(selectedTrack);
             icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())
-                    .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA, ChatFormatting.BOLD));
+                    .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
 
             long votes = arena.getTrackVoteCount(track.id());
             int matchSeconds = getDisplayedMatchSeconds(track);
