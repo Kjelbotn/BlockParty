@@ -53,7 +53,7 @@ public final class MusicTrackManager {
 
     private static void add(String id, String name, String artist, int bpm, double durationSeconds,
                             Holder<SoundEvent> sound, String eventPath) {
-        ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath(BlockPartyMod.MOD_ID, eventPath);
+        ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath(ModSounds.MUSIC_NAMESPACE, eventPath);
         TRACKS.put(id, new Track(id, name, artist, bpm, durationSeconds, sound, soundId));
     }
 
