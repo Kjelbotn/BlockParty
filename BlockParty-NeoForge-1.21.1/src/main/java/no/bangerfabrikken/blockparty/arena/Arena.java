@@ -87,32 +87,16 @@ public final class Arena {
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25;
-    // Twenty round timers are proportionally distributed across the complete track.
-    private static final int[] ROUND_DURATION_TICKS = {
-            200, 190, 180, 170, 160, 150, 140, 130, 120, 110,
-            100, 92, 84, 76, 68, 60, 54, 48, 42, 36
-    };
-    private static final int TOTAL_BASE_ROUND_TICKS =
-            java.util.Arrays.stream(ROUND_DURATION_TICKS).sum();
+    // Round one starts at 10 seconds; each following round gets progressively shorter.
+    // Round 20 is never shorter than 2.5 seconds, regardless of the selected song length.
+    private static final int FIRST_ROUND_DURATION_TICKS = 10 * 20;
+    private static final int LAST_ROUND_DURATION_TICKS = 50;
 
-    /**
-     * Distribute the track's exact playback tick budget across all 20 rounds.
-     * Cumulative rounding guarantees that the sum of all round timers is exactly
-     * durationSeconds * 20, without losing ticks to per-round rounding.
-     */
     private int getRoundDurationTicks(int roundNumber) {
         int index = Math.max(0, Math.min(roundNumber - 1, MAX_ROUNDS - 1));
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        if (track == null) return ROUND_DURATION_TICKS[index];
-
-        long totalSongTicks = track.durationTicks();
-        int baseTicksBefore = 0;
-        for (int i = 0; i < index; i++) baseTicksBefore += ROUND_DURATION_TICKS[i];
-        int baseTicksThrough = baseTicksBefore + ROUND_DURATION_TICKS[index];
-
-        long startTick = Math.round(baseTicksBefore * (double) totalSongTicks / TOTAL_BASE_ROUND_TICKS);
-        long endTick = Math.round(baseTicksThrough * (double) totalSongTicks / TOTAL_BASE_ROUND_TICKS);
-        return Math.max(1, (int) (endTick - startTick));
+        double progress = index / (double) (MAX_ROUNDS - 1);
+        return (int) Math.round(FIRST_ROUND_DURATION_TICKS
+                + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
     }
 
     private int getFallDurationTicks() {
@@ -185,6 +169,8 @@ public final class Arena {
     /** Original lobby floor blocks temporarily replaced by winner podium columns. */
     private final Map<BlockPos, BlockState> podiumFloorSnapshot = new HashMap<>();
     private BlockPos winnerPodiumSpawn;
+    /** Ticks remaining before the post-match podium and its holograms are removed. */
+    private int podiumDisplayTicks;
     private int lastDancePattern = -1;
 
     /** Active beacon blocks are placed one block above five separate floor tiles. */
@@ -660,6 +646,7 @@ public final class Arena {
 
     private void buildWinnerPodiumAtDjBooth() {
         if (level == null || !lobbySet || lastPodium.isEmpty()) return;
+        podiumDisplayTicks = 0;
         int centerX = (int) Math.floor(lobbyX);
         int floorY = (int) Math.floor(lobbyY) - 1;
         int lobbyMaxZ = (int) Math.floor(lobbyZ) + 35;
@@ -694,6 +681,7 @@ public final class Arena {
     }
 
     private void clearWinnerPodiumAtDjBooth() {
+        podiumDisplayTicks = 0;
         if (level == null || !lobbySet) return;
         int centerX = (int) Math.floor(lobbyX);
         int floorY = (int) Math.floor(lobbyY) - 1;
@@ -1639,6 +1627,10 @@ public final class Arena {
     public void tick(MinecraftServer server) {
         scoreboardTick++;
         tickWinnerPodiumFreeze(server);
+        if (podiumDisplayTicks > 0 && --podiumDisplayTicks == 0) {
+            clearWinnerPodiumAtDjBooth();
+            refreshLobbyDisplays();
+        }
         if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
@@ -2428,6 +2420,9 @@ public final class Arena {
                     .withStyle(ChatFormatting.GREEN));
         }
 
+        // Start the 20-second podium display window only after all participants have returned.
+        podiumDisplayTicks = matchWinnerId != null ? 20 * 20 : 0;
+
         alive.clear();
         pendingEliminations.clear();
         players.clear();
@@ -2593,16 +2588,12 @@ public final class Arena {
 
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal("BLOCKPARTY LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        lines.add(Component.literal("TOP 10 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(10);
+        lines.add(Component.literal("TOP 5 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(5);
         if (top.isEmpty()) {
             lines.add(Component.literal("No scores yet - survive a round to score!").withStyle(ChatFormatting.GRAY));
         } else {
-            for (int i = 0; i < 10; i++) {
-                if (i >= top.size()) {
-                    lines.add(Component.literal("#" + (i + 1) + "  ---").withStyle(ChatFormatting.DARK_GRAY));
-                    continue;
-                }
+            for (int i = 0; i < top.size(); i++) {
                 PlayerStatsManager.PlayerRecord record = top.get(i);
                 PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
                 ChatFormatting placeColor = i == 0 ? ChatFormatting.GOLD : i == 1 ? ChatFormatting.WHITE
@@ -2613,7 +2604,7 @@ public final class Arena {
                         .append(Component.literal(rank.name()).withStyle(ChatFormatting.AQUA)));
             }
         }
-        lines.add(Component.literal("/bp leaderboard  •  /bp rank").withStyle(ChatFormatting.LIGHT_PURPLE));
+        lines.add(Component.literal("/bp leaderboard  •  /bp ranklist").withStyle(ChatFormatting.LIGHT_PURPLE));
         // The panel faces west toward the lobby interior; text entities avoid mirrored block-built letters.
         for (int i = 0; i < lines.size(); i++) {
             float scale = i == 0 ? 2.8F : (i == 1 ? 2.0F : (i == lines.size() - 1 ? 1.35F : 1.55F));
