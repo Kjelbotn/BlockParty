@@ -1,3 +1,9 @@
+# BlockParty 0.19.15-alpha — Fixed Round Curve, Color Wait and COLOR RAIN
+
+- All matches now use the exact fixed 25-round countdown schedule: 6, 5.5, 5.5, 5, 5, 4.5, 4.5, 4, 4, 3.5, 3.5, 3, 3, 2.5, 2.5, 2, 2, 1.5, 1.5, 1, 1, 0.5, 0.5, 0.5, 0.5 seconds. Six seconds is the hard maximum.
+- The full floor returns after a round and remains visible for two seconds in a separate WAITING FOR COLOR phase before the next countdown starts. The first round has no extra wait.
+- Added COLOR RAIN. Collecting it only queues the effect; it does not alter the active round. On the next round, about eight percent of floor tiles receive new random palette colors, distributed over the entire floor, with falling-color particles during the two-second wait.
+
 # BlockParty 0.19.14-alpha — Reliable Music, Track Timing and Full Podium
 
 - Kept every song fully built into the mod under the original `blockparty` namespace. No external resource pack is required.

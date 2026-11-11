@@ -32,6 +32,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.AABB;
@@ -69,11 +70,11 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, INTERMISSION, FINISHING
+        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, FINISHING
     }
 
     private enum PowerUp {
-        SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING
+        SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN
     }
 
     public static final int MAX_ROUNDS = 25;
@@ -86,84 +87,29 @@ public final class Arena {
     // These transition phases pause the music, so they are deliberately not
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
-    private static final int INTERMISSION_TICKS = 25;
-    // Tracks shorter than 90 seconds use 10 rounds; tracks of 90 seconds or longer use 20.
-    // The selected track's duration is distributed across all rounds, with fixed 10s/2.5s endpoints.
-    private static final int FIRST_ROUND_DURATION_TICKS = 10 * 20;
-    private static final int LAST_ROUND_DURATION_TICKS = 50;
-    private static final int SHORT_TRACK_ROUNDS = 10;
-    private static final int SHORT_TRACK_CUTOFF_TICKS = 90 * 20;
+    private static final int WAITING_FOR_COLOR_TICKS = 40; // Two-second floor reveal between rounds
+    // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
+    private static final int[] ROUND_DURATIONS_TICKS = {
+            120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
+            70, 60, 60, 50, 50, 40, 40, 30, 30, 20,
+            20, 10, 10, 10, 10
+    };
 
     public static int getTrackRoundLimit(Track track) {
-        return track != null && track.durationTicks() < SHORT_TRACK_CUTOFF_TICKS
-                ? SHORT_TRACK_ROUNDS : MAX_ROUNDS;
+        return MAX_ROUNDS;
     }
 
     private int getMatchRoundLimit() {
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        return getTrackRoundLimit(track);
+        return MAX_ROUNDS;
     }
 
     private int getRoundDurationTicks(int roundNumber) {
-        int roundLimit = getMatchRoundLimit();
-        int index = Math.max(0, Math.min(roundNumber - 1, roundLimit - 1));
-        if (index == 0) return FIRST_ROUND_DURATION_TICKS;
-        if (index == roundLimit - 1) return LAST_ROUND_DURATION_TICKS;
-
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
-        if (track == null) {
-            double progress = index / (double) (roundLimit - 1);
-            return (int) Math.round(FIRST_ROUND_DURATION_TICKS
-                    + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
-        }
-
-        // Fit the round timers to the measured OGG duration. Preserve the 10s first round
-        // and 2.5s final round, but do not cap the total at 10 seconds per round: long tracks
-        // receive extra time across the middle rounds instead of being cut off early.
-        long minimumTicks = FIRST_ROUND_DURATION_TICKS + (long) (roundLimit - 1) * LAST_ROUND_DURATION_TICKS;
-        long maximumBaseTicks = (long) (roundLimit - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
-        long requestedTicks = Math.max(minimumTicks, track.durationTicks());
-        long curveTargetTicks = Math.min(requestedTicks, maximumBaseTicks);
-
-        double low = 0.0001;
-        double high = 10_000.0;
-        for (int iteration = 0; iteration < 64; iteration++) {
-            double middle = (low + high) / 2.0;
-            double total = 0.0;
-            for (int i = 0; i < roundLimit; i++) {
-                double progress = i / (double) (roundLimit - 1);
-                total += LAST_ROUND_DURATION_TICKS
-                        + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
-                        * Math.pow(1.0 - progress, middle);
-            }
-            if (total > curveTargetTicks) low = middle;
-            else high = middle;
-        }
-
-        double progress = index / (double) (roundLimit - 1);
-        double duration = LAST_ROUND_DURATION_TICKS
-                + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
-                * Math.pow(1.0 - progress, (low + high) / 2.0);
-
-        if (requestedTicks > maximumBaseTicks) {
-            // A smooth bell-shaped bonus distributes any remaining long-track time over
-            // the middle rounds, leaving the fixed first and last round times unchanged.
-            double weightSum = 0.0;
-            for (int i = 1; i < roundLimit - 1; i++) {
-                weightSum += Math.sin(Math.PI * i / (double) (roundLimit - 1));
-            }
-            double weight = Math.sin(Math.PI * progress);
-            if (weightSum > 0.0) duration += (requestedTicks - maximumBaseTicks) * weight / weightSum;
-        }
-        return Math.max(LAST_ROUND_DURATION_TICKS, (int) Math.round(duration));
+        int index = Math.max(0, Math.min(roundNumber - 1, ROUND_DURATIONS_TICKS.length - 1));
+        return ROUND_DURATIONS_TICKS[index];
     }
 
     private int getFallDurationTicks() {
         return FALL_TICKS;
-    }
-
-    private int getIntermissionDurationTicks() {
-        return INTERMISSION_TICKS;
     }
 
     private static final int TARGET_BLOCK_SLOT = 4; // middle hotbar slot (1-based slot 5)
@@ -248,6 +194,10 @@ public final class Arena {
     private boolean musicFinished;
     private boolean musicPaused;
     private int lastPowerupRound = -10;
+    /** COLOR RAIN collected in one round is applied only to the next generated floor. */
+    private boolean colorRainNextRound;
+    /** New floor colors waiting to land during the two-second reveal window. */
+    private final List<Map.Entry<BlockPos, BlockState>> pendingColorRainBlocks = new ArrayList<>();
     private ResourceLocation activeMusicId;
     private long originalDayTime = Long.MIN_VALUE;
     private Boolean originalDaylightCycle;
@@ -348,7 +298,7 @@ public final class Arena {
             // Once the match starts, the only permitted inventory item for active
             // dancers is the named target-colour concrete in its fixed centre slot.
             if (phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
-                    || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
+                    || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
                 boolean changed = false;
                 for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
                     ItemStack stack = player.getInventory().getItem(slot);
@@ -590,6 +540,8 @@ public final class Arena {
         soloMode = players.size() == 1;
         activeBeacons.clear();
         lastPowerupRound = -10;
+        colorRainNextRound = false;
+        pendingColorRainBlocks.clear();
         stopMusic();
         selectedMusicTrackId = selectWinningSong();
         Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
@@ -1022,14 +974,15 @@ public final class Arena {
 
         BlockState restore = activeBeacons.remove(clickedPos);
         level.setBlock(clickedPos, restore == null ? Blocks.AIR.defaultBlockState() : restore, 3);
-        int powerRoll = random.nextInt(100);
+        int powerRoll = random.nextInt(110);
         PowerUp powerUp = powerRoll < 10 ? PowerUp.SLOWNESS
                 : powerRoll < 24 ? PowerUp.LEAP
                 : powerRoll < 38 ? PowerUp.COLOR_TELEPORTER
                 : powerRoll < 52 ? PowerUp.COLOR_SCANNER
                 : powerRoll < 64 ? PowerUp.LUCKY_LANDING
                 : powerRoll < 76 ? PowerUp.SPEED_UPGRADE
-                : powerRoll < 88 ? PowerUp.SUPER_JUMP : PowerUp.NIGHT_VISION;
+                : powerRoll < 88 ? PowerUp.SUPER_JUMP
+                : powerRoll < 100 ? PowerUp.NIGHT_VISION : PowerUp.COLOR_RAIN;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1042,6 +995,7 @@ public final class Arena {
             case COLOR_TELEPORTER -> label = "COLOR TELEPORTER";
             case COLOR_SCANNER -> label = "COLOR SCANNER";
             case LUCKY_LANDING -> label = "LUCKY LANDING";
+            case COLOR_RAIN -> label = "COLOR RAIN";
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -1094,6 +1048,12 @@ public final class Arena {
                 player.teleportTo(level, destination.getX() + 0.5D, destination.getY() + 1.05D,
                         destination.getZ() + 0.5D, player.getYRot(), player.getXRot());
             }
+        } else if (powerUp == PowerUp.COLOR_RAIN) {
+            // Picking it up only schedules the effect; the current floor remains untouched.
+            colorRainNextRound = true;
+            player.sendSystemMessage(Component.literal(
+                    "COLOR RAIN aktivert! Fargerike blokker regner ned på dansegulvet neste runde.")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COLOR_SCANNER) {
             scannerTicks = 60;
             activated = true;
@@ -1719,7 +1679,7 @@ public final class Arena {
                 }
             }
         }
-        if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION
+        if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.WAITING_FOR_COLOR
                 || phase == Phase.FINISHING) && level != null) {
             // After the sunset countdown, keep the arena at its final night setting.
             if (teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
@@ -1868,16 +1828,21 @@ public final class Arena {
                     finishRound();
                 }
             }
-            case INTERMISSION -> {
+            case WAITING_FOR_COLOR -> {
+                tickColorRain();
                 timerTicks--;
-                if (timerTicks <= 0) beginRound(server);
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                    broadcastActionBar(Component.literal("WAITING FOR COLOR...")
+                            .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                }
+                if (timerTicks <= 0) startRoundCountdown(server);
             }
             case FINISHING -> {
                 timerTicks--;
                 if (timerTicks <= 0) endGame(server);
             }
         }
-        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.FINISHING) {
             enforceTargetHotbar(server);
         }
         if (phase != Phase.WAITING && scoreboardTick % 5 == 0) updateScoreboard(server);
@@ -1935,6 +1900,7 @@ public final class Arena {
             return;
         }
 
+        boolean firstRound = round == 0;
         clearActivePowerUps(server);
         removeActiveBeacon();
         round++;
@@ -1945,6 +1911,10 @@ public final class Arena {
             declareWinner();
             return;
         }
+
+        // Apply any queued COLOR RAIN only now, on the freshly generated next-round floor.
+        prepareColorRainForNextRound();
+
         List<DyeColor> choices = new ArrayList<>(roundColors);
         targetColor = choices.get(random.nextInt(choices.size()));
         if (choices.size() > 1 && targetColor == previousTargetColor) {
@@ -1953,6 +1923,31 @@ public final class Arena {
         }
         previousTargetColor = targetColor;
 
+        if (firstRound) {
+            startRoundCountdown(server);
+        } else {
+            // The full floor comes back first. Hide the target and wait two seconds
+            // before starting this round's countdown.
+            for (UUID uuid : alive) {
+                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                if (player != null) {
+                    player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
+                    player.getInventory().selected = TARGET_BLOCK_SLOT;
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+                    player.getInventory().setChanged();
+                    player.inventoryMenu.broadcastChanges();
+                }
+            }
+            phase = Phase.WAITING_FOR_COLOR;
+            timerTicks = WAITING_FOR_COLOR_TICKS;
+            broadcastActionBar(Component.literal("WAITING FOR COLOR...")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+            updateScoreboard(server);
+        }
+    }
+
+    /** Reveals the target and starts the exact round timer after the two-second wait. */
+    private void startRoundCountdown(MinecraftServer server) {
         updateArenaAccents(targetColor);
         updateTargetItems(server);
         updateColorDisplay();
@@ -1963,9 +1958,73 @@ public final class Arena {
         broadcastTargetHud();
         playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 1.0F);
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.55F, 1.0F);
-        // Up to five widely spaced beacons may appear in a round; they are intentionally rare.
         spawnPowerUpBeacons(5);
         updateScoreboard(server);
+    }
+
+    /** Selects random replacement tiles in cells distributed across the complete dance floor. */
+    private void prepareColorRainForNextRound() {
+        pendingColorRainBlocks.clear();
+        if (!colorRainNextRound || level == null || floorSnapshot.isEmpty() || palette.size() < 2) return;
+        colorRainNextRound = false;
+
+        int minX = Math.min(pos1.getX(), pos2.getX());
+        int maxX = Math.max(pos1.getX(), pos2.getX());
+        int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int maxZ = Math.max(pos1.getZ(), pos2.getZ());
+        int width = maxX - minX + 1;
+        int depth = maxZ - minZ + 1;
+        int targetCount = Math.min(floorSnapshot.size(), Math.max(12,
+                (int) Math.ceil(floorSnapshot.size() * 0.08D)));
+        int columns = Math.min(width, Math.max(1,
+                (int) Math.ceil(Math.sqrt(targetCount * width / (double) depth))));
+        int rows = Math.min(depth, Math.max(1, (int) Math.ceil(targetCount / (double) columns)));
+
+        for (int row = 0; row < rows && pendingColorRainBlocks.size() < targetCount; row++) {
+            int z0 = minZ + row * depth / rows;
+            int z1 = minZ + (row + 1) * depth / rows - 1;
+            for (int column = 0; column < columns && pendingColorRainBlocks.size() < targetCount; column++) {
+                int x0 = minX + column * width / columns;
+                int x1 = minX + (column + 1) * width / columns - 1;
+                List<BlockPos> cell = floorSnapshot.keySet().stream()
+                        .filter(pos -> pos.getX() >= x0 && pos.getX() <= x1
+                                && pos.getZ() >= z0 && pos.getZ() <= z1)
+                        .toList();
+                if (cell.isEmpty()) continue;
+                BlockPos tile = cell.get(random.nextInt(cell.size())).immutable();
+
+                DyeColor currentColor = BlockPartyColors.getColor(floorSnapshot.get(tile));
+                List<DyeColor> alternatives = new ArrayList<>(palette);
+                alternatives.remove(currentColor);
+                if (alternatives.isEmpty()) continue;
+                DyeColor rainColor = alternatives.get(random.nextInt(alternatives.size()));
+                BlockState newState = BlockPartyColors.getConcrete(rainColor).defaultBlockState();
+                floorSnapshot.put(tile, newState);
+                pendingColorRainBlocks.add(Map.entry(tile, newState));
+            }
+        }
+
+        if (!pendingColorRainBlocks.isEmpty()) {
+            broadcast(Component.literal("🌈 COLOR RAIN! " + pendingColorRainBlocks.size()
+                    + " blokker får nye farger over hele dansegulvet!")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        }
+    }
+
+    /** Releases the queued color rain gradually throughout the 40-tick floor reveal. */
+    private void tickColorRain() {
+        if (level == null || pendingColorRainBlocks.isEmpty()) return;
+        int ticksLeft = Math.max(1, timerTicks);
+        int batchSize = Math.max(1, (int) Math.ceil(pendingColorRainBlocks.size() / (double) ticksLeft));
+        for (int i = 0; i < batchSize && !pendingColorRainBlocks.isEmpty(); i++) {
+            Map.Entry<BlockPos, BlockState> falling = pendingColorRainBlocks.remove(0);
+            BlockPos tile = falling.getKey();
+            BlockState state = falling.getValue();
+            BlockParticleOption particle = new BlockParticleOption(ParticleTypes.FALLING_DUST, state);
+            level.sendParticles(particle, tile.getX() + 0.5D, tile.getY() + 2.2D, tile.getZ() + 0.5D,
+                    0, 0.0D, -0.35D, 0.0D, 1.0D);
+            level.setBlock(tile, state, 3);
+        }
     }
 
     private void broadcastTargetHud() {
@@ -2042,7 +2101,8 @@ public final class Arena {
         int matchPoints = profilePlayer == null ? 0 : points.getOrDefault(profilePlayer.getUUID(), 0);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
         String timeText = (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN) ? "NEDTELLING" :
-                (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.INTERMISSION)
+                phase == Phase.WAITING_FOR_COLOR ? "WAITING FOR COLOR" :
+                (phase == Phase.PREPARE || phase == Phase.FALL)
                         ? formatSeconds(getRoundDurationTicks(round)) + "s" : "--";
         PlayerStatsManager.PlayerRecord profile = profilePlayer == null
                 ? null : PlayerStatsManager.getRecord(profilePlayer.getUUID());
@@ -2335,8 +2395,7 @@ public final class Arena {
         clearActivePowerUps(level.getServer());
         removeActiveBeacon();
 
-        // The remaining target-colour tiles stay visible for the full 3-second transition.
-        // Transition durations scale with the selected song so all 20 rounds fit its playback window.
+        // Restore the next floor right away, then show WAITING FOR COLOR for two seconds.
         broadcastActionBar(Component.literal("RUNDE " + round + " FULLFØRT  •  " + alive.size() + " IGJEN")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         refreshLobbyDisplays();
@@ -2345,15 +2404,11 @@ public final class Arena {
             declareWinner();
         } else if (soloMode) {
             if (round >= getMatchRoundLimit()) declareWinner();
-            else {
-                phase = Phase.INTERMISSION;
-                timerTicks = getIntermissionDurationTicks();
-            }
+            else beginRound(level.getServer());
         } else if (alive.size() <= 1 || round >= getMatchRoundLimit()) {
             declareWinner();
         } else {
-            phase = Phase.INTERMISSION;
-            timerTicks = getIntermissionDurationTicks();
+            beginRound(level.getServer());
         }
         updateScoreboard(level.getServer());
     }
@@ -2361,6 +2416,8 @@ public final class Arena {
     private void declareWinner() {
         if (phase == Phase.FINISHING) return;
         stopMusic();
+        colorRainNextRound = false;
+        pendingColorRainBlocks.clear();
         lastMatchDurationTicks = Math.max(0L, scoreboardTick - matchStartTick);
         playSound(ModSounds.VICTORY, SoundSource.PLAYERS, 1.0F, 1.0F);
         clearActivePowerUps(level.getServer());
@@ -2658,7 +2715,7 @@ public final class Arena {
     private void refreshLobbyLeaderboard() {
         if (level == null || !lobbySet) return;
         if (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
-                || phase == Phase.INTERMISSION || phase == Phase.FINISHING) {
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             hideLobbyLeaderboard();
             return;
         }
@@ -2743,7 +2800,7 @@ public final class Arena {
 
     private boolean isGameInProgress() {
         return phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
-                || phase == Phase.INTERMISSION || phase == Phase.FINISHING;
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING;
     }
 
     private static String formatSeconds(int ticks) {
