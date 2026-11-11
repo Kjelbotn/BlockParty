@@ -87,16 +87,60 @@ public final class Arena {
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25;
-    // Round one starts at 10 seconds; each following round gets progressively shorter.
-    // Round 20 is never shorter than 2.5 seconds, regardless of the selected song length.
+    // Every song keeps the same endpoints: 10 seconds on round 1 and 2.5 seconds on round 20.
+    // The 18 rounds in between are curved to fit the song's duration. Shorter songs
+    // descend more quickly; longer songs keep more time in the middle rounds.
     private static final int FIRST_ROUND_DURATION_TICKS = 10 * 20;
     private static final int LAST_ROUND_DURATION_TICKS = 50;
+    private static final int MIN_MATCH_ROUND_TICKS =
+            FIRST_ROUND_DURATION_TICKS + (MAX_ROUNDS - 1) * LAST_ROUND_DURATION_TICKS;
+    private static final int MAX_MATCH_ROUND_TICKS =
+            (MAX_ROUNDS - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
 
     private int getRoundDurationTicks(int roundNumber) {
         int index = Math.max(0, Math.min(roundNumber - 1, MAX_ROUNDS - 1));
+        if (index == 0) return FIRST_ROUND_DURATION_TICKS;
+        if (index == MAX_ROUNDS - 1) return LAST_ROUND_DURATION_TICKS;
+
+        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        if (track == null) {
+            double progress = index / (double) (MAX_ROUNDS - 1);
+            return (int) Math.round(FIRST_ROUND_DURATION_TICKS
+                    + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
+        }
+
+        // The endpoints and 2.5-second floor mean the playable round-time budget
+        // must be between 57.5 and 192.5 seconds. Clamp tracks outside that range.
+        long targetTicks = Math.max(MIN_MATCH_ROUND_TICKS,
+                Math.min(MAX_MATCH_ROUND_TICKS, (long) track.durationTicks()));
+
+        // Find the power-curve exponent whose 20 round timers add up to the
+        // selected track's duration. A small exponent keeps middle rounds longer;
+        // a large exponent makes short-song matches descend rapidly toward 2.5s.
+        double low = 0.0001;
+        double high = 10_000.0;
+        for (int iteration = 0; iteration < 64; iteration++) {
+            double middle = (low + high) / 2.0;
+            double total = 0.0;
+            for (int i = 0; i < MAX_ROUNDS; i++) {
+                double progress = i / (double) (MAX_ROUNDS - 1);
+                total += LAST_ROUND_DURATION_TICKS
+                        + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
+                        * Math.pow(1.0 - progress, middle);
+            }
+            if (total > targetTicks) {
+                low = middle;
+            } else {
+                high = middle;
+            }
+        }
+
         double progress = index / (double) (MAX_ROUNDS - 1);
-        return (int) Math.round(FIRST_ROUND_DURATION_TICKS
-                + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
+        double duration = LAST_ROUND_DURATION_TICKS
+                + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
+                * Math.pow(1.0 - progress, (low + high) / 2.0);
+        return Math.max(LAST_ROUND_DURATION_TICKS,
+                Math.min(FIRST_ROUND_DURATION_TICKS, (int) Math.round(duration)));
     }
 
     private int getFallDurationTicks() {
