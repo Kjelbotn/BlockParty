@@ -1,3 +1,10 @@
+# BlockParty 0.19.8-alpha — Song-Scaled Round Timing Hotfix
+
+- Restored song-length-based round scaling while keeping fixed endpoints: round 1 is always 10 seconds and round 20 is always 2.5 seconds.
+- The 18 middle-round timers now adapt to the selected track using a duration-fitted curve: shorter tracks descend faster and produce shorter matches; longer tracks retain more time in the middle rounds.
+- Every round remains within the 2.5–10 second range.
+- The achievable 20-round timer budget is clamped to 57.5–192.5 seconds because the first and last round durations are fixed and every round has a 2.5-second minimum.
+
 # BlockParty 0.19.7-alpha — Lobby Information Panels
 
 - Added a dedicated “NYTTIGE KOMMANDOER” panel beside the lobby leaderboard with /bp leaderboard, /bp ranklist and /bp profile plus short descriptions.
