@@ -985,7 +985,7 @@ public final class Arena {
         if (powerUp == PowerUp.LEAP) {
             ItemStack feather = new ItemStack(Items.FEATHER);
             feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
-                    .withStyle(ChatFormatting.AQUA));
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
             feather.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
             int freeSlot = -1;
             for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
@@ -2376,7 +2376,7 @@ public final class Arena {
                     + points.getOrDefault(uuid, 0) + " runder overlevd  •  "
                     + powerupsCollected.getOrDefault(uuid, 0) + " power-ups  •  "
                     + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
-                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                    .withStyle(ChatFormatting.AQUA));
         }
         phase = Phase.FINISHING;
         timerTicks = 120;
