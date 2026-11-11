@@ -87,57 +87,54 @@ public final class Arena {
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
     private static final int INTERMISSION_TICKS = 25;
-    // Every song keeps the same endpoints: 10 seconds on round 1 and 2.5 seconds on round 20.
-    // The 18 rounds in between are curved to fit the song's duration. Shorter songs
-    // descend more quickly; longer songs keep more time in the middle rounds.
+    // Tracks shorter than 90 seconds use 10 rounds; tracks of 90 seconds or longer use 20.
+    // The selected track's duration is distributed across all rounds, with fixed 10s/2.5s endpoints.
     private static final int FIRST_ROUND_DURATION_TICKS = 10 * 20;
     private static final int LAST_ROUND_DURATION_TICKS = 50;
-    // A 125-second pacing floor keeps the full 20-round progression smooth for short tracks.
-    // This is the total of a linear 10s-to-2.5s sequence; longer tracks may stretch it further.
-    private static final int MIN_MATCH_ROUND_TICKS = 125 * 20;
-    private static final int MAX_MATCH_ROUND_TICKS =
-            (MAX_ROUNDS - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
+    private static final int SHORT_TRACK_ROUNDS = 10;
+    private static final int SHORT_TRACK_CUTOFF_TICKS = 90 * 20;
+
+    private int getMatchRoundLimit() {
+        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        return track != null && track.durationTicks() < SHORT_TRACK_CUTOFF_TICKS
+                ? SHORT_TRACK_ROUNDS : MAX_ROUNDS;
+    }
 
     private int getRoundDurationTicks(int roundNumber) {
-        int index = Math.max(0, Math.min(roundNumber - 1, MAX_ROUNDS - 1));
+        int roundLimit = getMatchRoundLimit();
+        int index = Math.max(0, Math.min(roundNumber - 1, roundLimit - 1));
         if (index == 0) return FIRST_ROUND_DURATION_TICKS;
-        if (index == MAX_ROUNDS - 1) return LAST_ROUND_DURATION_TICKS;
+        if (index == roundLimit - 1) return LAST_ROUND_DURATION_TICKS;
 
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
         if (track == null) {
-            double progress = index / (double) (MAX_ROUNDS - 1);
+            double progress = index / (double) (roundLimit - 1);
             return (int) Math.round(FIRST_ROUND_DURATION_TICKS
                     + (LAST_ROUND_DURATION_TICKS - FIRST_ROUND_DURATION_TICKS) * progress);
         }
 
-        // Keep enough total time for a smooth descent across all 20 rounds.
-        // Songs below 125 seconds use a linear-equivalent 125-second pacing floor;
-        // longer songs continue to scale up to the maximum possible budget of 192.5 seconds.
-        long targetTicks = Math.max(MIN_MATCH_ROUND_TICKS,
-                Math.min(MAX_MATCH_ROUND_TICKS, (long) track.durationTicks()));
+        // The first and last timers are fixed. Clamp only to the mathematically possible
+        // total for this round count, then solve a smooth power curve for the selected song.
+        long minTotalTicks = FIRST_ROUND_DURATION_TICKS + (long) (roundLimit - 1) * LAST_ROUND_DURATION_TICKS;
+        long maxTotalTicks = (long) (roundLimit - 1) * FIRST_ROUND_DURATION_TICKS + LAST_ROUND_DURATION_TICKS;
+        long targetTicks = Math.max(minTotalTicks, Math.min(maxTotalTicks, (long) track.durationTicks()));
 
-        // Find the power-curve exponent whose 20 round timers add up to the
-        // selected track's duration. A small exponent keeps middle rounds longer;
-        // a large exponent makes short-song matches descend rapidly toward 2.5s.
         double low = 0.0001;
         double high = 10_000.0;
         for (int iteration = 0; iteration < 64; iteration++) {
             double middle = (low + high) / 2.0;
             double total = 0.0;
-            for (int i = 0; i < MAX_ROUNDS; i++) {
-                double progress = i / (double) (MAX_ROUNDS - 1);
+            for (int i = 0; i < roundLimit; i++) {
+                double progress = i / (double) (roundLimit - 1);
                 total += LAST_ROUND_DURATION_TICKS
                         + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
                         * Math.pow(1.0 - progress, middle);
             }
-            if (total > targetTicks) {
-                low = middle;
-            } else {
-                high = middle;
-            }
+            if (total > targetTicks) low = middle;
+            else high = middle;
         }
 
-        double progress = index / (double) (MAX_ROUNDS - 1);
+        double progress = index / (double) (roundLimit - 1);
         double duration = LAST_ROUND_DURATION_TICKS
                 + (FIRST_ROUND_DURATION_TICKS - LAST_ROUND_DURATION_TICKS)
                 * Math.pow(1.0 - progress, (low + high) / 2.0);
@@ -499,7 +496,9 @@ public final class Arena {
         fullLobbyInventoryNotices.remove(uuid);
         musicVotes.remove(uuid);
         musicVotingUnlocked.remove(uuid);
-        restorePlayerState(player);
+        // Move the player back to the saved Survival location before restoring the
+        // original inventory. This makes the final armor/offhand/inventory sync happen
+        // after any dimension/position transition, while the lobby itself stays BP-only.
         if (teleport && wasMember) {
             ReturnLocation origin = returnLocations.remove(uuid);
             if (origin != null) {
@@ -511,6 +510,7 @@ public final class Arena {
         } else if (wasMember && !teleport) {
             returnLocations.remove(uuid);
         }
+        restorePlayerState(player);
 
         if (wasMember) {
             player.sendSystemMessage(Component.literal("Du forlot BlockParty-arenaen '" + id + "'.").withStyle(ChatFormatting.GRAY));
@@ -1433,7 +1433,7 @@ public final class Arena {
         boolean changed = false;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (isMusicVotingBook(stack) || isJoinGameItem(stack) || isLeaveLobbyItem(stack)) {
+            if (isMusicVotingBook(stack) || isJoinGameItem(stack) || isLeaveLobbyItem(stack) || isHubItem(stack)) {
                 player.getInventory().setItem(i, ItemStack.EMPTY);
                 changed = true;
             }
@@ -1900,7 +1900,7 @@ public final class Arena {
             declareWinner();
             return;
         }
-        if (round >= MAX_ROUNDS) {
+        if (round >= getMatchRoundLimit()) {
             declareWinner();
             return;
         }
@@ -2027,7 +2027,7 @@ public final class Arena {
                 Component.literal(Integer.toString(alive.size())).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                 Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
                 Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
-                Component.literal("Round: " + round + " / " + MAX_ROUNDS).withStyle(ChatFormatting.WHITE),
+                Component.literal("Round: " + round + " / " + getMatchRoundLimit()).withStyle(ChatFormatting.WHITE),
                 Component.literal("Round Length: " + timeText).withStyle(ChatFormatting.GRAY),
                 Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY),
                 Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
@@ -2112,7 +2112,8 @@ public final class Arena {
                 case 13 -> index = (x ^ z ^ twist); // one-tile checker pattern
                 case 14 -> index = x * 3 + z * 5 + (x * z) % 7 + twist; // fractured mosaic
                 default -> {
-                    int cell = round >= 21 ? 1 : round >= 16 ? 2 : 3;
+                    int roundLimit = getMatchRoundLimit();
+                    int cell = round >= roundLimit ? 1 : round >= (int) Math.ceil(roundLimit * 0.8) ? 2 : 3;
                     index = (x / cell) + (z / cell) * 2 + ((x % cell == 0 || z % cell == 0) ? twist : 0);
                 } // tight interlocking micro-grid
             }
@@ -2313,12 +2314,12 @@ public final class Arena {
         if (alive.isEmpty()) {
             declareWinner();
         } else if (soloMode) {
-            if (round >= MAX_ROUNDS) declareWinner();
+            if (round >= getMatchRoundLimit()) declareWinner();
             else {
                 phase = Phase.INTERMISSION;
                 timerTicks = getIntermissionDurationTicks();
             }
-        } else if (alive.size() <= 1 || round >= MAX_ROUNDS) {
+        } else if (alive.size() <= 1 || round >= getMatchRoundLimit()) {
             declareWinner();
         } else {
             phase = Phase.INTERMISSION;
@@ -2343,7 +2344,7 @@ public final class Arena {
         } else if (alive.isEmpty() && lastEliminatedPlayer != null && players.size() >= MIN_PLAYERS) {
             // If the final two players fall in the same resolution window, the last processed fall wins.
             winner = level.getServer().getPlayerList().getPlayer(lastEliminatedPlayer);
-        } else if (round >= MAX_ROUNDS && !alive.isEmpty()) {
+        } else if (round >= getMatchRoundLimit() && !alive.isEmpty()) {
             winner = alive.stream().map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
                     .filter(java.util.Objects::nonNull)
                     .max(java.util.Comparator.comparingInt(player -> points.getOrDefault(player.getUUID(), 0)))
@@ -2403,7 +2404,7 @@ public final class Arena {
         } else if (alive.isEmpty()) {
             broadcast(Component.literal("BlockParty er ferdig – ingen overlevde denne gangen.").withStyle(ChatFormatting.GRAY));
         } else {
-            broadcast(Component.literal("🏆 25 RUNDER FULLFØRT! Alle gjenværende spillere vinner! 🏆")
+            broadcast(Component.literal("🏆 " + getMatchRoundLimit() + " RUNDER FULLFØRT! Alle gjenværende spillere vinner! 🏆")
                     .withStyle(ChatFormatting.GOLD));
         }
         broadcast(Component.literal("MATCHVARIGHET: " + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
@@ -2722,7 +2723,7 @@ public final class Arena {
     }
 
     public String getStatusText() {
-        return "Arena " + id + " | Status: " + phase.name() + " | Spillere: " + players.size() + " | Runde: " + round + "/" + MAX_ROUNDS + " | Power-ups: " + activeBeacons.size();
+        return "Arena " + id + " | Status: " + phase.name() + " | Spillere: " + players.size() + " | Runde: " + round + "/" + getMatchRoundLimit() + " | Power-ups: " + activeBeacons.size();
     }
 
     public void setLoadedCorners(BlockPos first, BlockPos second) {
@@ -2772,6 +2773,9 @@ public final class Arena {
             for (int i = 0; i < inventory.offhand.size(); i++)
                 inventory.offhand.set(i, i < offhand.size() ? offhand.get(i).copy() : ItemStack.EMPTY);
             inventory.selected = Math.max(0, Math.min(8, selectedSlot));
+            // Mark the complete inventory dirty after restoring all three independent
+            // containers; the menu broadcast then synchronizes armor and offhand too.
+            inventory.setChanged();
             player.inventoryMenu.broadcastChanges();
         }
     }
