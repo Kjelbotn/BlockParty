@@ -196,9 +196,9 @@ public final class PlayerStatsManager {
     }
 
     public static void sendLeaderboard(ServerPlayer player) {
-        List<PlayerRecord> top = topPlayers(10);
+        List<PlayerRecord> top = topPlayers(5);
         player.sendSystemMessage(Component.literal("BLOCKPARTY LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("TOP 10 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("TOP 5 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         if (top.isEmpty()) {
             player.sendSystemMessage(Component.literal("Ingen poeng registrert ennå. Overlev en runde for å få ditt første poeng!").withStyle(ChatFormatting.GRAY));
             return;
@@ -212,6 +212,32 @@ public final class PlayerStatsManager {
                     .append(Component.literal("  " + record.points() + " pts ").withStyle(ChatFormatting.AQUA))
                     .append(Component.literal("[" + rank.name() + "]").withStyle(ChatFormatting.GREEN)));
         }
+    }
+
+    /** Prints every rank and the permanent point threshold required to reach it. */
+    public static void sendRankList(ServerPlayer player) {
+        player.sendSystemMessage(Component.literal("BLOCKPARTY RANK LIST").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("Rankene låses opp ved å samle poeng ved å overleve runder.")
+                .withStyle(ChatFormatting.GRAY));
+        for (int i = 0; i < RANK_NAMES.length; i++) {
+            ChatFormatting colour = switch (i) {
+                case 0 -> ChatFormatting.GRAY;
+                case 1 -> ChatFormatting.GOLD;
+                case 2 -> ChatFormatting.AQUA;
+                case 3 -> ChatFormatting.YELLOW;
+                case 4 -> ChatFormatting.LIGHT_PURPLE;
+                case 5 -> ChatFormatting.BLUE;
+                case 6 -> ChatFormatting.RED;
+                default -> ChatFormatting.DARK_PURPLE;
+            };
+            String requirement = i == 0 ? "Startnivå" : RANK_THRESHOLDS[i] + " poeng";
+            player.sendSystemMessage(Component.literal((i + 1) + ". ")
+                    .withStyle(ChatFormatting.DARK_GRAY)
+                    .append(Component.literal(RANK_NAMES[i]).withStyle(colour))
+                    .append(Component.literal(" — " + requirement).withStyle(ChatFormatting.GRAY)));
+        }
+        player.sendSystemMessage(Component.literal("Bruk /bp rank for å se din nåværende rank.")
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 
     public static void sendProfile(ServerPlayer player) { sendPlayerRank(player); }
