@@ -34,6 +34,7 @@ public final class BlockPartyCommands {
                                 .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), ArenaGenerator.DEFAULT_SIZE))
                                 .then(Commands.argument("size", IntegerArgumentType.integer(ArenaGenerator.MIN_SIZE, ArenaGenerator.MAX_SIZE))
                                         .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
+                .then(Commands.literal("xmas").executes(context -> join(context.getSource(), "xmas")))
                 .then(Commands.literal("arenas")
                         .executes(context -> publicArenaList(context.getSource())))
                 .then(Commands.literal("create")
@@ -120,6 +121,7 @@ public final class BlockPartyCommands {
 
     private static int generate(CommandSourceStack source, String id, int size) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
+        if ("xmas".equalsIgnoreCase(id)) return generateXmas(source, player);
         if (!id.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9_-]{1,32}")) {
             source.sendFailure(Component.literal("Arena-ID må inneholde 1–32 tegn: a-z, 0-9, _ eller -."));
             return 0;
@@ -153,6 +155,34 @@ public final class BlockPartyCommands {
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal("Kunne ikke generere arenaen: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+
+    private static int generateXmas(CommandSourceStack source, ServerPlayer player) {
+        ArenaManager manager = ArenaManager.get();
+        Arena existing = manager.get("xmas");
+        if (existing != null && (existing.getPlayerCount() > 0 || existing.isRunning())) {
+            source.sendFailure(Component.literal("Xmas-arenaen er i bruk. Stopp kampen og tøm arenaen før du genererer på nytt."));
+            return 0;
+        }
+        try {
+            source.sendSuccess(() -> Component.literal("Genererer BlockParty Xmas ...").withStyle(ChatFormatting.YELLOW), true);
+            SchematicArenaGenerator.Result layout = SchematicArenaGenerator.generate(player.serverLevel(), player.blockPosition());
+            if (existing != null) manager.remove("xmas");
+            Arena arena = manager.create("xmas", player);
+            arena.setCorner(1, layout.floorFirst());
+            arena.setCorner(2, layout.floorSecond());
+            arena.setTargetDisplay(layout.displayCenter(), layout.displayYaw());
+            arena.setLobby(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
+            manager.save(source.getServer());
+            player.teleportTo(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
+            arena.ensureLobbyItems(player);
+            source.sendSuccess(() -> Component.literal("Xmas er generert! Bruk /bp xmas for å gå inn.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+            return 1;
+        } catch (Exception exception) {
+            source.sendFailure(Component.literal("Kunne ikke generere Xmas: " + exception.getMessage()));
             return 0;
         }
     }
