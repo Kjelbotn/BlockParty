@@ -107,6 +107,17 @@ public final class PlayerStatsManager {
         }
     }
 
+    /** Adds a daily-challenge reward without changing win or round records. */
+    public static synchronized int addBonusPoints(MinecraftServer server, ServerPlayer player, int bonusPoints) {
+        if (bonusPoints <= 0) return getPoints(player.getUUID());
+        PlayerRecord old = getOrCreate(player);
+        int updatedPoints = old.points() + bonusPoints;
+        PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
+                updatedPoints, old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards()));
+        save(server);
+        return updatedPoints;
+    }
+
     /**
      * Adds one permanent point for each round survived and updates the personal round record.
      * Deliberately does not change currentStreak/bestStreak: those count match victories only.

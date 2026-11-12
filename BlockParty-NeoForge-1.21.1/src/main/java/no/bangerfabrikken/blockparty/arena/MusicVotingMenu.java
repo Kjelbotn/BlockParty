@@ -92,7 +92,9 @@ final class MusicVotingMenu extends ChestMenu {
                 default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
-            icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())
+            Component trackTitle = Component.literal(selected ? "✓ " : "")
+                    .append(MusicTrackManager.displayNameComponent(track.name()));
+            icon.set(DataComponents.CUSTOM_NAME, trackTitle
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
 
             long votes = arena.getTrackVoteCount(track.id());

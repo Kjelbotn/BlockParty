@@ -86,7 +86,7 @@
     },
     {
       "id": "luxus_leverpostei_195",
-      "name": "§195",
+      "name": "§95",
       "artist": "Luxus Leverpostei",
       "bpm": 0
     },
@@ -100,6 +100,12 @@
       "id": "oingo_boingo_little_girls_pedobear",
       "name": "Little Girls [PedoBear]",
       "artist": "Oingo Boingo",
+      "bpm": 0
+    },
+    {
+      "id": "inni_hodet_ditt",
+      "name": "Inni Hodet Ditt",
+      "artist": "BareTruls",
       "bpm": 0
     }
   ]

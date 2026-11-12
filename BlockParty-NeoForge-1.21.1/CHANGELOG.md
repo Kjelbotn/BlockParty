@@ -1,3 +1,12 @@
+# BlockParty 1.1.0 — Memory Mode, Daily Challenges and polish
+
+- Added Memory Mode as an alternative to Classic. The floor colours are shown for five seconds, then hidden as gray concrete; players must remember where the announced target colour was. The server retains the original floor pattern for fair validation.
+- Added a lobby Game Mode menu. Registered players' preferences are counted and the majority selects the next match; ties default to Classic.
+- Added three daily challenges selected from a rotating pool. Individual progress and completion checkmarks are saved per player, and completed challenges grant bonus points.
+- Added colourful firework-like bursts around podium finishers for the five-second podium presentation.
+- Restored BareTruls — Inni Hodet Ditt to the music vote list and registered its existing OGG asset.
+- Fixed the vote menu rendering of the literal song title §95 so the section sign is not interpreted as a Minecraft colour code.
+
 # BlockParty 1.0.3 — Countdown pitch adjustment
 
 - Shifted the between-round 3–2–1 Note Block countdown down one pitch step: 3 seconds now uses the former 2-second tone, 2 seconds uses the former 1-second tone, and 1 second adds a new darker tone.
