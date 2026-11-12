@@ -1,3 +1,7 @@
+# BlockParty 1.0.3 — Countdown pitch adjustment
+
+- Shifted the between-round 3–2–1 Note Block countdown down one pitch step: 3 seconds now uses the former 2-second tone, 2 seconds uses the former 1-second tone, and 1 second adds a new darker tone.
+
 # BlockParty 1.0.2 — Chat and Color Scanner fixes
 
 - Removed the [MUSIKK] prefix and bold styling from music vote announcements; messages now use normal-weight text.

@@ -1865,11 +1865,12 @@ public final class Arena {
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
                 if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
-                    // Three clear, descending note-block plings: bright, lower, then darker.
+                    // Three descending note-block plings: reuse the former 2s and 1s tones,
+                    // then add one darker step for the final second.
                     float pitch = switch (timerTicks / 20) {
-                        case 3 -> 1.26F;
-                        case 2 -> 1.0F;
-                        default -> 0.79F;
+                        case 3 -> 1.0F;
+                        case 2 -> 0.79F;
+                        default -> 0.63F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_PLING, SoundSource.PLAYERS, 1.15F, pitch);
                 }
