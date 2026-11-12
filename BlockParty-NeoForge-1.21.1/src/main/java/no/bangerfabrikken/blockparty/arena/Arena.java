@@ -88,7 +88,7 @@ public final class Arena {
     // These transition phases pause the music, so they are deliberately not
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
-    private static final int WAITING_FOR_COLOR_TICKS = 40; // Two-second floor reveal between rounds
+    private static final int WAITING_FOR_COLOR_TICKS = 20; // One-second floor reveal between rounds
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
             120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
@@ -1626,12 +1626,18 @@ public final class Arena {
         if (track.id().equals(previousVote)) {
             player.sendSystemMessage(Component.literal("Du har allerede valgt denne sangen.")
                     .withStyle(ChatFormatting.YELLOW));
-        } else if (previousVote != null) {
-            player.sendSystemMessage(Component.literal("Stemmen din er endret til " + track.name() + " — " + track.artist() + ".")
-                    .withStyle(ChatFormatting.GREEN));
         } else {
-            player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
-                    .withStyle(ChatFormatting.GREEN));
+            Component voteMessage = Component.literal("[MUSIKK] ")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
+                    .append(Component.literal(player.getGameProfile().getName())
+                            .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
+                    .append(Component.literal(previousVote == null ? " stemte på " : " endret stemmen sin til ")
+                            .withStyle(ChatFormatting.GRAY))
+                    .append(Component.literal(track.name())
+                            .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD))
+                    .append(Component.literal(" — " + track.artist() + ".")
+                            .withStyle(ChatFormatting.GRAY));
+            broadcast(voteMessage);
         }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
@@ -1835,12 +1841,13 @@ public final class Arena {
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
                 if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                    // Three clear, descending note-block plings: bright, lower, then darker.
                     float pitch = switch (timerTicks / 20) {
-                        case 3 -> 0.95F;
-                        case 2 -> 0.75F;
-                        default -> 0.55F;
+                        case 3 -> 1.26F;
+                        case 2 -> 1.0F;
+                        default -> 0.79F;
                     };
-                    playSound(SoundEvents.NOTE_BLOCK_BASEDRUM, SoundSource.PLAYERS, 0.9F, pitch);
+                    playSound(SoundEvents.NOTE_BLOCK_PLING, SoundSource.PLAYERS, 1.15F, pitch);
                 }
                 if (timerTicks <= 0) {
                     rememberTargetContacts(server);

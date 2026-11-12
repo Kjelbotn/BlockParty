@@ -1,3 +1,9 @@
+# BlockParty 1.0.1 — Match flow and audio polish
+
+- Reduced the between-round floor restoration pause from two seconds to one second; music and the next target now return sooner.
+- Replaced the low bass-drum countdown cue with three clearer, descending Note Block Pling notes at 3, 2 and 1 seconds before the floor falls.
+- Announced new music votes and changed votes in the arena chat, showing the player's name and selected song.
+
 # BlockParty 1.0.0 — First stable release
 
 - Declared BlockParty 1.0.0 as the first stable, fully playable release.
