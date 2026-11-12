@@ -238,7 +238,10 @@ public final class ArenaManager {
                     arena.setLoadedCorners(parseBlockPos(first), parseBlockPos(second));
                 }
                 String display = properties.getProperty(prefix + "display", "");
-                if (!display.isBlank()) arena.setLoadedDisplayCenter(parseBlockPos(display));
+                if (!display.isBlank()) {
+                    float displayYaw = Float.parseFloat(properties.getProperty(prefix + "displayYaw", "0"));
+                    arena.setLoadedTargetDisplay(parseBlockPos(display), displayYaw);
+                }
                 String lobby = properties.getProperty(prefix + "lobby", "");
                 if (!lobby.isBlank()) {
                     String[] parts = lobby.split(",");
@@ -270,7 +273,10 @@ public final class ArenaManager {
             properties.setProperty(prefix + "dimension", arena.getDimensionId());
             if (arena.getPos1() != null) properties.setProperty(prefix + "pos1", serialize(arena.getPos1()));
             if (arena.getPos2() != null) properties.setProperty(prefix + "pos2", serialize(arena.getPos2()));
-            if (arena.getDisplayCenter() != null) properties.setProperty(prefix + "display", serialize(arena.getDisplayCenter()));
+            if (arena.getDisplayCenter() != null) {
+                properties.setProperty(prefix + "display", serialize(arena.getDisplayCenter()));
+                properties.setProperty(prefix + "displayYaw", Float.toString(arena.getTargetDisplayYaw()));
+            }
             properties.setProperty(prefix + "lobby", String.join(",",
                     Double.toString(arena.getLobbyX()),
                     Double.toString(arena.getLobbyY()),
