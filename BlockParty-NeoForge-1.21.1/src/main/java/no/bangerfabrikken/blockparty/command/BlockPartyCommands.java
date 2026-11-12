@@ -15,6 +15,7 @@ import no.bangerfabrikken.blockparty.arena.ArenaGenerator;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
 import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
 import no.bangerfabrikken.blockparty.arena.MusicTrackManager;
+import no.bangerfabrikken.blockparty.arena.SchematicArenaGenerator;
 
 public final class BlockPartyCommands {
     private BlockPartyCommands() {
