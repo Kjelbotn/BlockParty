@@ -495,9 +495,11 @@ public final class ArenaGenerator {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static BlockState applySchematicProperty(BlockState state, Property property, String value) {
-        Object parsed = property.getValue(value).orElseThrow(
-                () -> new IllegalStateException("Ugyldig blokkverdi i Winter Map: " + value));
-        return state.setValue(property, (Comparable) parsed);
+        java.util.Optional<?> parsed = property.getValue(value);
+        if (parsed.isEmpty()) {
+            throw new IllegalStateException("Ugyldig blokkverdi i Winter Map: " + value);
+        }
+        return state.setValue(property, (Comparable) parsed.get());
     }
 
     private static int readSchematicVarInt(byte[] data, int[] cursor) {
