@@ -958,8 +958,8 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.15, 0.0F,
+        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
+                (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE), 12.0F, tag);
     }
 
@@ -990,8 +990,8 @@ public final class Arena {
                 default -> "";
             };
             if (!lyric.isEmpty()) {
-                BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                        displayCenter.getZ() + 1.15, 0.0F,
+                BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
+                        (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
                         Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                         12.0F, tag);
             }
@@ -1011,8 +1011,8 @@ public final class Arena {
         Component text = Component.literal(BlockPartyColors.displayName(targetColor))
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.15, 0.0F, text, 12.0F, tag);
+        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
+                (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw, text, 12.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
