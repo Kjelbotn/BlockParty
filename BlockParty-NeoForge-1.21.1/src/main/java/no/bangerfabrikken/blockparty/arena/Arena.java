@@ -146,7 +146,8 @@ public final class Arena {
     private final Set<UUID> personalBestNotified = new HashSet<>();
     private final Set<UUID> leapFallProtection = new HashSet<>();
     private final Set<UUID> luckyLanding = new HashSet<>();
-    private int scannerTicks;
+    /** Independent three-second scanner effect for each player who collects it. */
+    private final Map<UUID, Integer> scannerTicks = new HashMap<>();
     private long matchStartTick;
     private long lastMatchDurationTicks;
     // Last tick a player was physically standing on the announced target tile.
@@ -1094,7 +1095,7 @@ public final class Arena {
                     "COLOR RAIN aktivert! Fargerike blokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COLOR_SCANNER) {
-            scannerTicks = 60;
+            scannerTicks.put(player.getUUID(), 60);
             activated = true;
         } else if (powerUp == PowerUp.LUCKY_LANDING) {
             luckyLanding.add(player.getUUID());
@@ -1627,14 +1628,12 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Du har allerede valgt denne sangen.")
                     .withStyle(ChatFormatting.YELLOW));
         } else {
-            Component voteMessage = Component.literal("[MUSIKK] ")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
-                    .append(Component.literal(player.getGameProfile().getName())
-                            .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
+            Component voteMessage = Component.literal(player.getGameProfile().getName())
+                    .withStyle(ChatFormatting.WHITE)
                     .append(Component.literal(previousVote == null ? " stemte på " : " endret stemmen sin til ")
                             .withStyle(ChatFormatting.GRAY))
                     .append(Component.literal(track.name())
-                            .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD))
+                            .withStyle(ChatFormatting.AQUA))
                     .append(Component.literal(" — " + track.artist() + ".")
                             .withStyle(ChatFormatting.GRAY));
             broadcast(voteMessage);
@@ -1691,6 +1690,38 @@ public final class Arena {
         }
         if (palette.size() < 2) throw new IllegalStateException("Gulvet må inneholde minst to forskjellige farger.");
         captureArenaAccents();
+    }
+
+    /**
+     * Sends Color Scanner particles only to the player who collected that scanner.
+     * ServerLevel.sendParticles(player, ...) is a per-client send; the regular
+     * overload would broadcast the hidden target locations to the whole arena.
+     */
+    private void tickColorScanners(MinecraftServer server) {
+        if (scannerTicks.isEmpty() || targetColor == null || level == null) return;
+
+        for (Map.Entry<UUID, Integer> entry : new HashMap<>(scannerTicks).entrySet()) {
+            UUID playerId = entry.getKey();
+            ServerPlayer scannerPlayer = server.getPlayerList().getPlayer(playerId);
+            int remaining = entry.getValue() - 1;
+
+            if (remaining <= 0 || scannerPlayer == null || scannerPlayer.serverLevel() != level
+                    || !alive.contains(playerId)) {
+                scannerTicks.remove(playerId);
+                continue;
+            }
+
+            scannerTicks.put(playerId, remaining);
+            if (remaining % 20 != 0) continue;
+
+            for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
+                if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
+                    level.sendParticles(scannerPlayer, ParticleTypes.END_ROD, false,
+                            tile.getKey().getX() + 0.5, tile.getKey().getY() + 1.08,
+                            tile.getKey().getZ() + 0.5, 2, 0.18, 0.02, 0.18, 0.005);
+                }
+            }
+        }
     }
 
     private void tickLobbyDanceFloor() {
@@ -1759,14 +1790,7 @@ public final class Arena {
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
         tickSpecialSongScreen();
-        if (scannerTicks > 0 && --scannerTicks % 20 == 0 && targetColor != null && level != null) {
-            for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
-                if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
-                    level.sendParticles(ParticleTypes.END_ROD, tile.getKey().getX() + 0.5, tile.getKey().getY() + 1.08,
-                            tile.getKey().getZ() + 0.5, 2, 0.18, 0.02, 0.18, 0.005);
-                }
-            }
-        }
+        tickColorScanners(server);
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
             case COUNTDOWN -> {
@@ -2673,7 +2697,7 @@ public final class Arena {
         luckyLanding.clear();
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
-        scannerTicks = 0;
+        scannerTicks.clear();
         matchStartTick = 0L;
         phase = Phase.WAITING;
         timerTicks = 0;

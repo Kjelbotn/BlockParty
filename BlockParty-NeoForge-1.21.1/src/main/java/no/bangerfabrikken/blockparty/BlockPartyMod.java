@@ -56,7 +56,7 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onLivingFall);
         ModSounds.register(modEventBus);
 
-        LOGGER.info("BlockParty {} initialised", "1.0.1");
+        LOGGER.info("BlockParty {} initialised", "1.0.2");
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {

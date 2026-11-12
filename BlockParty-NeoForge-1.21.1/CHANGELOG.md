@@ -1,3 +1,8 @@
+# BlockParty 1.0.2 — Chat and Color Scanner fixes
+
+- Removed the [MUSIKK] prefix and bold styling from music vote announcements; messages now use normal-weight text.
+- Fixed Color Scanner using one shared arena timer and broadcast particles. Each scanner now has its own player timer, and target-color particles are sent only to the player who collected that power-up.
+
 # BlockParty 1.0.1 — Match flow and audio polish
 
 - Reduced the between-round floor restoration pause from two seconds to one second; music and the next target now return sooner.
