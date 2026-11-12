@@ -32,6 +32,8 @@ public final class BlockPartyCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), ArenaGenerator.DEFAULT_SIZE))
+                                .then(Commands.literal("winter")
+                                        .executes(context -> generateWinter(context.getSource(), StringArgumentType.getString(context, "id"))))
                                 .then(Commands.argument("size", IntegerArgumentType.integer(ArenaGenerator.MIN_SIZE, ArenaGenerator.MAX_SIZE))
                                         .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
                 .then(Commands.literal("arenas")
@@ -119,6 +121,14 @@ public final class BlockPartyCommands {
     }
 
     private static int generate(CommandSourceStack source, String id, int size) throws CommandSyntaxException {
+        return generate(source, id, size, false);
+    }
+
+    private static int generateWinter(CommandSourceStack source, String id) throws CommandSyntaxException {
+        return generate(source, id, ArenaGenerator.DEFAULT_SIZE, true);
+    }
+
+    private static int generate(CommandSourceStack source, String id, int size, boolean winter) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         if (!id.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9_-]{1,32}")) {
             source.sendFailure(Component.literal("Arena-ID må inneholde 1–32 tegn: a-z, 0-9, _ eller -."));
@@ -133,8 +143,13 @@ public final class BlockPartyCommands {
         }
 
         try {
-            source.sendSuccess(() -> Component.literal("Bygger BlockParty-stadion på " + size + " x " + size + " blokker ...").withStyle(ChatFormatting.YELLOW), true);
-            ArenaGenerator.Result layout = ArenaGenerator.generate(player.serverLevel(), player.blockPosition(), size);
+            source.sendSuccess(() -> Component.literal(winter
+                    ? "Bygger Winter BP: julearena med 40 x 40 dansegulv og lobby ..."
+                    : "Bygger BlockParty-stadion på " + size + " x " + size + " blokker ...")
+                    .withStyle(ChatFormatting.YELLOW), true);
+            ArenaGenerator.Result layout = winter
+                    ? ArenaGenerator.generateWinter(player.serverLevel(), player.blockPosition())
+                    : ArenaGenerator.generate(player.serverLevel(), player.blockPosition(), size);
             if (existing != null) manager.remove(id);
 
             Arena arena = manager.create(id, player);
@@ -146,9 +161,12 @@ public final class BlockPartyCommands {
             player.teleportTo(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
             arena.ensureLobbyItems(player);
 
-            source.sendSuccess(() -> Component.literal("Ferdig! Arena '" + id + "' er generert. Høyreklikk den turkise Nether Star i hotbaren for å bli med; bruk boken for musikkavstemning.")
+            source.sendSuccess(() -> Component.literal("Ferdig! " + (winter ? "Winter Map" : "Arena") + " '" + id
+                    + "' er generert. Høyreklikk den turkise Nether Star i hotbaren for å bli med; bruk boken for musikkavstemning.")
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
-            source.sendSuccess(() -> Component.literal("Obs: Generatoren bygger over området rundt deg. Velg et åpent område uten bygninger du vil beholde." )
+            source.sendSuccess(() -> Component.literal(winter
+                    ? "Obs: Winter Map bygger over et område på 64 x 122 x 30 blokker rundt deg. Velg et helt åpent område."
+                    : "Obs: Generatoren bygger over området rundt deg. Velg et åpent område uten bygninger du vil beholde.")
                     .withStyle(ChatFormatting.GRAY), false);
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
@@ -392,7 +410,7 @@ public final class BlockPartyCommands {
 
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen"), false);
+        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen | /bp generate <id> winter – bygg julearenaen"), false);
         source.sendSuccess(() -> Component.literal("/bp arenas – vis valgbare arenaer | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);

@@ -2,6 +2,11 @@ package no.bangerfabrikken.blockparty.arena;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.DyeColor;
@@ -12,9 +17,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import no.bangerfabrikken.blockparty.util.BlockPartyColors;
 import no.bangerfabrikken.blockparty.util.BlockPartyText;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -359,6 +368,149 @@ public final class ArenaGenerator {
         double lobbyZ = lobbyMinZ + 20.0;
         // Face south toward the lobby's logo wall.
         return new Result(first, second, displayCenter, lobbyX, lobbyY, lobbyZ, 0.0F, 0.0F);
+    }
+
+
+    /**
+     * Builds the supplied Christmas arena schematic around the player. The coloured
+     * 40x40 floor remains a real concrete floor so the normal BlockParty round engine
+     * can capture, remove and restore it without any special-case gameplay rules.
+     */
+    public static Result generateWinter(ServerLevel level, BlockPos playerPosition) {
+        final int width = 64, height = 30, length = 122;
+        final int floorY = playerPosition.getY() - 1;
+        final int originX = playerPosition.getX() - 32;
+        final int originY = floorY - 2;
+        final int originZ = playerPosition.getZ() - 32;
+        if (floorY - PIT_DEPTH <= level.getMinBuildHeight()
+                || originY + height >= level.getMaxBuildHeight()) {
+            throw new IllegalArgumentException("Det er ikke nok vertikal plass til Winter Map her. Flytt deg noen blokker opp eller ned.");
+        }
+
+        CompoundTag root;
+        try (InputStream input = ArenaGenerator.class.getResourceAsStream("/data/blockparty/winter_arena.schem")) {
+            if (input == null) throw new IllegalStateException("Winter Map-ressursen mangler i BlockParty JAR-filen.");
+            root = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
+        } catch (IOException exception) {
+            throw new IllegalStateException("Kunne ikke lese Winter Map-schematicen.", exception);
+        }
+        CompoundTag schematic = root.contains("Schematic") ? root.getCompound("Schematic") : root;
+        int schematicWidth = schematic.getShort("Width");
+        int schematicHeight = schematic.getShort("Height");
+        int schematicLength = schematic.getShort("Length");
+        if (schematicWidth != width || schematicHeight != height || schematicLength != length) {
+            throw new IllegalStateException("Winter Map-filen har uventede dimensjoner: "
+                    + schematicWidth + "x" + schematicHeight + "x" + schematicLength + ".");
+        }
+
+        CompoundTag blocksTag = schematic.getCompound("Blocks");
+        CompoundTag paletteTag = blocksTag.getCompound("Palette");
+        byte[] encodedBlocks = blocksTag.getByteArray("Data");
+        BlockState[] palette = new BlockState[paletteTag.getAllKeys().size()];
+        for (String serializedState : paletteTag.getAllKeys()) {
+            int paletteIndex = paletteTag.getInt(serializedState);
+            if (paletteIndex < 0 || paletteIndex >= palette.length) {
+                throw new IllegalStateException("Winter Map-filen har en ugyldig blokkpalett.");
+            }
+            palette[paletteIndex] = parseSchematicBlockState(serializedState);
+        }
+
+        int blockCount = width * height * length;
+        BlockState[] decodedBlocks = new BlockState[blockCount];
+        int[] cursor = {0};
+        for (int i = 0; i < blockCount; i++) {
+            int stateIndex = readSchematicVarInt(encodedBlocks, cursor);
+            if (stateIndex < 0 || stateIndex >= palette.length || palette[stateIndex] == null) {
+                throw new IllegalStateException("Winter Map-filen inneholder en ukjent blokktilstand.");
+            }
+            decodedBlocks[i] = palette[stateIndex];
+        }
+        if (cursor[0] != encodedBlocks.length) {
+            throw new IllegalStateException("Winter Map-filen har ugyldige blokkdata.");
+        }
+
+        int maxX = originX + width - 1;
+        int maxZ = originZ + length - 1;
+        AABB mapBounds = new AABB(originX - 2, originY - 2, originZ - 2,
+                maxX + 3, originY + height + 3, maxZ + 3);
+        for (Display.TextDisplay display : level.getEntitiesOfClass(Display.TextDisplay.class, mapBounds,
+                entity -> entity.getTags().stream().anyMatch(tag -> tag.startsWith("bp_") || tag.startsWith("blockparty_lb_")))) {
+            display.discard();
+        }
+        for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, mapBounds,
+                entity -> entity.getTags().stream().anyMatch(tag -> tag.startsWith("blockparty_lb_")))) {
+            stand.discard();
+        }
+
+        // Clear the whole schematic envelope first; schematic air entries are intentionally sparse.
+        clearVolume(level, originX, maxX, originZ, maxZ, originY, originY + height - 1);
+        for (int i = 0; i < blockCount; i++) {
+            BlockState state = decodedBlocks[i];
+            if (state.isAir()) continue;
+            int x = i % width;
+            int z = (i / width) % length;
+            int y = i / (width * length);
+            level.setBlock(new BlockPos(originX + x, originY + y, originZ + z), state, 3);
+        }
+
+        // Keep the complete elimination shaft empty below all 1,600 playable concrete tiles.
+        for (int x = originX + 12; x <= originX + 51; x++) {
+            for (int z = originZ + 12; z <= originZ + 51; z++) {
+                for (int y = floorY - PIT_DEPTH; y < floorY; y++) put(level, x, y, z, Blocks.AIR);
+            }
+        }
+
+        BlockPos first = new BlockPos(originX + 12, floorY, originZ + 12);
+        BlockPos second = new BlockPos(originX + 51, floorY, originZ + 51);
+        // The white target display is centred on the large white screen behind the dance floor.
+        BlockPos displayCenter = new BlockPos(originX + 32, floorY + 16, originZ + 4);
+        // The reference point is the open spawn pad inside the rear lobby, not the snowy base.
+        return new Result(first, second, displayCenter,
+                originX + 32.5, originY + 8.0, originZ + 83.5, 0.0F, 0.0F);
+    }
+
+    private static BlockState parseSchematicBlockState(String serializedState) {
+        int propertiesStart = serializedState.indexOf('[');
+        String blockId = propertiesStart < 0 ? serializedState : serializedState.substring(0, propertiesStart);
+        ResourceLocation key = ResourceLocation.tryParse(blockId);
+        if (key == null) throw new IllegalStateException("Ugyldig blokk-ID i Winter Map: " + blockId);
+        Block block = BuiltInRegistries.BLOCK.get(key);
+        if (block == Blocks.AIR && !blockId.equals("minecraft:air")) {
+            throw new IllegalStateException("Winter Map bruker en blokk som ikke finnes: " + blockId);
+        }
+        BlockState state = block.defaultBlockState();
+        if (propertiesStart < 0) return state;
+        if (!serializedState.endsWith("]")) throw new IllegalStateException("Ugyldige blokkegenskaper i Winter Map: " + serializedState);
+        String properties = serializedState.substring(propertiesStart + 1, serializedState.length() - 1);
+        if (properties.isBlank()) return state;
+        for (String assignment : properties.split(",")) {
+            String[] pair = assignment.split("=", 2);
+            if (pair.length != 2) throw new IllegalStateException("Ugyldig blokkeegenskap i Winter Map: " + assignment);
+            Property<?> property = block.getStateDefinition().getProperty(pair[0]);
+            if (property == null) throw new IllegalStateException("Ukjent blokkeegenskap i Winter Map: " + assignment);
+            state = applySchematicProperty(state, property, pair[1]);
+        }
+        return state;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static BlockState applySchematicProperty(BlockState state, Property property, String value) {
+        Object parsed = property.getValue(value).orElseThrow(
+                () -> new IllegalStateException("Ugyldig blokkverdi i Winter Map: " + value));
+        return state.setValue(property, (Comparable) parsed);
+    }
+
+    private static int readSchematicVarInt(byte[] data, int[] cursor) {
+        int value = 0;
+        int shift = 0;
+        while (shift < 35) {
+            if (cursor[0] >= data.length) throw new IllegalStateException("Winter Map-filen er avkuttet.");
+            int next = data[cursor[0]++] & 0xFF;
+            value |= (next & 0x7F) << shift;
+            if ((next & 0x80) == 0) return value;
+            shift += 7;
+        }
+        throw new IllegalStateException("Winter Map-filen inneholder en ugyldig VarInt.");
     }
 
     /**

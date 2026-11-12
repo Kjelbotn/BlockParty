@@ -548,10 +548,12 @@ public final class Arena {
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
-        int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-        int screenFloorY = pos1.getY();
-        int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-        displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+        if (!isWinterMap()) {
+            int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+            int screenFloorY = pos1.getY();
+            int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+            displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+        }
         updateArenaWelcomeDisplay();
         alive.clear();
         alive.addAll(players);
@@ -658,8 +660,14 @@ public final class Arena {
     }
 
     /** Applies the non-destructive visual upgrade once when an existing arena is visited. */
+    private boolean isWinterMap() {
+        return pos1 != null && lobbySet && lobbyY - pos1.getY() > 4.0;
+    }
+
     public void applyVisualUpgrade() {
-        if (visualUpgradeApplied || !isConfigured()) return;
+        // The Christmas schematic is a deliberately authored build; do not overwrite it
+        // with the generic Classic lobby/stadium visual pass.
+        if (visualUpgradeApplied || !isConfigured() || isWinterMap()) return;
         if (ArenaGenerator.refreshVisuals(level, pos1, pos2, lobbyX, lobbyY, lobbyZ)) {
             visualUpgradeApplied = true;
             captureArenaAccents();
@@ -2984,9 +2992,12 @@ public final class Arena {
             return;
         }
         hideLobbyLeaderboard();
-        double boardX = lobbyX + 30.0;
-        // The east wall is split into two balanced panels. Commands occupy the
-        // lower-Z side; the top-five leaderboard occupies the upper-Z side.
+        boolean winterMap = isWinterMap();
+        // Winter Map has its framed black information wall on the west side of the lobby.
+        // The Classic lobby keeps its original east-wall placement.
+        double boardX = lobbyX + (winterMap ? -22.0 : 30.0);
+        float boardYaw = winterMap ? 270.0F : 90.0F;
+        // The lower-Z panel hosts commands; the upper-Z panel hosts the top-five leaderboard.
         double boardZ = lobbyZ + 18.5;
         double commandsZ = lobbyZ - 6.5;
         BlockPos anchor = BlockPos.containing(boardX, lobbyY + 8.0, boardZ);
@@ -3028,7 +3039,7 @@ public final class Arena {
         for (int i = 0; i < lines.size(); i++) {
             float scale = i == 0 ? 1.9F : (i == 1 ? 1.25F : (i == lines.size() - 1 ? 0.95F : 1.0F));
             double y = firstLineY - i * lineSpacing;
-            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, 90.0F, lines.get(i), scale, tag);
+            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, boardYaw, lines.get(i), scale, tag);
         }
 
         // COMMANDS PANEL — the three most useful player commands and what they do.
@@ -3046,7 +3057,7 @@ public final class Arena {
         for (int i = 0; i < commandLines.size(); i++) {
             float scale = i == 0 ? 1.65F : (i % 2 == 1 ? 1.15F : 0.78F);
             double y = commandFirstY - i * commandSpacing;
-            BlockPartyText.spawnTextDisplay(level, boardX, y, commandsZ, 90.0F,
+            BlockPartyText.spawnTextDisplay(level, boardX, y, commandsZ, boardYaw,
                     commandLines.get(i), scale, tag);
         }
     }
