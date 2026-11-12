@@ -121,6 +121,8 @@ public final class Arena {
     private BlockPos pos1;
     private BlockPos pos2;
     private BlockPos displayCenter;
+    private boolean customDisplayPosition;
+    private float targetDisplayYaw;
     private double lobbyX;
     private double lobbyY;
     private double lobbyZ;
@@ -218,8 +220,18 @@ public final class Arena {
     public BlockPos getDisplayCenter() { return displayCenter; }
     public void setDisplayCenter(BlockPos displayCenter) {
         this.displayCenter = displayCenter == null ? null : displayCenter.immutable();
+        this.customDisplayPosition = displayCenter != null;
+        this.targetDisplayYaw = 0.0F;
         refreshLobbyDisplays();
     }
+    public void setTargetDisplay(BlockPos center, float yaw) {
+        this.displayCenter = center == null ? null : center.immutable();
+        this.targetDisplayYaw = yaw;
+        this.customDisplayPosition = center != null;
+        refreshLobbyDisplays();
+    }
+    public void setLoadedTargetDisplay(BlockPos center, float yaw) { setTargetDisplay(center, yaw); }
+    public float getTargetDisplayYaw() { return targetDisplayYaw; }
     public Phase getPhase() { return phase; }
     public int getPlayerCount() { return players.size(); }
     public boolean containsPlayer(UUID playerId) { return players.contains(playerId); }
@@ -521,10 +533,13 @@ public final class Arena {
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
-        int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-        int screenFloorY = pos1.getY();
-        int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-        displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+        if (!customDisplayPosition) {
+            int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+            int screenFloorY = pos1.getY();
+            int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+            displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+            targetDisplayYaw = 0.0F;
+        }
         updateArenaWelcomeDisplay();
         alive.clear();
         alive.addAll(players);
@@ -951,10 +966,13 @@ public final class Arena {
     private void updateColorDisplay() {
         if (targetColor == null || level == null) return;
         if (displayCenter == null && pos1 != null && pos2 != null) {
-            int centerX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-            int floorY = pos1.getY();
-            int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-            displayCenter = new BlockPos(centerX, floorY + 11, northWallZ);
+            if (!customDisplayPosition) {
+                int centerX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+                int floorY = pos1.getY();
+                int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+                displayCenter = new BlockPos(centerX, floorY + 11, northWallZ);
+                targetDisplayYaw = 0.0F;
+            }
         }
         if (displayCenter == null) return;
         String tag = "bp_target_" + id;
