@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import no.bangerfabrikken.blockparty.BlockPartyMod;
 import no.bangerfabrikken.blockparty.sound.ModSounds;
@@ -137,7 +138,7 @@ public final class MusicTrackManager {
     }
 
     /** Prevents a literal section sign in a song title from being parsed as a legacy colour code. */
-    public static Component displayNameComponent(String name) {
+    public static MutableComponent displayNameComponent(String name) {
         return Component.literal(name.replace("§", "§​"));
     }
 

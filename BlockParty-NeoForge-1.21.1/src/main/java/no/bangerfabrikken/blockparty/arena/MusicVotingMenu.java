@@ -3,6 +3,7 @@ package no.bangerfabrikken.blockparty.arena;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -92,7 +93,7 @@ final class MusicVotingMenu extends ChestMenu {
                 default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
-            Component trackTitle = Component.literal(selected ? "✓ " : "")
+            MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
                     .append(MusicTrackManager.displayNameComponent(track.name()));
             icon.set(DataComponents.CUSTOM_NAME, trackTitle
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
