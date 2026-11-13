@@ -821,86 +821,32 @@ public final class Arena {
 
     private void refreshDjScreen() {
         if (level == null || !lobbySet) return;
+        if ("xmas".equals(id) && pos1 != null && pos2 != null) {
+            // Xmas music voting is handled by the lobby book/menu. There should be no
+            // floating playlist/instruction holograms outside the actual lobby screen.
+            AABB cleanup = new AABB(Math.min(pos1.getX(), pos2.getX()) - 128,
+                    pos1.getY() - 32, Math.min(pos1.getZ(), pos2.getZ()) - 128,
+                    Math.max(pos1.getX(), pos2.getX()) + 128,
+                    pos1.getY() + 64, Math.max(pos1.getZ(), pos2.getZ()) + 128);
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, cleanup,
+                    entity -> entity.getTags().contains(tag)
+                            || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_xmas")))) {
+                old.discard();
+            }
+            return;
+        }
+        String tag = "bp_dj_" + id;
         boolean customScreen = lobbyScreenCenter != null;
         int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
         int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
         int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
         float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
-        boolean xmasPanel = "xmas".equals(id) && customScreen
-                && Math.abs(screenYaw + 90.0F) < 1.0F;
-        String tag = "bp_dj_" + id;
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
         if (!level.hasChunkAt(anchor)) return;
-
-        // Remove obsolete floating labels left by earlier versions.
-        AABB legacyArea = "xmas".equals(id) && pos1 != null && pos2 != null
-                ? new AABB(Math.min(pos1.getX(), pos2.getX()) - 18, pos1.getY() - 8,
-                        Math.min(pos1.getZ(), pos2.getZ()) - 18,
-                        Math.max(pos1.getX(), pos2.getX()) + 18, pos1.getY() + 34,
-                        Math.max(pos1.getZ(), pos2.getZ()) + 18)
-                : new AABB(centerX - 36, screenBaseY - 8, wallZ - 38,
-                        centerX + 36, screenBaseY + 28, wallZ + 38);
-        // TextDisplay#getText is private in the current Minecraft mappings.
-        // Our current and legacy BlockParty labels are tagged, so clean them up by tag.
+        AABB legacyArea = new AABB(centerX - 36, screenBaseY - 8, wallZ - 38,
+                centerX + 36, screenBaseY + 28, wallZ + 38);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, legacyArea,
                 entity -> entity.getTags().contains(tag))) old.discard();
-
-        if (xmasPanel) {
-            // All Xmas text shares the same X plane as the wall-mounted black panel.
-            // Only Z changes horizontally; changing X was what sent playlist entries
-            // out into the lobby floor in earlier builds.
-            double planeX = centerX + (xmasPanel ? 0.72 : 0.0);
-            double planeZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
-            // Wide cleanup also removes the old misplaced text entities from earlier builds.
-            AABB area = new AABB(centerX - 32, screenBaseY - 16, wallZ - 34,
-                    centerX + 32, screenBaseY + 14, wallZ + 34);
-            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                    entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
-    
-            // The main heading and all playlist rows remain inside the black panel.
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 3.4, planeZ,
-                    screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.55F, tag);
-            // On the Xmas panel, negative Z is the viewer's LEFT. Keep the playlist
-            // flowing left-to-right and reserve the far-right column for instructions.
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ + 7.0,
-                    screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 0.92F, tag);
-            List<Track> catalogue = MusicTrackManager.getTracks();
-            int visible = Math.min(catalogue.size(), 10);
-            for (int i = 0; i < visible; i++) {
-                Track track = catalogue.get(i);
-                long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-                int column = i / 5;
-                int row = i % 5;
-                double z = planeZ + 7.0 - column * 7.0;
-                double y = screenBaseY + 0.45 - row * 0.82;
-                Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
-                        .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
-                Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(" • " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
-                BlockPartyText.spawnTextDisplay(level, planeX, y, z, screenYaw, title, 0.82F, tag);
-                BlockPartyText.spawnTextDisplay(level, planeX, y - 0.29, z, screenYaw, details, 0.54F, tag);
-            }
-            if (catalogue.size() > visible) {
-                BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 4.0, planeZ + 7.0, screenYaw,
-                        Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.54F, tag);
-            }
-    
-            // Voting instructions are deliberately placed in the rightmost column.
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ - 13.0, screenYaw,
-                    Component.literal("SLIK STEMMER DU").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 0.86F, tag);
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 0.35, planeZ - 13.0, screenYaw,
-                    Component.literal("ÅPNE BOKA").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.90F, tag);
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 0.65, planeZ - 13.0, screenYaw,
-                    Component.literal("Velg sangen du vil høre").withStyle(ChatFormatting.WHITE), 0.52F, tag);
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 1.45, planeZ - 13.0, screenYaw,
-                    Component.literal("og trykk for å stemme.").withStyle(ChatFormatting.WHITE), 0.52F, tag);
-    
-            Track leader = mostVotedTrack();
-            long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 3.1, planeZ - 13.0, screenYaw,
-                    Component.literal("LEDER: " + (leader == null || leaderVotes == 0 ? "INGEN ENNÅ" : leader.name()))
-                            .withStyle(ChatFormatting.YELLOW), 0.58F, tag);
-        } else {
             double frontOffset = customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72;
             double textZ = wallZ + frontOffset;
             AABB area = new AABB(centerX - 24, screenBaseY - 3, wallZ - 5,
@@ -1789,23 +1735,6 @@ public final class Arena {
                 palette.add(color);
             }
         }
-        if ("xmas".equals(id)) {
-            // Remove the snowy platform directly beneath the 40x40 dance floor.
-            // Falling through a missing tile must lead into the pit and eliminate the dancer.
-            for (int y = pos1.getY() - 1; y >= Math.max(level.getMinBuildHeight(), pos1.getY() - 10); y--) {
-                for (int z = Math.min(pos1.getZ(), pos2.getZ()); z <= Math.max(pos1.getZ(), pos2.getZ()); z++) {
-                    for (int x = Math.min(pos1.getX(), pos2.getX()); x <= Math.max(pos1.getX(), pos2.getX()); x++) {
-                        BlockPos below = new BlockPos(x, y, z);
-                        BlockState state = level.getBlockState(below);
-                        if (state.is(Blocks.SNOW_BLOCK) || state.is(Blocks.SNOW)
-                                || state.is(Blocks.POWDER_SNOW) || state.getBlock() == Blocks.WHITE_CONCRETE
-                                || state.getBlock() == Blocks.ICE || state.getBlock() == Blocks.PACKED_ICE) {
-                            level.setBlock(below, Blocks.AIR.defaultBlockState(), 3);
-                        }
-                    }
-                }
-            }
-        }
         if (palette.size() < 2) throw new IllegalStateException("Gulvet må inneholde minst to forskjellige farger.");
         captureArenaAccents();
     }
@@ -1813,14 +1742,12 @@ public final class Arena {
  
     private boolean isOutsidePlayableFloor(ServerPlayer player) {
         if (player == null || pos1 == null || pos2 == null) return false;
-        // Allow the player's half-width when standing on an outermost tile.
-        // The centre can extend 0.3 blocks beyond the tile edge while the bounding
-        // box is still supported; without this tolerance the outer row is eliminated.
-        double edgeTolerance = 0.31;
-        double minX = Math.min(pos1.getX(), pos2.getX()) - edgeTolerance;
-        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 + edgeTolerance;
-        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - edgeTolerance;
-        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0 + edgeTolerance;
+        // The configured corners describe the complete 40x40 concrete floor.
+        // Use its exact outer edges: the red/white decorative trim is outside and lethal.
+        double minX = Math.min(pos1.getX(), pos2.getX());
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ());
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0;
         return player.getX() < minX || player.getX() >= maxX
                 || player.getZ() < minZ || player.getZ() >= maxZ;
     }

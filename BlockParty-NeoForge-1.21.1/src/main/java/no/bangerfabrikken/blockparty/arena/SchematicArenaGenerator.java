@@ -65,10 +65,6 @@ public final class SchematicArenaGenerator {
         }
 
         FloorRegion floor = findDanceFloor(schematic);
-        // Leave a clearly visible two-block-wide void between the south/west playable
-        // edge and the red/white decorative concrete trim. The gap is open vertically
-        // and below the floor, so it cannot be mistaken for safe dance tiles.
-        clearDangerGaps(level, origin, floor);
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
@@ -189,31 +185,6 @@ public final class SchematicArenaGenerator {
             for (int yOffset : new int[]{7, 11, 15, 19}) {
                 BlockPos pos = origin.offset(x, floor.y + yOffset, boardZ);
                 if (level.getBlockState(pos).isAir()) level.setBlock(pos, light, 3);
-            }
-        }
-    }
-
-    private static void clearDangerGaps(ServerLevel level, BlockPos origin, FloorRegion floor) {
-        int minX = floor.minX;
-        int minZ = floor.minZ;
-        int maxX = floor.minX + FLOOR_SIZE - 1;
-        int maxZ = floor.minZ + FLOOR_SIZE - 1;
-        int bottomY = Math.max(level.getMinBuildHeight() - origin.getY(), floor.y - 12);
-
-        // South/bottom edge of the dance floor: two columns of removed trim.
-        for (int z = minZ - 2; z < minZ; z++) {
-            for (int x = minX; x <= maxX; x++) {
-                for (int y = bottomY; y <= floor.y + 3; y++) {
-                    level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
-                }
-            }
-        }
-        // West/left edge of the dance floor.
-        for (int x = minX - 2; x < minX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                for (int y = bottomY; y <= floor.y + 3; y++) {
-                    level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
-                }
             }
         }
     }
