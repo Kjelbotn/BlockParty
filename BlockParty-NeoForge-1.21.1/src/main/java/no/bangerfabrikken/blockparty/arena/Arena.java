@@ -1001,6 +1001,10 @@ public final class Arena {
         originalArenaAccentSnapshot.clear();
         musicLightPositions.clear();
         if (level == null || pos1 == null || pos2 == null) return;
+        // The main arena's large north-wall target panel is a permanent black screen.
+        // Restore its original surface as well as excluding it from the colour snapshot,
+        // so worlds where an older build already tinted the panel are repaired on upgrade.
+        restoreMainArenaScreenPanel();
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
@@ -1011,16 +1015,52 @@ public final class Arena {
                 for (int y = floorY + 1; y <= floorY + 22; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
                     BlockState state = level.getBlockState(pos);
-                    if (!"xmas".equals(id) && isArenaColorAccent(state)) {
-                        // Capture the complete coloured trim around the stadium, not only
-                        // purple/magenta blocks. The dance floor is below this scan and the
-                        // lobby is outside these bounds, so only wall/arena accents are changed.
+                    if (!"xmas".equals(id) && isArenaColorAccent(state)
+                            && !isInsideMainArenaScreenPanel(pos)) {
+                        // Capture the complete coloured trim around the stadium, but never
+                        // the permanent black target screen on the north wall.
                         if (x >= minX - 20 && x <= maxX + 20
                                 && z >= minZ - 20 && z <= maxZ + 20) {
                             originalArenaAccentSnapshot.put(pos.immutable(), state);
                         }
                     }
                     if (state.is(Blocks.REDSTONE_LAMP)) musicLightPositions.add(pos.immutable());
+                }
+            }
+        }
+    }
+
+    /**
+     * The generated main arena screen is a 3-block-deep black-concrete panel.
+     * Its centre is persisted as displayCenter at the front face of the panel.
+     */
+    private boolean isInsideMainArenaScreenPanel(BlockPos pos) {
+        if (displayCenter == null || "xmas".equals(id)) return false;
+        int arenaSize = Math.abs(pos2.getX() - pos1.getX()) + 1;
+        int signWidth = Math.min(80, arenaSize + 12);
+        int halfPanel = signWidth / 2 + 1;
+        return pos.getX() >= displayCenter.getX() - halfPanel
+                && pos.getX() <= displayCenter.getX() + halfPanel
+                && pos.getY() >= displayCenter.getY() - 6
+                && pos.getY() <= displayCenter.getY() + 7
+                && pos.getZ() >= displayCenter.getZ() - 2
+                && pos.getZ() <= displayCenter.getZ();
+    }
+
+    /** Repairs the fixed black screen surface if a previous build recoloured it. */
+    private void restoreMainArenaScreenPanel() {
+        if (displayCenter == null || "xmas".equals(id)) return;
+        int arenaSize = Math.abs(pos2.getX() - pos1.getX()) + 1;
+        int signWidth = Math.min(80, arenaSize + 12);
+        int halfPanel = signWidth / 2 + 1;
+        for (int x = displayCenter.getX() - halfPanel; x <= displayCenter.getX() + halfPanel; x++) {
+            for (int y = displayCenter.getY() - 6; y <= displayCenter.getY() + 7; y++) {
+                for (int z = displayCenter.getZ() - 2; z <= displayCenter.getZ(); z++) {
+                    BlockPos panel = new BlockPos(x, y, z);
+                    BlockState current = level.getBlockState(panel);
+                    if (isArenaColorAccent(current)) {
+                        level.setBlock(panel, Blocks.BLACK_CONCRETE.defaultBlockState(), 3);
+                    }
                 }
             }
         }
