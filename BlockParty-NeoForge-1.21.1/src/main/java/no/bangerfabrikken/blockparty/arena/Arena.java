@@ -619,7 +619,8 @@ public final class Arena {
 
         for (UUID uuid : players) {
             ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
-            if (participant != null && participant.containerMenu instanceof MusicVotingMenu) {
+            if (participant != null && (participant.containerMenu instanceof MusicVotingMenu
+                    || participant.containerMenu instanceof GameModeMenu)) {
                 participant.closeContainer();
             }
         }
@@ -1687,6 +1688,10 @@ public final class Arena {
         return preferredGameModes.getOrDefault(playerId, GameMode.CLASSIC);
     }
 
+    public boolean hasGameModeVote(UUID playerId) {
+        return preferredGameModes.containsKey(playerId);
+    }
+
     public int getGameModeVoteCount(GameMode mode) {
         return (int) preferredGameModes.values().stream().filter(mode::equals).count();
     }
@@ -2314,6 +2319,8 @@ public final class Arena {
                 .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         broadcastActionBar(Component.literal("MEMORISER GULVET!  5 SEKUNDER")
                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        if (musicPaused) resumeMusic();
+        else if (activeMusicId == null && !musicFinished) playSelectedMusic();
         updateScoreboard(server);
     }
 
@@ -2499,7 +2506,7 @@ public final class Arena {
         String roundSpeed = phase == Phase.PREPARE
                 ? formatSeconds(Math.max(0, timerTicks)) + "s"
                 : phase == Phase.WAITING_FOR_COLOR ? "WAITING..."
-                : phase == Phase.MEMORY_REVEAL ? "MEMORISE"
+                : phase == Phase.MEMORY_REVEAL ? "MEMORISE: " + formatSeconds(Math.max(0, timerTicks)) + "s"
                 : phase == Phase.MEMORY_FIND ? "FIND: " + formatSeconds(Math.max(0, timerTicks)) + "s"
                 : phase == Phase.MEMORY_FINAL_COUNTDOWN ? "FALL: " + formatSeconds(Math.max(0, timerTicks)) + "s"
                 : "--";
