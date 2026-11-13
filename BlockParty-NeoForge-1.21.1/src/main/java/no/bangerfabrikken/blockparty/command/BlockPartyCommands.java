@@ -337,7 +337,13 @@ public final class BlockPartyCommands {
             source.sendFailure(Component.literal("Arenaen har ingen generert stadionflate å rive."));
             return 0;
         }
-        ArenaGenerator.demolish(arena.getLevel(), arena.getPos1(), arena.getPos2(), arena.getLobbyX(), arena.getLobbyZ());
+        try {
+            if ("xmas".equalsIgnoreCase(id)) SchematicArenaGenerator.demolish(arena.getLevel(), arena.getPos1());
+            else ArenaGenerator.demolish(arena.getLevel(), arena.getPos1(), arena.getPos2(), arena.getLobbyX(), arena.getLobbyZ());
+        } catch (Exception exception) {
+            source.sendFailure(Component.literal("Kunne ikke rive hele arenaen: " + exception.getMessage()));
+            return 0;
+        }
         ArenaManager.get().remove(id);
         ArenaManager.get().save(source.getServer());
         source.sendSuccess(() -> Component.literal("BlockParty-arenaen '" + id + "' er revet og fjernet fra listen.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);

@@ -231,6 +231,7 @@ public final class Arena {
         this.displayCenter = center == null ? null : center.immutable();
         this.targetDisplayYaw = yaw;
         this.customDisplayPosition = center != null;
+        updateArenaWelcomeDisplay();
         refreshLobbyDisplays();
     }
     public void setLoadedTargetDisplay(BlockPos center, float yaw) { setTargetDisplay(center, yaw); }
@@ -626,6 +627,7 @@ public final class Arena {
             teleportSunsetStartTime = dayStart + 6_000L;
             teleportSunsetEndTime = teleportSunsetStartTime;
             level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+            level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
             level.setDayTime(teleportSunsetStartTime);
         } else {
             teleportSunsetStartTime = originalDayTime;
@@ -1774,6 +1776,10 @@ public final class Arena {
                 }
             }
         }
+        if ("xmas".equals(id) && isGameInProgress() && level != null
+                && teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
+            level.setDayTime(teleportSunsetEndTime);
+        }
         if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.WAITING_FOR_COLOR
                 || phase == Phase.FINISHING) && level != null) {
             // After the sunset countdown, keep the arena at its final night setting.
@@ -2853,18 +2859,20 @@ public final class Arena {
             return;
         }
         hideLobbyLeaderboard();
-        double boardX = lobbyX + 30.0;
-        // The east wall is split into two balanced panels. Commands occupy the
-        // lower-Z side; the top-five leaderboard occupies the upper-Z side.
-        double boardZ = lobbyZ + 18.5;
-        double commandsZ = lobbyZ - 6.5;
+        boolean xmasLobby = "xmas".equals(id);
+        // Mount Xmas panels on the two indoor side walls instead of outside the glass.
+        double boardX = xmasLobby ? lobbyX - 22.0 : lobbyX + 30.0;
+        double boardZ = xmasLobby ? lobbyZ - 1.0 : lobbyZ + 18.5;
+        double commandsZ = xmasLobby ? lobbyZ - 1.0 : lobbyZ - 6.5;
+        double commandsX = xmasLobby ? lobbyX + 22.0 : boardX;
+        float boardYaw = xmasLobby ? -90.0F : 90.0F;
         BlockPos anchor = BlockPos.containing(boardX, lobbyY + 8.0, boardZ);
         if (!level.hasChunkAt(anchor)) return;
 
         String tag = "blockparty_lb_" + id;
         // Both panels share one cleanup region and tag, so periodic refreshes cannot duplicate text.
-        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
-                boardX + 5.0, lobbyY + 16.0, lobbyZ + ("xmas".equals(id) ? 100.0 : 32.0));
+        AABB area = new AABB(Math.min(boardX, commandsX) - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
+                Math.max(boardX, commandsX) + 5.0, lobbyY + 16.0, lobbyZ + ("xmas".equals(id) ? 100.0 : 32.0));
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 display -> display.getTags().contains(tag))) old.discard();
         for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,
@@ -2897,7 +2905,7 @@ public final class Arena {
         for (int i = 0; i < lines.size(); i++) {
             float scale = i == 0 ? 1.9F : (i == 1 ? 1.25F : (i == lines.size() - 1 ? 0.95F : 1.0F));
             double y = firstLineY - i * lineSpacing;
-            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, 90.0F, lines.get(i), scale, tag);
+            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, boardYaw, lines.get(i), scale, tag);
         }
 
         // COMMANDS PANEL — the three most useful player commands and what they do.
@@ -2915,7 +2923,7 @@ public final class Arena {
         for (int i = 0; i < commandLines.size(); i++) {
             float scale = i == 0 ? 1.65F : (i % 2 == 1 ? 1.15F : 0.78F);
             double y = commandFirstY - i * commandSpacing;
-            BlockPartyText.spawnTextDisplay(level, boardX, y, commandsZ, 90.0F,
+            BlockPartyText.spawnTextDisplay(level, commandsX, y, commandsZ, 90.0F,
                     commandLines.get(i), scale, tag);
         }
     }

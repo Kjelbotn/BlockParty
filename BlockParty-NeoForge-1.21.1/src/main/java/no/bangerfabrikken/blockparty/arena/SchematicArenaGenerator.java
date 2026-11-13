@@ -1,6 +1,9 @@
 package no.bangerfabrikken.blockparty.arena;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
@@ -69,14 +72,63 @@ public final class SchematicArenaGenerator {
         // The white target screen faces the OUTDOOR dance floor.
         BlockPos display = origin.offset(centerX, floor.y + 11, floor.minZ - 9);
         // The black music panel belongs to the separate indoor lobby.
-        BlockPos lobbyScreen = origin.offset(9, 14, 95);
+        BlockPos lobbyScreen = origin.offset(32, 14, 95);
         placeHiddenLobbyLights(level, origin);
-        // Spawn inside the Christmas room, not outside beside the dance floor.
+        BlockPos spawn = findLobbySpawn(level, origin);
         return new Result(first, second, display, lobbyScreen, 0.0F, 0.0F,
-                origin.getX() + 32.5, origin.getY() + 3.0, origin.getZ() + 95.5,
+                spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
                 90.0F, 0.0F);
     }
 
+
+    private static BlockPos findLobbySpawn(ServerLevel level, BlockPos origin) throws IOException {
+        int preferredX = origin.getX() + 32, preferredZ = origin.getZ() + 95;
+        BlockPos best = null;
+        double bestScore = Double.MAX_VALUE;
+        for (int y = origin.getY() + 1; y <= origin.getY() + 12; y++) {
+            for (int z = origin.getZ() + 78; z <= origin.getZ() + 112; z++) {
+                for (int x = origin.getX() + 12; x <= origin.getX() + 52; x++) {
+                    BlockPos feet = new BlockPos(x, y, z), support = feet.below();
+                    if (!level.getBlockState(support).isFaceSturdy(level, support, Direction.UP)
+                            || !level.getBlockState(feet).isAir() || !level.getBlockState(feet.above()).isAir()) continue;
+                    double score = Math.abs(x - preferredX) * 1.5 + Math.abs(z - preferredZ)
+                            + Math.abs(y - (origin.getY() + 3)) * 2.0;
+                    if (score < bestScore) { bestScore = score; best = feet; }
+                }
+            }
+        }
+        if (best == null) throw new IOException("Fant ingen trygg spawnplass inne i Xmas-lobbyen.");
+        return best;
+    }
+
+    /** Removes the entire pasted Xmas map and all BlockParty displays with one command. */
+    public static void demolish(ServerLevel level, BlockPos floorFirst) throws IOException {
+        if (level == null || floorFirst == null) throw new IllegalArgumentException("Xmas-arenaen mangler posisjoner.");
+        Schematic schematic = load();
+        FloorRegion floor = findDanceFloor(schematic);
+        BlockPos origin = floorFirst.offset(-floor.minX, -floor.y, -floor.minZ);
+        for (int y = 0; y < schematic.height; y++) {
+            for (int z = 0; z < schematic.length; z++) {
+                for (int x = 0; x < schematic.width; x++) {
+                    BlockPos pos = origin.offset(x, y, z);
+                    int index = schematic.indices[x + z * schematic.width + y * schematic.width * schematic.length];
+                    BlockState expected = schematic.palette.get(index);
+                    BlockState current = level.getBlockState(pos);
+                    boolean floorTile = y == floor.y && x >= floor.minX && x < floor.minX + FLOOR_SIZE
+                            && z >= floor.minZ && z < floor.minZ + FLOOR_SIZE
+                            && CONCRETE_BLOCKS.contains(current.getBlock());
+                    if (floorTile || (!expected.isAir() && current.getBlock() == expected.getBlock())
+                            || current.is(Blocks.LIGHT)) level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        AABB bounds = new AABB(origin.getX() - 2, origin.getY() - 2, origin.getZ() - 2,
+                origin.getX() + schematic.width + 2, origin.getY() + schematic.height + 8,
+                origin.getZ() + schematic.length + 2);
+        for (Display.TextDisplay display : level.getEntitiesOfClass(Display.TextDisplay.class, bounds,
+                entity -> entity.getTags().stream().anyMatch(tag -> tag.startsWith("bp_")
+                        || tag.startsWith("blockparty_lb_")))) display.discard();
+    }
 
     private record FloorRegion(int minX, int minZ, int y) {}
 
