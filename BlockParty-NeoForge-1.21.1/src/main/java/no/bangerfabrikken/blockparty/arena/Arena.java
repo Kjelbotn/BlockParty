@@ -831,6 +831,20 @@ public final class Arena {
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
         if (!level.hasChunkAt(anchor)) return;
 
+        // Remove obsolete floating labels left by earlier versions.
+        AABB legacyArea = "xmas".equals(id) && pos1 != null && pos2 != null
+                ? new AABB(Math.min(pos1.getX(), pos2.getX()) - 18, pos1.getY() - 8,
+                        Math.min(pos1.getZ(), pos2.getZ()) - 18,
+                        Math.max(pos1.getX(), pos2.getX()) + 18, pos1.getY() + 34,
+                        Math.max(pos1.getZ(), pos2.getZ()) + 18)
+                : new AABB(centerX - 36, screenBaseY - 8, wallZ - 38,
+                        centerX + 36, screenBaseY + 28, wallZ + 38);
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, legacyArea, entity -> {
+            String text = entity.getText().getString().toUpperCase(Locale.ROOT);
+            return ("xmas".equals(id) && (text.contains("MUSIKKAVSPILLING") || text.equals("SPILLELISTE")))
+                    || (!"xmas".equals(id) && text.contains("SLIK STEMMER DU"));
+        })) old.discard();
+
         if (xmasPanel) {
             // All Xmas text shares the same X plane as the wall-mounted black panel.
             // Only Z changes horizontally; changing X was what sent playlist entries
@@ -1032,7 +1046,8 @@ public final class Arena {
                     + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
             int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
             displayCenter = new BlockPos(centerX, pos1.getY() + 11, northWallZ);
-            targetDisplayYaw = 0.0F;
+            // The white target board is mounted on the north side and must face north.
+            targetDisplayYaw = 180.0F;
         }
         if (displayCenter == null) return;
         String tag = "bp_target_" + id;
@@ -1055,7 +1070,8 @@ public final class Arena {
                     + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
             int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
             displayCenter = new BlockPos(centerX, pos1.getY() + 11, northWallZ);
-            targetDisplayYaw = 0.0F;
+            // The white target board is mounted on the north side and must face north.
+            targetDisplayYaw = 180.0F;
         }
         if (targetColor == null) return;
         if (displayCenter == null && pos1 != null && pos2 != null) {
@@ -1073,16 +1089,6 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-
-        // Keep the arena branding visible above the changing target text on both maps.
-        boolean xmasTargetScreen = "xmas".equals(id);
-        BlockPartyText.spawnTextDisplay(level,
-                displayCenter.getX() + 0.5,
-                displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.65,
-                targetDisplayYaw,
-                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
-                5.0F, tag);
 
         if ("inni_hodet_ditt".equals(selectedMusicTrackId)) {
             int frame = Math.floorMod(specialScreenTicks, 140) / 20;
