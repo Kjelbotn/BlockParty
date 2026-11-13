@@ -110,7 +110,7 @@ jobs:
             ffmpeg -hide_banner -loglevel error -y -i "$input" \
               -map 0:a:0 -vn -map_metadata -1 \
               -af "loudnorm=I=-14:TP=-1.0:LRA=11" -ac 2 -ar 44100 \
-              -c:a libvorbis -q:a 5 "$output"
+              -c:a libvorbis -b:a 128k "$output"
             test -s "$output"
             mv "$output" "$input"
 
