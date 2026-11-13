@@ -72,14 +72,16 @@ public final class SchematicArenaGenerator {
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
                 floor.minZ + FLOOR_SIZE - 1);
         int centerX = floor.minX + FLOOR_SIZE / 2;
-        // The white target screen faces south (+Z), toward the outdoor dance floor.
-        BlockPos display = origin.offset(centerX, floor.y + 11, floor.minZ - 9);
+        // Dedicated Xmas target-screen anchor: vertical centre of the large white panel.
+        // The display is placed one block toward the dance floor (+Z) and faces south,
+        // so its front is visible to players standing on the arena.
+        BlockPos display = origin.offset(centerX, floor.y + 16, floor.minZ - 9);
         // The black panel on the LEFT indoor wall is reserved for music voting.
         // Match the wall coordinates used by the old leaderboard panel, now removed.
         BlockPos lobbyScreen = origin.offset(10, 14, 95);
         placeHiddenLobbyLights(level, origin);
         BlockPos spawn = findLobbySpawn(level, origin);
-        return new Result(first, second, display, lobbyScreen, -90.0F, 180.0F,
+        return new Result(first, second, display, lobbyScreen, -90.0F, 0.0F,
                 spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
                 90.0F, 0.0F);
     }
