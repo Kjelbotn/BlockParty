@@ -2879,8 +2879,11 @@ public final class Arena {
             for (int y = pos1.getY() + 1; y <= pos1.getY() + 20; y++) {
                 for (int z = searchMinZ; z <= searchMaxZ; z++) {
                     for (int x = searchMinX; x <= searchMaxX; x++) {
-                        // Spectators must be outside the playable concrete rectangle.
-                        if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
+                        // Exclude the complete concrete + red/white trim zone.
+                        // The gallery starts beyond this safety buffer, so an eliminated
+                        // player can never be sent straight back onto the arena border.
+                        if (x >= minX - 4 && x <= maxX + 4
+                                && z >= minZ - 4 && z <= maxZ + 4) continue;
                         BlockPos feet = new BlockPos(x, y, z);
                         BlockPos support = feet.below();
                         if (!level.getBlockState(support).isFaceSturdy(level, support, Direction.UP)
