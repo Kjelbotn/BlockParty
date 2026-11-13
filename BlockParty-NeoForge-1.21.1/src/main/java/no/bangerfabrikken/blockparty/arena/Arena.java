@@ -2933,10 +2933,43 @@ public final class Arena {
     }
 
     private void teleportToRandomFloorTile(ServerPlayer player) {
-        List<BlockPos> positions = new ArrayList<>(floorSnapshot.keySet());
-        if (positions.isEmpty()) return;
-        BlockPos tile = positions.get(random.nextInt(positions.size()));
-        player.teleportTo(level, tile.getX() + 0.5, tile.getY() + 1.05, tile.getZ() + 0.5, player.getYRot(), player.getXRot());
+        if (level == null || pos1 == null || pos2 == null) {
+            throw new IllegalStateException("Arenaen mangler gyldige gulvposisjoner.");
+        }
+        int minX = Math.min(pos1.getX(), pos2.getX());
+        int maxX = Math.max(pos1.getX(), pos2.getX());
+        int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int maxZ = Math.max(pos1.getZ(), pos2.getZ());
+        int floorY = pos1.getY();
+
+        // Only choose a real, currently solid concrete tile inside the configured
+        // playfield. This avoids stale/out-of-bounds snapshot entries placing a dancer
+        // beside the arena or above an empty section of the pit.
+        List<BlockPos> safeTiles = floorSnapshot.keySet().stream()
+                .filter(pos -> pos.getY() == floorY
+                        && pos.getX() >= minX && pos.getX() <= maxX
+                        && pos.getZ() >= minZ && pos.getZ() <= maxZ
+                        && level.getBlockState(pos).isSolid()
+                        && BlockPartyColors.isConcrete(level.getBlockState(pos))
+                        && level.isEmptyBlock(pos.above())
+                        && level.isEmptyBlock(pos.above(2)))
+                .toList();
+        if (safeTiles.isEmpty()) {
+            throw new IllegalStateException("Fant ingen ledige concrete-blokker på dansegulvet. Kontroller pos1/pos2 og gulvet.");
+        }
+
+        BlockPos tile = safeTiles.get(random.nextInt(safeTiles.size()));
+        double x = tile.getX() + 0.5;
+        double y = tile.getY() + 1.01;
+        double z = tile.getZ() + 0.5;
+        player.stopRiding();
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
+        player.teleportTo(level, x, y, z, player.getYRot(), 0.0F);
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
+        player.setOnGround(true);
+        player.connection.teleport(x, y, z, player.getYRot(), 0.0F);
     }
 
     private boolean isGameInProgress() {
