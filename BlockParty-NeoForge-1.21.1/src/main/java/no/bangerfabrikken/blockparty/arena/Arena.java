@@ -95,6 +95,7 @@ public final class Arena {
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
     private static final int WAITING_FOR_COLOR_TICKS = 20; // One-second floor reveal between rounds
+    private static final int MEMORY_REVEAL_TICKS = 100; // Five seconds to memorize the coloured floor
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
             120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
