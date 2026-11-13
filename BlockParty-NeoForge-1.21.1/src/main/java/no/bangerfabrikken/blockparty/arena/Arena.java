@@ -843,13 +843,14 @@ public final class Arena {
         // The Xmas wall is mounted facing into the lobby; its configured yaw is -90 degrees.
         // Xmas uses yaw -90 degrees: the front of that panel points toward +X,
         // into the lobby. Place the text on that visible face.
-        double frontOffset = customScreen
-                ? (Math.abs(Math.abs(screenYaw) - 90.0F) < 1.0F ? 0.72 : -0.72)
-                : -0.72;
-        double textZ = wallZ + frontOffset;
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, screenBaseY + 2.2, textZ,
+        boolean sideFacingScreen = customScreen && Math.abs(Math.abs(screenYaw) - 90.0F) < 1.0F;
+        double frontOffset = customScreen ? 0.72 : -0.72;
+        // A -90° wall faces +X, so offset X rather than Z on the Xmas screen.
+        double textX = centerX + (sideFacingScreen ? frontOffset : 0.0);
+        double textZ = wallZ + (sideFacingScreen ? 0.0 : frontOffset);
+        BlockPartyText.spawnTextDisplay(level, textX + 0.5, screenBaseY + 2.2, textZ,
                 screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY + 0.45, textZ,
+        BlockPartyText.spawnTextDisplay(level, textX - 8.0, screenBaseY + 0.45, textZ,
                 screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA), 1.4F, tag);
         List<Track> catalogue = MusicTrackManager.getTracks();
         int visible = Math.min(catalogue.size(), 10);
@@ -868,22 +869,22 @@ public final class Arena {
             BlockPartyText.spawnTextDisplay(level, x, y - 0.45, textZ, screenYaw, details, 0.84F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY - 7.4, textZ, screenYaw,
+            BlockPartyText.spawnTextDisplay(level, textX - 8.0, screenBaseY - 7.4, textZ, screenYaw,
                     Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.75F, tag);
         }
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, textX + 11.0, screenBaseY, textZ, screenYaw,
                 Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 2.3, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, textX + 11.0, screenBaseY - 2.3, textZ, screenYaw,
                 Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 3.8, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, textX + 11.0, screenBaseY - 3.8, textZ, screenYaw,
                 Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
                         : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 5.2, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, textX + 11.0, screenBaseY - 5.2, textZ, screenYaw,
                 Component.literal("ÅPNE BOKA FOR Å STEMME").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.85F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 6.4, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, textX + 11.0, screenBaseY - 6.4, textZ, screenYaw,
                 Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
     }
 
