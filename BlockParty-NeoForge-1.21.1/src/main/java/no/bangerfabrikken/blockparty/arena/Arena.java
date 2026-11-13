@@ -1114,8 +1114,8 @@ public final class Arena {
         Component text = Component.literal(BlockPartyColors.displayName(targetColor))
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
-        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
-                (customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw, text, 12.0F, tag);
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+                displayCenter.getZ() + 1.65, targetDisplayYaw, text, 12.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
