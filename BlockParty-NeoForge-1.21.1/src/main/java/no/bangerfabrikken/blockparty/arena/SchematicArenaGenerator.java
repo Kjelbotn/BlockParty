@@ -65,6 +65,22 @@ public final class SchematicArenaGenerator {
         }
 
         FloorRegion floor = findDanceFloor(schematic);
+        // The dance floor must be a true fall-through platform when its concrete is
+        // removed. Clear only snow directly beneath the 40x40 playable tiles; preserve
+        // all natural terrain and non-snow supports below the map.
+        for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
+            for (int z = floor.minZ; z < floor.minZ + FLOOR_SIZE; z++) {
+                BlockPos belowFloor = origin.offset(x, floor.y - 1, z);
+                BlockState support = level.getBlockState(belowFloor);
+                if (support.is(Blocks.SNOW) || support.is(Blocks.SNOW_BLOCK)) {
+                    level.setBlock(belowFloor, Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        // Flatten the snowy apron immediately outside the dance floor to the same
+        // ground datum as the floor surface. Do not overwrite buildings or terrain:
+        // only reposition existing snow blocks/layers into empty or snowy target cells.
+        normalizeSnowApron(level, origin, schematic, floor);
         trimLobbySideBorder(level, origin, schematic, floor);
         placeNonPlayableLobbyEdge(level, origin, floor);
         placeDanceFloorLights(level, origin, floor);
@@ -183,6 +199,38 @@ public final class SchematicArenaGenerator {
                     + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
         }
         return best;
+    }
+
+    /**
+     * Keep the snow immediately around the dance floor at the same ground level as
+     * the playable surface. Only touch snow in a narrow apron around the floor;
+     * the rest of the Xmas schematic and any non-snow terrain remain untouched.
+     */
+    private static void normalizeSnowApron(ServerLevel level, BlockPos origin,
+                                           Schematic schematic, FloorRegion floor) {
+        int minX = Math.max(0, floor.minX - 4);
+        int maxX = Math.min(schematic.width - 1, floor.minX + FLOOR_SIZE + 3);
+        int minZ = Math.max(0, floor.minZ - 4);
+        int maxZ = Math.min(schematic.length - 1, floor.minZ + FLOOR_SIZE + 3);
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                boolean onPlayableFloor = x >= floor.minX && x < floor.minX + FLOOR_SIZE
+                        && z >= floor.minZ && z < floor.minZ + FLOOR_SIZE;
+                if (onPlayableFloor) continue;
+                for (int y = Math.max(0, floor.y - 3); y < Math.min(schematic.height, floor.y + 3); y++) {
+                    int index = schematic.indices[x + z * schematic.width + y * schematic.width * schematic.length];
+                    Block block = schematic.palette.get(index).getBlock();
+                    if (block != Blocks.SNOW && block != Blocks.SNOW_BLOCK) continue;
+                    BlockPos oldPos = origin.offset(x, y, z);
+                    BlockPos target = origin.offset(x, block == Blocks.SNOW_BLOCK ? floor.y - 1 : floor.y, z);
+                    if (oldPos.equals(target)) continue;
+                    BlockState targetState = level.getBlockState(target);
+                    if (!targetState.isAir() && !targetState.is(Blocks.SNOW) && !targetState.is(Blocks.SNOW_BLOCK)) continue;
+                    level.setBlock(oldPos, Blocks.AIR.defaultBlockState(), 3);
+                    level.setBlock(target, schematic.palette.get(index), 3);
+                }
+            }
+        }
     }
 
     /**
