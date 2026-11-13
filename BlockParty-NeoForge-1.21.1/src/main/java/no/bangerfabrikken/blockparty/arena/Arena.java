@@ -625,15 +625,16 @@ public final class Arena {
             originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
         }
         long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
+        // All matches use Minecraft time 16000 (night). Freeze it for the whole match
+        // and restore the world's original time and gamerules when the match ends.
+        teleportSunsetEndTime = dayStart + 16_000L;
         if ("xmas".equals(id)) {
-            teleportSunsetStartTime = dayStart + 6_000L;
-            teleportSunsetEndTime = teleportSunsetStartTime;
+            teleportSunsetStartTime = teleportSunsetEndTime;
             level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
             level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
-            level.setDayTime(teleportSunsetStartTime);
+            level.setDayTime(teleportSunsetEndTime);
         } else {
             teleportSunsetStartTime = originalDayTime;
-            teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
             level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
             level.setDayTime(teleportSunsetStartTime);
             level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
@@ -839,11 +840,10 @@ public final class Arena {
                         Math.max(pos1.getZ(), pos2.getZ()) + 18)
                 : new AABB(centerX - 36, screenBaseY - 8, wallZ - 38,
                         centerX + 36, screenBaseY + 28, wallZ + 38);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, legacyArea, entity -> {
-            String text = entity.getText().getString().toUpperCase(Locale.ROOT);
-            return ("xmas".equals(id) && (text.contains("MUSIKKAVSPILLING") || text.equals("SPILLELISTE")))
-                    || (!"xmas".equals(id) && text.contains("SLIK STEMMER DU"));
-        })) old.discard();
+        // TextDisplay#getText is private in the current Minecraft mappings.
+        // Our current and legacy BlockParty labels are tagged, so clean them up by tag.
+        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, legacyArea,
+                entity -> entity.getTags().contains(tag))) old.discard();
 
         if (xmasPanel) {
             // All Xmas text shares the same X plane as the wall-mounted black panel.
@@ -1897,16 +1897,10 @@ public final class Arena {
                 }
             }
         }
-        if ("xmas".equals(id) && isGameInProgress() && level != null
-                && teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
+        // Hold the clock at 16000 throughout countdown and every active match phase.
+        if (isGameInProgress() && level != null && teleportSunsetEndTime != Long.MIN_VALUE
+                && level.getDayTime() != teleportSunsetEndTime) {
             level.setDayTime(teleportSunsetEndTime);
-        }
-        if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.WAITING_FOR_COLOR
-                || phase == Phase.FINISHING) && level != null) {
-            // Keep the Xmas arena fixed at 12:00 (Minecraft day time 6000).
-            if (teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
-                level.setDayTime(teleportSunsetEndTime);
-            }
         }
         if (scoreboardTick % 20 == 0) removeMobsFromProtectedArea();
         // Players are intentionally standing in the lobby during COUNTDOWN, and are

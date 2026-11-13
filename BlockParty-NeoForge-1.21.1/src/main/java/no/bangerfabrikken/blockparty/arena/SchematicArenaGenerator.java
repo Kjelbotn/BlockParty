@@ -69,6 +69,7 @@ public final class SchematicArenaGenerator {
         // edge and the red/white decorative concrete trim. The gap is open vertically
         // and below the floor, so it cannot be mistaken for safe dance tiles.
         clearDangerGaps(level, origin, floor);
+        placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
                 floor.minZ + FLOOR_SIZE - 1);
@@ -165,6 +166,31 @@ public final class SchematicArenaGenerator {
                     + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
         }
         return best;
+    }
+
+    /** Adds invisible light sources above the full dance floor and in front of its white target board. */
+    private static void placeDanceFloorLights(ServerLevel level, BlockPos origin, FloorRegion floor) {
+        BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15);
+        int maxX = floor.minX + FLOOR_SIZE - 1;
+        int maxZ = floor.minZ + FLOOR_SIZE - 1;
+        // Even light coverage over all 1600 playable concrete tiles.
+        for (int x = floor.minX + 2; x <= maxX - 1; x += 4) {
+            for (int z = floor.minZ + 2; z <= maxZ - 1; z += 4) {
+                for (int yOffset : new int[]{5, 9}) {
+                    BlockPos pos = origin.offset(x, floor.y + yOffset, z);
+                    if (level.getBlockState(pos).isAir()) level.setBlock(pos, light, 3);
+                }
+            }
+        }
+        // Extra front-facing light for the large white target board; distribute sources
+        // across its width and height to eliminate the dark patches visible at night.
+        int boardZ = floor.minZ - 7;
+        for (int x = floor.minX - 1; x <= maxX + 1; x += 3) {
+            for (int yOffset : new int[]{7, 11, 15, 19}) {
+                BlockPos pos = origin.offset(x, floor.y + yOffset, boardZ);
+                if (level.getBlockState(pos).isAir()) level.setBlock(pos, light, 3);
+            }
+        }
     }
 
     private static void clearDangerGaps(ServerLevel level, BlockPos origin, FloorRegion floor) {
