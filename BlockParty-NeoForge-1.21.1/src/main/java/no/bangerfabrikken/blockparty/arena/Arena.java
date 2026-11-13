@@ -559,6 +559,13 @@ public final class Arena {
             throw new IllegalStateException("Ingen tilkoblede spillere er med i arenaen.");
         }
 
+        long memoryVotes = players.stream()
+                .filter(uuid -> preferredGameModes.getOrDefault(uuid, GameMode.CLASSIC) == GameMode.MEMORY)
+                .count();
+        gameMode = memoryVotes > players.size() / 2 ? GameMode.MEMORY : GameMode.CLASSIC;
+        broadcast(Component.literal("GAME MODE: " + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC"))
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+
         applyVisualUpgrade();
         clearWinnerPodiumAtDjBooth();
         lastPodium.clear();
@@ -1628,14 +1635,49 @@ public final class Arena {
             case 10 -> PlayerStatsManager.sendProfile(player);
             case 12 -> openMusicVoting(player);
             case 14 -> PlayerStatsManager.sendLeaderboard(player);
-            case 30 -> player.sendSystemMessage(Component.literal("Prestasjoner kommer i en senere oppdatering.")
+            case 30 -> openDailyChallenges(player);
+            case 32 -> player.sendSystemMessage(Component.literal("Kosmetikk kommer senere.")
                     .withStyle(ChatFormatting.YELLOW));
-            case 31 -> DailyChallengeManager.open(player);
-            case 32 -> player.sendSystemMessage(Component.literal("Kosmetikk kommer i en senere oppdatering.")
-                    .withStyle(ChatFormatting.YELLOW));
+            case 34 -> openGameModeMenu(player);
             case 49 -> registerForGame(player);
             default -> { }
         }
+    }
+
+    private void openDailyChallenges(ServerPlayer player) {
+        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) return;
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, menuPlayer) ->
+                        new DailyChallengeMenu(containerId, inventory, (ServerPlayer) menuPlayer),
+                Component.literal("Daily Challenges")));
+    }
+
+    private void openGameModeMenu(ServerPlayer player) {
+        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) return;
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, menuPlayer) ->
+                        new GameModeMenu(containerId, inventory, this, (ServerPlayer) menuPlayer),
+                Component.literal("Choose Game Mode")));
+    }
+
+    public GameMode getPreferredGameMode(UUID playerId) {
+        return preferredGameModes.getOrDefault(playerId, GameMode.CLASSIC);
+    }
+
+    public void setPreferredGameMode(ServerPlayer player, GameMode selected) {
+        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("Velg spillmodus i den åpne BlockParty-lobbyen.")
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
+        GameMode mode = selected == null ? GameMode.CLASSIC : selected;
+        preferredGameModes.put(player.getUUID(), mode);
+        player.sendSystemMessage(Component.literal("Din spillmodus for neste match er satt til "
+                + (mode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + ".")
+                .withStyle(ChatFormatting.GREEN));
+        broadcast(Component.literal(player.getGameProfile().getName() + " har valgt "
+                + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
+                .withStyle(ChatFormatting.GRAY));
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -1801,6 +1843,53 @@ public final class Arena {
             level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1,
                     0.05, 0.10, 0.05, 0.003);
         }
+    }
+
+    /** Sends Color Scanner particles only to the player who collected that scanner. */
+    private void tickColorScanners(MinecraftServer server) {
+        if (scannerTicks.isEmpty() || targetColor == null || level == null) return;
+        for (Map.Entry<UUID, Integer> entry : new HashMap<>(scannerTicks).entrySet()) {
+            UUID playerId = entry.getKey();
+            ServerPlayer scannerPlayer = server.getPlayerList().getPlayer(playerId);
+            int remaining = entry.getValue() - 1;
+            if (remaining <= 0 || scannerPlayer == null || scannerPlayer.serverLevel() != level
+                    || !alive.contains(playerId)) {
+                scannerTicks.remove(playerId);
+                continue;
+            }
+            scannerTicks.put(playerId, remaining);
+            if (remaining % 20 != 0) continue;
+            for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
+                if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
+                    level.sendParticles(scannerPlayer, ParticleTypes.END_ROD, false,
+                            tile.getKey().getX() + 0.5, tile.getKey().getY() + 1.08,
+                            tile.getKey().getZ() + 0.5, 2, 0.18, 0.02, 0.18, 0.005);
+                }
+            }
+        }
+    }
+
+    /** Colourful firework-like particle bursts around podium finishers for five seconds. */
+    private void tickPodiumFireworks() {
+        if (podiumFireworksTicks <= 0 || level == null || podiumFreezePositions.isEmpty()) return;
+        if (podiumFireworksTicks % 5 == 0) {
+            for (BlockPos spawn : new ArrayList<>(podiumFreezePositions.values())) {
+                for (int burst = 0; burst < 3; burst++) {
+                    double angle = random.nextDouble() * Math.PI * 2.0;
+                    double radius = 0.8 + random.nextDouble() * 1.5;
+                    double x = spawn.getX() + 0.5 + Math.cos(angle) * radius;
+                    double y = spawn.getY() + 1.3 + random.nextDouble() * 2.4;
+                    double z = spawn.getZ() + 0.5 + Math.sin(angle) * radius;
+                    DustParticleOptions colour = new DustParticleOptions(
+                            new Vector3f(0.25F + random.nextFloat() * 0.75F,
+                                    0.25F + random.nextFloat() * 0.75F,
+                                    0.25F + random.nextFloat() * 0.75F), 1.35F);
+                    level.sendParticles(colour, x, y, z, 16, 0.28, 0.35, 0.28, 0.08);
+                    level.sendParticles(ParticleTypes.FIREWORK, x, y, z, 5, 0.2, 0.25, 0.2, 0.05);
+                }
+            }
+        }
+        podiumFireworksTicks--;
     }
 
     private void tickLobbyDanceFloor() {
@@ -2129,7 +2218,8 @@ public final class Arena {
         previousTargetColor = targetColor;
 
         if (firstRound) {
-            startRoundCountdown(server);
+            if (gameMode == GameMode.MEMORY) startMemoryReveal(server);
+            else startRoundCountdown(server);
         } else {
             // The full floor comes back first. Hide the target and wait one second
             // before starting this round's countdown.
