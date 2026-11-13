@@ -1041,8 +1041,8 @@ public final class Arena {
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
         boolean xmasTargetScreen = "xmas".equals(id);
-        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() + 2.2,
-                (customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
+                displayCenter.getZ() + 1.65, targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
     }
 
@@ -1807,7 +1807,10 @@ public final class Arena {
  
     private boolean isOutsidePlayableFloor(ServerPlayer player) {
         if (player == null || pos1 == null || pos2 == null) return false;
-        double inset = "xmas".equals(id) ? 2.0 : 0.0;
+        // The configured corners are the actual playable concrete edges on both maps.
+        // Do not inset the boundary: that incorrectly eliminates players standing on
+        // perfectly valid outer concrete tiles, especially on the Xmas 40x40 floor.
+        double inset = 0.0;
         double minX = Math.min(pos1.getX(), pos2.getX()) + inset;
         double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 - inset;
         double minZ = Math.min(pos1.getZ(), pos2.getZ()) + inset;
