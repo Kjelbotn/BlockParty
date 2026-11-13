@@ -189,12 +189,6 @@ public final class DailyChallengeManager {
         lines.add(Component.literal("Fullført: " + completed + "/3").withStyle(ChatFormatting.AQUA));
         lines.add(Component.literal("Fullføringsbonus: " + (d.bonusClaimed ? "MOTTATT" : "+50 poeng"))
                 .withStyle(d.bonusClaimed ? ChatFormatting.GREEN : ChatFormatting.GOLD));
-        lines.add(Component.empty());
-        lines.add(Component.literal("ALLE MULIGE DAILY CHALLENGES").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        for (Challenge c : CATALOGUE) {
-            lines.add(Component.literal("• " + c.description + "  (+" + c.reward + " poeng)")
-                    .withStyle(ChatFormatting.GRAY));
-        }
         return lines;
     }
 
