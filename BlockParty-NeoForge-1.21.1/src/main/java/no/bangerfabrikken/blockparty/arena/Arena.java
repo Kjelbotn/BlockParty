@@ -1190,8 +1190,10 @@ public final class Arena {
         };
         Component text = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
                 .withStyle(textColor, ChatFormatting.BOLD);
-        // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+        // Use exactly the same visible centre as the welcome title. The previous
+        // lower anchor put target text behind the main arena's panel, leaving only
+        // the old "BlockParty" title visible during Memory Mode.
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
                 displayCenter.getZ() + 1.0, targetDisplayYaw, text, 12.0F, tag);
     }
 
