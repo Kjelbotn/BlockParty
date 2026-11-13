@@ -1,80 +1,110 @@
 package no.bangerfabrikken.blockparty.arena;
 
-import net.minecraft.core.Holder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.sounds.SoundEvent;
 import no.bangerfabrikken.blockparty.BlockPartyMod;
 import no.bangerfabrikken.blockparty.sound.ModSounds;
 
 import java.io.InputStream;
-import java.util.Properties;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
-/** The official, built-in BlockParty playlist. */
+/** Loads the BlockParty playlist from one JSON manifest instead of hard-coded Java entries. */
 public final class MusicTrackManager {
+    private static final String PLAYLIST_RESOURCE = "/assets/blockparty/music_playlist.json";
     private static final Map<String, Track> TRACKS = new LinkedHashMap<>();
 
     private MusicTrackManager() { }
 
     public record Track(String id, String name, String artist, int bpm, double durationSeconds,
-                        Holder<SoundEvent> sound, ResourceLocation soundId) {
+                        ResourceLocation soundId) {
         /** Audio playback is advanced in server ticks, each representing 1/20 second. */
         public int durationTicks() {
             return Math.max(1, (int) Math.round(durationSeconds * 20.0));
         }
     }
 
-    /** Kept as a server lifecycle hook; the official playlist is intentionally fixed. */
+    /** Loads all enabled built-in and custom tracks from the bundled playlist manifest. */
     public static synchronized void load(MinecraftServer server) {
         TRACKS.clear();
         Properties durations = loadBundledDurations();
-        add("bangerfabrikken", "BlockParty", "Bangerfabrikken", 128, duration(durations, "bangerfabrikken", 216.240),
-                ModSounds.MUSIC_BANGERFABRIKKEN, "music_bangerfabrikken");
-        add("odin_moon", "Odin er en alkis - Moon Edition", "Bangerfabrikken", 128, duration(durations, "odin_moon", 120.000),
-                ModSounds.MUSIC_ODIN_MOON, "music_odin_moon");
-        add("stille_anders", "Stille Anders [Indiepop]", "Bangerfabrikken", 0, duration(durations, "stille_anders", 211.960),
-                ModSounds.MUSIC_STILLE_ANDERS, "music_stille_anders");
-        add("hjulene_pa_bussen_olli", "Hjulene på bussen (til Olli)", "Bangerfabrikken", 0, duration(durations, "hjulene_pa_bussen_olli", 74.560),
-                ModSounds.MUSIC_HJULENE_OLLI, "music_hjulene_pa_bussen_olli");
-        add("odin_terrorist", "Odin er en terrorist", "Bangerfabrikken", 0, duration(durations, "odin_terrorist", 176.800),
-                ModSounds.MUSIC_ODIN_TERRORIST, "music_odin_terrorist");
-        add("exige_2014_launchpad_mix", "2014 Launchpad Mix", "Exige", 0, duration(durations, "exige_2014_launchpad_mix", 364.042449),
-                ModSounds.MUSIC_EXIGE_2014_LAUNCHPAD_MIX, "music_exige_2014_launchpad_mix");
-        add("hau_hau_hau", "Hau Hau Hau", "Bangerfabrikken", 0, duration(durations, "hau_hau_hau", 110.999979),
-                ModSounds.MUSIC_HAU_HAU_HAU, "music_hau_hau_hau");
-        add("fest_hos_toby", "Fest hos Toby", "Bangerfabrikken", 0, duration(durations, "fest_hos_toby", 145.840167),
-                ModSounds.MUSIC_FEST_HOS_TOBY, "music_fest_hos_toby");
-        add("konfliktpartiet", "Konfliktpartiet", "Bangerfabrikken", 0, duration(durations, "konfliktpartiet", 53.400),
-                ModSounds.MUSIC_KONFLIKTPARTIET, "music_konfliktpartiet");
-        add("hms_er_best", "HMS er best!", "Bangerfabrikken", 0, duration(durations, "hms_er_best", 119.797551),
-                ModSounds.MUSIC_HMS_ER_BEST, "music_hms_er_best");
-        add("stianorway_damer_objekter", "Damer, Objekter", "StianNorway", 0,
-                duration(durations, "stianorway_damer_objekter", 75.680),
-                ModSounds.MUSIC_STIANORWAY_DAMER_OBJEKTER, "music_stianorway_damer_objekter");
-        add("stianorway_vi_maa_ikke_si_et_ord", "Vi må ikke si et ord", "StianNorway", 0,
-                duration(durations, "stianorway_vi_maa_ikke_si_et_ord", 193.980),
-                ModSounds.MUSIC_STIANORWAY_VI_MAA_IKKE_SI_ET_ORD, "music_stianorway_vi_maa_ikke_si_et_ord");
-        add("luxus_leverpostei_plastisk_kirurgi", "Plastisk Kirurgi", "Luxus Leverpostei", 0,
-                duration(durations, "luxus_leverpostei_plastisk_kirurgi", 241.429),
-                ModSounds.MUSIC_LUXUS_PLASTISK_KIRURGI, "music_luxus_leverpostei_plastisk_kirurgi");
-        add("kaptein_sabeltann_pinkys_sang", "Pinkys Sang", "Kaptein Sabeltann", 0,
-                duration(durations, "kaptein_sabeltann_pinkys_sang", 158.699),
-                ModSounds.MUSIC_KAPTEIN_SABELTANN_PINKYS_SANG, "music_kaptein_sabeltann_pinkys_sang");
-        add("luxus_leverpostei_195", "§195", "Luxus Leverpostei", 0,
-                duration(durations, "luxus_leverpostei_195", 196.011),
-                ModSounds.MUSIC_LUXUS_195, "music_luxus_leverpostei_195");
-        add("luxus_leverpostei_sur_mus", "Sur Mus", "Luxus Leverpostei", 0,
-                duration(durations, "luxus_leverpostei_sur_mus", 210.049),
-                ModSounds.MUSIC_LUXUS_SUR_MUS, "music_luxus_leverpostei_sur_mus");
-        add("oingo_boingo_little_girls_pedobear", "Little Girls [PedoBear]", "Oingo Boingo", 0,
-                duration(durations, "oingo_boingo_little_girls_pedobear", 136.928),
-                ModSounds.MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR, "music_oingo_boingo_little_girls_pedobear");
-        add("inni_hodet_ditt", "Inni Hodet Ditt", "Truls", 0, duration(durations, "inni_hodet_ditt", 180.000),
-                ModSounds.MUSIC_INNI_HODET_DITT, "music_inni_hodet_ditt");
-        BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
+
+        try (InputStream input = MusicTrackManager.class.getResourceAsStream(PLAYLIST_RESOURCE)) {
+            if (input == null) {
+                BlockPartyMod.LOGGER.error("BlockParty music playlist is missing: {}", PLAYLIST_RESOURCE);
+                return;
+            }
+
+            JsonObject root = JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            JsonArray entries = root.getAsJsonArray("tracks");
+            if (entries == null) {
+                BlockPartyMod.LOGGER.error("BlockParty music playlist has no 'tracks' array.");
+                return;
+            }
+
+            for (JsonElement element : entries) {
+                if (!element.isJsonObject()) {
+                    BlockPartyMod.LOGGER.warn("Skipping invalid non-object entry in BlockParty music playlist.");
+                    continue;
+                }
+                JsonObject entry = element.getAsJsonObject();
+                String id = readString(entry, "id");
+                String name = readString(entry, "name");
+                String artist = readString(entry, "artist");
+
+                if (!id.matches("[a-z0-9_]{1,48}") || name.isBlank() || artist.isBlank()) {
+                    BlockPartyMod.LOGGER.warn("Skipping invalid BlockParty music entry: id='{}', name='{}'.", id, name);
+                    continue;
+                }
+                if (TRACKS.containsKey(id)) {
+                    BlockPartyMod.LOGGER.warn("Skipping duplicate BlockParty music track id '{}'.", id);
+                    continue;
+                }
+
+                ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath(
+                        ModSounds.MUSIC_NAMESPACE, "music_" + id);
+                if (BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isEmpty()) {
+                    BlockPartyMod.LOGGER.warn("Skipping playlist track '{}' because sound event '{}' is not registered.",
+                            id, soundId);
+                    continue;
+                }
+
+                int bpm = readInt(entry, "bpm", 0);
+                if (bpm < 0 || bpm > 400) bpm = 0;
+                double duration = duration(durations, id, 180.0);
+                TRACKS.put(id, new Track(id, name, artist, bpm, duration, soundId));
+            }
+        } catch (Exception exception) {
+            BlockPartyMod.LOGGER.error("Could not load BlockParty music playlist.", exception);
+        }
+
+        BlockPartyMod.LOGGER.info("Loaded {} BlockParty music track(s) from the playlist manifest.", TRACKS.size());
+    }
+
+    private static String readString(JsonObject entry, String key) {
+        JsonElement value = entry.get(key);
+        return value == null || value.isJsonNull() ? "" : value.getAsString().trim();
+    }
+
+    private static int readInt(JsonObject entry, String key, int fallback) {
+        try {
+            JsonElement value = entry.get(key);
+            return value == null || value.isJsonNull() ? fallback : value.getAsInt();
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
     }
 
     private static Properties loadBundledDurations() {
@@ -102,14 +132,14 @@ public final class MusicTrackManager {
             double measured = Double.parseDouble(raw.trim());
             if (Double.isFinite(measured) && measured > 0.0 && measured <= 3600.0) return measured;
         } catch (NumberFormatException ignored) { }
-        BlockPartyMod.LOGGER.warn("Invalid measured duration for BlockParty track '{}': {}; using fallback {}s.", id, raw, fallback);
+        BlockPartyMod.LOGGER.warn("Invalid measured duration for BlockParty track '{}': {}; using fallback {}s.",
+                id, raw, fallback);
         return fallback;
     }
 
-    private static void add(String id, String name, String artist, int bpm, double durationSeconds,
-                            Holder<SoundEvent> sound, String eventPath) {
-        ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath(ModSounds.MUSIC_NAMESPACE, eventPath);
-        TRACKS.put(id, new Track(id, name, artist, bpm, durationSeconds, sound, soundId));
+    /** Prevents a literal section sign in a song title from being parsed as a legacy colour code. */
+    public static MutableComponent displayNameComponent(String name) {
+        return Component.literal(name.replace("§", "§​"));
     }
 
     public static synchronized List<Track> getTracks() { return List.copyOf(TRACKS.values()); }
