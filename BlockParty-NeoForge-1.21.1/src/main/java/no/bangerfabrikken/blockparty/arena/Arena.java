@@ -1795,7 +1795,17 @@ public final class Arena {
             for (UUID uuid : new ArrayList<>(alive)) {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
-                if (isOutsidePlayableFloor(active) || active.getY() <= pos1.getY() - 3.0) eliminate(active);
+                boolean outsideFloor = isOutsidePlayableFloor(active)
+                        || active.getY() <= pos1.getY() - 3.0;
+                if (phase == Phase.TELEPORT_COUNTDOWN) {
+                    // The teleport countdown is a protected arrival window. Some clients
+                    // can briefly report their pre-teleport lobby position while the server
+                    // completes the dimension/position sync. Re-send the floor teleport
+                    // instead of eliminating a dancer before the first round has begun.
+                    if (outsideFloor) teleportToRandomFloorTile(active);
+                    continue;
+                }
+                if (outsideFloor) eliminate(active);
             }
             // Eliminated dancers may roam the spectator gallery, but never the floor or its trim.
             for (UUID uuid : players) {
@@ -2853,6 +2863,12 @@ public final class Arena {
     /** Refreshes the lobby-only leaderboard. Its text is hidden while players are in the arena. */
     private void refreshLobbyLeaderboard() {
         if (level == null || !lobbySet) return;
+        // Xmas uses its left black wall exclusively for the music-voting display.
+        // Remove legacy leaderboard/command holograms there and never recreate them.
+        if ("xmas".equals(id)) {
+            hideLobbyLeaderboard();
+            return;
+        }
         if (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             hideLobbyLeaderboard();

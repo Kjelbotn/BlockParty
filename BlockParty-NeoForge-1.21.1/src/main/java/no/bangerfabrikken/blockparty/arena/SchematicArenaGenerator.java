@@ -71,8 +71,9 @@ public final class SchematicArenaGenerator {
         int centerX = floor.minX + FLOOR_SIZE / 2;
         // The white target screen faces the OUTDOOR dance floor.
         BlockPos display = origin.offset(centerX, floor.y + 11, floor.minZ - 9);
-        // The black music panel belongs to the separate indoor lobby.
-        BlockPos lobbyScreen = origin.offset(32, 14, 95);
+        // The black panel on the LEFT indoor wall is reserved for music voting.
+        // Match the wall coordinates used by the old leaderboard panel, now removed.
+        BlockPos lobbyScreen = origin.offset(10, 14, 95);
         placeHiddenLobbyLights(level, origin);
         BlockPos spawn = findLobbySpawn(level, origin);
         return new Result(first, second, display, lobbyScreen, 0.0F, 0.0F,
