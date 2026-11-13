@@ -167,6 +167,17 @@ jobs:
           print("All seventeen built-in BlockParty sound events map to packaged OGG tracks.")
           PY
 
+      - name: Verify source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
+          grep -q 'MUSIKKAVSTEMNING' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java
+          grep -q 'teleportToSpectatorWalkway(player)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java
+          grep -q 'xmas.schem.b64' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
+
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
