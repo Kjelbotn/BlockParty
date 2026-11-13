@@ -824,9 +824,12 @@ public final class Arena {
         int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
         int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
         float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
-        double frontOffset = customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72;
-        double textZ = wallZ + frontOffset;
-        BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ - (frontOffset < 0 ? 1 : -1));
+        // Xmas voting panel is mounted on the left wall (an X-facing plane).
+        // Its interior side is +X, whereas the standard lobby screen faces north/south.
+        boolean facesEast = customScreen && Math.abs(screenYaw + 90.0F) < 1.0F;
+        double textXOffset = facesEast ? 0.72 : 0.0;
+        double textZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
+        BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
         if (!level.hasChunkAt(anchor)) return;
         String tag = "bp_dj_" + id;
         AABB area = new AABB(centerX - 24, screenBaseY - 3, wallZ - 5,
@@ -838,9 +841,9 @@ public final class Arena {
                     centerX + 20, lobbyY + 16, lobbyZ - 13);
             for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
         }
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, screenBaseY + 2.2, textZ,
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5 + textXOffset, screenBaseY + 2.2, textZ,
                 screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY + 0.45, textZ,
+        BlockPartyText.spawnTextDisplay(level, centerX - 8.0 + textXOffset, screenBaseY + 0.45, textZ,
                 screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA), 1.4F, tag);
         List<Track> catalogue = MusicTrackManager.getTracks();
         int visible = Math.min(catalogue.size(), 10);
@@ -849,7 +852,7 @@ public final class Arena {
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
             int column = 1 - (i / 5);
             int row = i % 5;
-            double x = centerX - 14.0 + column * 12.0;
+            double x = centerX - 14.0 + column * 12.0 + textXOffset;
             double y = screenBaseY - 0.9 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
@@ -859,20 +862,20 @@ public final class Arena {
             BlockPartyText.spawnTextDisplay(level, x, y - 0.45, textZ, screenYaw, details, 0.84F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY - 7.4, textZ, screenYaw,
+            BlockPartyText.spawnTextDisplay(level, centerX - 8.0 + textXOffset, screenBaseY - 7.4, textZ, screenYaw,
                     Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.75F, tag);
         }
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY, textZ, screenYaw,
                 Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 2.3, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY - 2.3, textZ, screenYaw,
                 Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 3.8, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY - 3.8, textZ, screenYaw,
                 Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
                         : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 5.2, textZ, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY - 5.2, textZ, screenYaw,
                 Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
     }
 
