@@ -332,18 +332,6 @@ public final class Arena {
     }
 
     private void enforceBlockPartyNeeds(MinecraftServer server) {
-        for (UUID uuid : eliminatedPlayers) {
-            ServerPlayer eliminated = server.getPlayerList().getPlayer(uuid);
-            if (eliminated == null || eliminated.serverLevel() != level) continue;
-            if (eliminated.gameMode.getGameModeForPlayer() != GameType.ADVENTURE) {
-                eliminated.setGameMode(GameType.ADVENTURE);
-            }
-            eliminated.setNoGravity(false);
-            eliminated.getAbilities().mayfly = false;
-            eliminated.getAbilities().flying = false;
-            eliminated.onUpdateAbilities();
-            // Do not setPos or zero velocity here: movement in the spectator area is free.
-        }
         for (UUID uuid : players) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null || player.serverLevel() != level) continue;
@@ -1023,10 +1011,12 @@ public final class Arena {
                 for (int y = floorY + 1; y <= floorY + 22; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
                     BlockState state = level.getBlockState(pos);
-                    if (state.is(Blocks.PURPLE_CONCRETE) || state.is(Blocks.PURPLE_STAINED_GLASS)
-                            || state.is(Blocks.MAGENTA_CONCRETE) || state.is(Blocks.MAGENTA_STAINED_GLASS)) {
-                        // Only arena trim is recoloured; the lobby has a separate, fixed colour palette.
-                        if (x >= minX - 12 && x <= maxX + 12 && z <= maxZ + 12) {
+                    if (isArenaColorAccent(state)) {
+                        // Capture the complete coloured trim around the stadium, not only
+                        // purple/magenta blocks. The dance floor is below this scan and the
+                        // lobby is outside these bounds, so only wall/arena accents are changed.
+                        if (x >= minX - 20 && x <= maxX + 20
+                                && z >= minZ - 20 && z <= maxZ + 20) {
                             originalArenaAccentSnapshot.put(pos.immutable(), state);
                         }
                     }
@@ -1036,11 +1026,24 @@ public final class Arena {
         }
     }
 
+    private static boolean isArenaColorAccent(BlockState state) {
+        if (BlockPartyColors.isConcrete(state)) return true;
+        Block block = state.getBlock();
+        for (DyeColor color : BlockPartyColors.allColors()) {
+            if (BlockPartyColors.getStainedGlass(color) == block) return true;
+        }
+        return false;
+    }
+
     private void updateArenaAccents(DyeColor color) {
         if (level == null || color == null) return;
         for (Map.Entry<BlockPos, BlockState> entry : originalArenaAccentSnapshot.entrySet()) {
             Block original = entry.getValue().getBlock();
-            Block replacement = (original == Blocks.PURPLE_STAINED_GLASS || original == Blocks.MAGENTA_STAINED_GLASS)
+            boolean stainedGlass = false;
+            for (DyeColor dye : BlockPartyColors.allColors()) {
+                if (BlockPartyColors.getStainedGlass(dye) == original) { stainedGlass = true; break; }
+            }
+            Block replacement = stainedGlass
                     ? BlockPartyColors.getStainedGlass(color) : BlockPartyColors.getConcrete(color);
             level.setBlock(entry.getKey(), replacement.defaultBlockState(), 3);
         }
@@ -1101,11 +1104,11 @@ public final class Arena {
         double x = (minX + maxX + 1) / 2.0;
         // The white panel is north of the floor. Place the text several blocks south
         // of the panel, visibly in the arena airspace, at the panel's vertical centre.
-        double y = floorY + 13.5;
-        double z = minZ - 2.5;
+        double y = floorY + 12.5;
+        double z = minZ - 1.5;
         String tag = "bp_target_" + id;
-        AABB area = new AABB(minX - 24, floorY + 4, minZ - 24,
-                maxX + 24, floorY + 26, minZ + 8);
+        AABB area = new AABB(minX - 32, floorY + 2, minZ - 32,
+                maxX + 32, floorY + 32, minZ + 16);
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
         for (Display.TextDisplay old : existing) {
@@ -1117,6 +1120,7 @@ public final class Arena {
         }
 
         // Yaw 0 faces south (+Z), toward players standing on the dance floor.
+        // This is deliberately in the open arena volume, not embedded in the white board.
         Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
                 Component.literal(text).withStyle(
                         showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
