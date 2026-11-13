@@ -92,7 +92,17 @@ final class MusicVotingMenu extends ChestMenu {
                 default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
-            icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())
+            Component displayName;
+            if ("luxus_leverpostei_195".equals(track.id())) {
+                // Keep the section sign and the digits in separate literal components so
+                // the legacy text renderer cannot interpret "§1" as a color code.
+                displayName = Component.literal(selected ? "✓ " : "")
+                        .append(Component.literal("§"))
+                        .append(Component.literal("195"));
+            } else {
+                displayName = Component.literal((selected ? "✓ " : "") + track.name());
+            }
+            icon.set(DataComponents.CUSTOM_NAME, displayName
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
 
             long votes = arena.getTrackVoteCount(track.id());

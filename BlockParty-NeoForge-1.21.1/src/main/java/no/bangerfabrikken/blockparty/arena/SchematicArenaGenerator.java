@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.GZIPInputStream;
 
 /** Imports the bundled Sponge v3 schematic used by the Xmas BlockParty map. */
 public final class SchematicArenaGenerator {
@@ -97,8 +96,10 @@ public final class SchematicArenaGenerator {
             String encoded = new String(resource.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII).trim();
             byte[] compressed = Base64.getDecoder().decode(encoded);
             CompoundTag root;
-            try (InputStream gzip = new GZIPInputStream(new ByteArrayInputStream(compressed))) {
-                root = NbtIo.readCompressed(gzip, NbtAccounter.unlimitedHeap());
+            // NbtIo.readCompressed performs the GZIP decompression itself. Passing it an
+            // already-decompressed GZIPInputStream causes "Not in GZIP format".
+            try (InputStream compressedInput = new ByteArrayInputStream(compressed)) {
+                root = NbtIo.readCompressed(compressedInput, NbtAccounter.unlimitedHeap());
             }
             CompoundTag schematic = root.getCompound("Schematic");
             if (schematic.getInt("Version") != 3) throw new IOException("Xmas-schematic må være Sponge v3.");
