@@ -831,60 +831,110 @@ public final class Arena {
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
         if (!level.hasChunkAt(anchor)) return;
 
-        // All Xmas text shares the same X plane as the wall-mounted black panel.
-        // Only Z changes horizontally; changing X was what sent playlist entries
-        // out into the lobby floor in earlier builds.
-        double planeX = centerX + (xmasPanel ? 0.72 : 0.0);
-        double planeZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
-        // Wide cleanup also removes the old misplaced text entities from earlier builds.
-        AABB area = new AABB(centerX - 32, screenBaseY - 16, wallZ - 34,
-                centerX + 32, screenBaseY + 14, wallZ + 34);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
-
-        // The main heading and all playlist rows remain inside the black panel.
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 3.4, planeZ,
-                screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.55F, tag);
-        // On the Xmas panel, negative Z is the viewer's LEFT. Keep the playlist
-        // flowing left-to-right and reserve the far-right column for instructions.
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ + 7.0,
-                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 0.92F, tag);
-        List<Track> catalogue = MusicTrackManager.getTracks();
-        int visible = Math.min(catalogue.size(), 10);
-        for (int i = 0; i < visible; i++) {
-            Track track = catalogue.get(i);
-            long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = i / 5;
-            int row = i % 5;
-            double z = planeZ + 7.0 - column * 7.0;
-            double y = screenBaseY + 0.45 - row * 0.82;
-            Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
-                    .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
-            Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal(" • " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
-            BlockPartyText.spawnTextDisplay(level, planeX, y, z, screenYaw, title, 0.82F, tag);
-            BlockPartyText.spawnTextDisplay(level, planeX, y - 0.29, z, screenYaw, details, 0.54F, tag);
+        if (xmasPanel) {
+            // All Xmas text shares the same X plane as the wall-mounted black panel.
+            // Only Z changes horizontally; changing X was what sent playlist entries
+            // out into the lobby floor in earlier builds.
+            double planeX = centerX + (xmasPanel ? 0.72 : 0.0);
+            double planeZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
+            // Wide cleanup also removes the old misplaced text entities from earlier builds.
+            AABB area = new AABB(centerX - 32, screenBaseY - 16, wallZ - 34,
+                    centerX + 32, screenBaseY + 14, wallZ + 34);
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
+    
+            // The main heading and all playlist rows remain inside the black panel.
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 3.4, planeZ,
+                    screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.55F, tag);
+            // On the Xmas panel, negative Z is the viewer's LEFT. Keep the playlist
+            // flowing left-to-right and reserve the far-right column for instructions.
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ + 7.0,
+                    screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 0.92F, tag);
+            List<Track> catalogue = MusicTrackManager.getTracks();
+            int visible = Math.min(catalogue.size(), 10);
+            for (int i = 0; i < visible; i++) {
+                Track track = catalogue.get(i);
+                long votes = musicVotes.values().stream().filter(track.id()::equals).count();
+                int column = i / 5;
+                int row = i % 5;
+                double z = planeZ + 7.0 - column * 7.0;
+                double y = screenBaseY + 0.45 - row * 0.82;
+                Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
+                        .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
+                Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(" • " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
+                BlockPartyText.spawnTextDisplay(level, planeX, y, z, screenYaw, title, 0.82F, tag);
+                BlockPartyText.spawnTextDisplay(level, planeX, y - 0.29, z, screenYaw, details, 0.54F, tag);
+            }
+            if (catalogue.size() > visible) {
+                BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 4.0, planeZ + 7.0, screenYaw,
+                        Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.54F, tag);
+            }
+    
+            // Voting instructions are deliberately placed in the rightmost column.
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ - 13.0, screenYaw,
+                    Component.literal("SLIK STEMMER DU").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 0.86F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 0.35, planeZ - 13.0, screenYaw,
+                    Component.literal("ÅPNE BOKA").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.90F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 0.65, planeZ - 13.0, screenYaw,
+                    Component.literal("Velg sangen du vil høre").withStyle(ChatFormatting.WHITE), 0.52F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 1.45, planeZ - 13.0, screenYaw,
+                    Component.literal("og trykk for å stemme.").withStyle(ChatFormatting.WHITE), 0.52F, tag);
+    
+            Track leader = mostVotedTrack();
+            long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 3.1, planeZ - 13.0, screenYaw,
+                    Component.literal("LEDER: " + (leader == null || leaderVotes == 0 ? "INGEN ENNÅ" : leader.name()))
+                            .withStyle(ChatFormatting.YELLOW), 0.58F, tag);
+        } else {
+            double frontOffset = customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72;
+            double textZ = wallZ + frontOffset;
+            AABB area = new AABB(centerX - 24, screenBaseY - 3, wallZ - 5,
+                    centerX + 24, screenBaseY + 13, wallZ + 5);
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
+            if (!customScreen) {
+                AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
+                        centerX + 20, lobbyY + 16, lobbyZ - 13);
+                for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
+            }
+            BlockPartyText.spawnTextDisplay(level, centerX + 0.5, screenBaseY + 2.2, textZ,
+                    screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY + 0.45, textZ,
+                    screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA), 1.4F, tag);
+            List<Track> catalogue = MusicTrackManager.getTracks();
+            int visible = Math.min(catalogue.size(), 10);
+            for (int i = 0; i < visible; i++) {
+                Track track = catalogue.get(i);
+                long votes = musicVotes.values().stream().filter(track.id()::equals).count();
+                int column = 1 - (i / 5);
+                int row = i % 5;
+                double x = centerX - 14.0 + column * 12.0;
+                double y = screenBaseY - 0.9 - row * 1.1;
+                Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
+                        .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
+                Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal("   •   " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
+                BlockPartyText.spawnTextDisplay(level, x, y, textZ, screenYaw, title, 1.2F, tag);
+                BlockPartyText.spawnTextDisplay(level, x, y - 0.45, textZ, screenYaw, details, 0.84F, tag);
+            }
+            if (catalogue.size() > visible) {
+                BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY - 7.4, textZ, screenYaw,
+                        Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.75F, tag);
+            }
+            Track leader = mostVotedTrack();
+            long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
+            BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY, textZ, screenYaw,
+                    Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 2.3, textZ, screenYaw,
+                    Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
+                            .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 3.8, textZ, screenYaw,
+                    Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
+                            : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 5.2, textZ, screenYaw,
+                    Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
         }
-        if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 4.0, planeZ + 7.0, screenYaw,
-                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.54F, tag);
-        }
-
-        // Voting instructions are deliberately placed in the rightmost column.
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ - 13.0, screenYaw,
-                Component.literal("SLIK STEMMER DU").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 0.86F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 0.35, planeZ - 13.0, screenYaw,
-                Component.literal("ÅPNE BOKA").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.90F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 0.65, planeZ - 13.0, screenYaw,
-                Component.literal("Velg sangen du vil høre").withStyle(ChatFormatting.WHITE), 0.52F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 1.45, planeZ - 13.0, screenYaw,
-                Component.literal("og trykk for å stemme.").withStyle(ChatFormatting.WHITE), 0.52F, tag);
-
-        Track leader = mostVotedTrack();
-        long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 3.1, planeZ - 13.0, screenYaw,
-                Component.literal("LEDER: " + (leader == null || leaderVotes == 0 ? "INGEN ENNÅ" : leader.name()))
-                        .withStyle(ChatFormatting.YELLOW), 0.58F, tag);
     }
 
     private Track mostVotedTrack() {
