@@ -1077,9 +1077,9 @@ public final class Arena {
         // Keep the arena branding visible above the changing target text on both maps.
         boolean xmasTargetScreen = "xmas".equals(id);
         BlockPartyText.spawnTextDisplay(level,
-                customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5,
+                displayCenter.getX() + 0.5,
                 displayCenter.getY() + 2.2,
-                customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15,
+                displayCenter.getZ() + 1.65,
                 targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
                 5.0F, tag);
@@ -1093,8 +1093,8 @@ public final class Arena {
                 default -> "";
             };
             if (!lyric.isEmpty()) {
-                BlockPartyText.spawnTextDisplay(level, (customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
-                        (customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
+                BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+                        displayCenter.getZ() + 1.65, targetDisplayYaw,
                         Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                         12.0F, tag);
             }
