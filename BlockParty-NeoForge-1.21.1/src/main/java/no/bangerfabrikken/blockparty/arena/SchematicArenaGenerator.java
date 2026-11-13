@@ -165,12 +165,16 @@ public final class SchematicArenaGenerator {
 
     private static void placeHiddenLobbyLights(ServerLevel level, BlockPos origin) {
         BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15);
-        for (int yOffset : new int[]{18, 24}) {
-            int step = yOffset == 18 ? 8 : 6;
-            for (int x = 5; x < 60; x += step) {
-                for (int z = 1; z < 122; z += step) {
+        // Brighter, more even light coverage through the indoor lobby.
+        // Hidden light blocks are placed only in air so the architecture is untouched.
+        for (int yOffset : new int[]{14, 18, 22, 26}) {
+            int step = yOffset >= 22 ? 7 : 6;
+            for (int x = 4; x < 61; x += step) {
+                for (int z = 2; z < 121; z += step) {
                     BlockPos pos = origin.offset(x, yOffset, z);
-                    if (level.hasChunkAt(pos) && level.getBlockState(pos).isAir()) level.setBlock(pos, light, 3);
+                    if (level.hasChunkAt(pos) && level.getBlockState(pos).isAir()) {
+                        level.setBlock(pos, light, 3);
+                    }
                 }
             }
         }
