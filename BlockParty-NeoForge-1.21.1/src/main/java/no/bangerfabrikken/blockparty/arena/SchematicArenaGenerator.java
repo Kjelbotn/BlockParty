@@ -131,12 +131,16 @@ public final class SchematicArenaGenerator {
         for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
             BlockPos edge = origin.offset(x, floor.y, edgeZ);
             BlockPos barrier = edge.above();
+            BlockPos upperBarrier = edge.above(2);
             Block current = level.getBlockState(edge).getBlock();
             if (current == Blocks.RED_CONCRETE || current == Blocks.WHITE_CONCRETE) {
                 level.setBlock(edge, Blocks.AIR.defaultBlockState(), 3);
             }
             if (level.getBlockState(barrier).is(Blocks.BARRIER)) {
                 level.setBlock(barrier, Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (level.getBlockState(upperBarrier).is(Blocks.BARRIER)) {
+                level.setBlock(upperBarrier, Blocks.AIR.defaultBlockState(), 3);
             }
         }
         AABB bounds = new AABB(origin.getX() - 2, origin.getY() - 2, origin.getZ() - 2,
@@ -224,8 +228,8 @@ public final class SchematicArenaGenerator {
 
     /**
      * Adds the missing candy-cane row on the lobby-facing edge. It sits OUTSIDE
-     * the 40x40 playable floor, and invisible barrier blocks above it prevent
-     * players from stepping onto the decorative concrete.
+     * the 40x40 playable floor, and two invisible barrier blocks above it prevent
+     * players from stepping onto or jumping over the decorative concrete.
      */
     private static void placeNonPlayableLobbyEdge(ServerLevel level, BlockPos origin, FloorRegion floor) {
         int z = floor.minZ + FLOOR_SIZE;
@@ -233,8 +237,10 @@ public final class SchematicArenaGenerator {
             BlockState stripe = (x % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
             BlockPos edge = origin.offset(floor.minX + x, floor.y, z);
             BlockPos barrier = edge.above();
+            BlockPos upperBarrier = edge.above(2);
             level.setBlock(edge, stripe, 3);
             level.setBlock(barrier, Blocks.BARRIER.defaultBlockState(), 3);
+            level.setBlock(upperBarrier, Blocks.BARRIER.defaultBlockState(), 3);
         }
     }
 
