@@ -1063,8 +1063,9 @@ public final class Arena {
      */
     private void refreshXmasArenaScreen() {
         if (level == null || displayCenter == null || !"xmas".equals(id)) return;
-        boolean showTarget = targetColor != null && gameMode == GameMode.CLASSIC
-                && (phase == Phase.PREPARE || phase == Phase.FALL);
+        boolean showTarget = targetColor != null
+                && ((gameMode == GameMode.CLASSIC && (phase == Phase.PREPARE || phase == Phase.FALL))
+                || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
         String text = showTarget
                 ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
                 : (gameMode == GameMode.MEMORY && isGameInProgress() ? "MEMORY MODE" : "BLOCKPARTY");
@@ -1076,12 +1077,14 @@ public final class Arena {
                 entity -> entity.getTags().contains(tag));
         if (text.equals(lastXmasScreenText) && !existing.isEmpty()) return;
         for (Display.TextDisplay old : existing) old.discard();
-        // White-board anchor is its vertical centre. +Z is the arena-facing side.
-        Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level,
-                displayCenter.getX() + 0.5, displayCenter.getY() + 0.5, displayCenter.getZ() + 1.0,
-                0.0F, Component.literal(text).withStyle(
+        // The white board is north of the dance floor. Put a camera-facing display
+        // clearly in front of its arena-facing surface; automatic billboard orientation
+        // avoids the fixed-yaw/back-face issue that left the board blank.
+        Display.TextDisplay created = BlockPartyText.spawnBillboardTextDisplay(level,
+                displayCenter.getX() + 0.5, displayCenter.getY() + 2.0, displayCenter.getZ() + 3.0,
+                Component.literal(text).withStyle(
                         showTarget ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
-                showTarget ? 8.0F : 6.0F, tag);
+                showTarget ? 7.0F : 6.0F, tag);
         if (created != null) lastXmasScreenText = text;
     }
 
@@ -1856,6 +1859,16 @@ public final class Arena {
             for (int z = minZ; z <= maxZ; z++) {
                 BlockPos pos = new BlockPos(x, floorY, z);
                 BlockState state = level.getBlockState(pos);
+                // Xmas leftmost edge is a permanent red/white candy-cane border,
+                // not part of the randomized floor. Two barrier blocks above it
+                // make the decorative row physically impossible to stand on.
+                if ("xmas".equals(id) && x == minX) {
+                    BlockState stripe = ((z - minZ) % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
+                    level.setBlock(pos, stripe, 3);
+                    level.setBlock(pos.above(), Blocks.BARRIER.defaultBlockState(), 3);
+                    level.setBlock(pos.above(2), Blocks.BARRIER.defaultBlockState(), 3);
+                    continue;
+                }
                 DyeColor color = BlockPartyColors.getColor(state);
                 if (color == null || !BlockPartyColors.isConcrete(state)) {
                     originalFloorSnapshot.clear();
@@ -2027,14 +2040,6 @@ public final class Arena {
                 if (active == null) continue;
                 if (isOutsidePlayableFloor(active) || active.getY() <= pos1.getY() - 3.0) {
                     eliminate(active);
-                }
-            }
-            // Eliminated dancers may roam the spectator gallery, but never the floor or its trim.
-            for (UUID uuid : players) {
-                if (alive.contains(uuid)) continue;
-                ServerPlayer spectator = server.getPlayerList().getPlayer(uuid);
-                if (spectator != null && isInsideFloorAndBorder(spectator, 5.0)) {
-                    teleportToSpectatorWalkway(spectator);
                 }
             }
         }
@@ -2348,7 +2353,9 @@ public final class Arena {
             for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, targetArea,
                     entity -> entity.getTags().contains("bp_target_" + id))) old.discard();
         }
+        updateArenaAccents(targetColor);
         updateArenaWelcomeDisplay();
+        updateColorDisplay();
         showMemoryTargetToPlayers(server);
         Component targetName = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
                 .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD);
@@ -2897,7 +2904,12 @@ public final class Arena {
         // could be a Nether Star or Redstone Dust and expose lobby controls mid-match.
         player.getInventory().clearContent();
         player.inventoryMenu.broadcastChanges();
-        player.setGameMode(GameType.ADVENTURE);
+        // Eliminated players become true spectators: free flight and free movement
+        // around the gallery/houses, with no periodic teleport snapping them back.
+        player.setGameMode(GameType.SPECTATOR);
+        player.getAbilities().flying = true;
+        player.getAbilities().mayfly = true;
+        player.onUpdateAbilities();
         teleportToSpectatorWalkway(player);
         player.sendSystemMessage(Component.literal("Du er ute! Du kan følge kampen fra spectatorgangen.")
                 .withStyle(ChatFormatting.RED));
