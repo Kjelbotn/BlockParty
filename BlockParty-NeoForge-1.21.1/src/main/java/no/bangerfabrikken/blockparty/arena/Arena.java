@@ -845,8 +845,10 @@ public final class Arena {
         // The main heading and all playlist rows remain inside the black panel.
         BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 3.4, planeZ,
                 screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.55F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.9, planeZ - 12.0,
-                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.0F, tag);
+        // On the Xmas panel, negative Z is the viewer's LEFT. Keep the playlist
+        // flowing left-to-right and reserve the far-right column for instructions.
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ + 7.0,
+                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 0.92F, tag);
         List<Track> catalogue = MusicTrackManager.getTracks();
         int visible = Math.min(catalogue.size(), 10);
         for (int i = 0; i < visible; i++) {
@@ -854,35 +856,35 @@ public final class Arena {
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
             int column = i / 5;
             int row = i % 5;
-            double z = planeZ - 17.0 + column * 18.0;
-            double y = screenBaseY + 0.6 - row * 1.05;
+            double z = planeZ + 7.0 - column * 7.0;
+            double y = screenBaseY + 0.45 - row * 0.82;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
             Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal("  •  " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
-            BlockPartyText.spawnTextDisplay(level, planeX, y, z, screenYaw, title, 0.92F, tag);
-            BlockPartyText.spawnTextDisplay(level, planeX, y - 0.38, z, screenYaw, details, 0.62F, tag);
+                    .append(Component.literal(" • " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
+            BlockPartyText.spawnTextDisplay(level, planeX, y, z, screenYaw, title, 0.82F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, y - 0.29, z, screenYaw, details, 0.54F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 5.2, planeZ - 12.0, screenYaw,
-                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.62F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 4.0, planeZ + 7.0, screenYaw,
+                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.54F, tag);
         }
 
-        // A dedicated right-hand instruction column explains how to vote.
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.9, planeZ + 13.0, screenYaw,
-                Component.literal("SLIK STEMMER DU").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 0.95F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 0.3, planeZ + 13.0, screenYaw,
-                Component.literal("ÅPNE BOKA").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 1.0, planeZ + 13.0, screenYaw,
-                Component.literal("Velg sangen du vil høre").withStyle(ChatFormatting.WHITE), 0.58F, tag);
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 2.1, planeZ + 13.0, screenYaw,
-                Component.literal("og trykk for å stemme.").withStyle(ChatFormatting.WHITE), 0.58F, tag);
+        // Voting instructions are deliberately placed in the rightmost column.
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.65, planeZ - 13.0, screenYaw,
+                Component.literal("SLIK STEMMER DU").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 0.86F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 0.35, planeZ - 13.0, screenYaw,
+                Component.literal("ÅPNE BOKA").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.90F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 0.65, planeZ - 13.0, screenYaw,
+                Component.literal("Velg sangen du vil høre").withStyle(ChatFormatting.WHITE), 0.52F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 1.45, planeZ - 13.0, screenYaw,
+                Component.literal("og trykk for å stemme.").withStyle(ChatFormatting.WHITE), 0.52F, tag);
 
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 4.0, planeZ + 13.0, screenYaw,
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 3.1, planeZ - 13.0, screenYaw,
                 Component.literal("LEDER: " + (leader == null || leaderVotes == 0 ? "INGEN ENNÅ" : leader.name()))
-                        .withStyle(ChatFormatting.YELLOW), 0.68F, tag);
+                        .withStyle(ChatFormatting.YELLOW), 0.58F, tag);
     }
 
     private Track mostVotedTrack() {
