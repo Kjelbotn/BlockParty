@@ -1934,11 +1934,29 @@ public final class Arena {
     }
 
  
+    private void ensureXmasLeftBorder() {
+        if (level == null || pos1 == null || pos2 == null || !"xmas".equals(id)) return;
+        int minX = Math.min(pos1.getX(), pos2.getX());
+        int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int maxZ = Math.max(pos1.getZ(), pos2.getZ());
+        int y = pos1.getY();
+        for (int z = minZ; z <= maxZ; z++) {
+            BlockPos edge = new BlockPos(minX, y, z);
+            BlockState stripe = ((z - minZ) % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
+            if (!level.getBlockState(edge).equals(stripe)) level.setBlock(edge, stripe, 3);
+            if (!level.getBlockState(edge.above()).is(Blocks.BARRIER)) {
+                level.setBlock(edge.above(), Blocks.BARRIER.defaultBlockState(), 3);
+            }
+            if (!level.getBlockState(edge.above(2)).is(Blocks.BARRIER)) {
+                level.setBlock(edge.above(2), Blocks.BARRIER.defaultBlockState(), 3);
+            }
+        }
+    }
+
     private boolean isOutsidePlayableFloor(ServerPlayer player) {
         if (player == null || pos1 == null || pos2 == null) return false;
-        // The configured corners describe the complete 40x40 concrete floor.
-        // Use its exact outer edges: the red/white decorative trim is outside and lethal.
-        double minX = Math.min(pos1.getX(), pos2.getX());
+        // Xmas reserves its leftmost configured column for a permanent red/white border.
+        double minX = Math.min(pos1.getX(), pos2.getX()) + ("xmas".equals(id) ? 1.0 : 0.0);
         double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0;
         double minZ = Math.min(pos1.getZ(), pos2.getZ());
         double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0;
@@ -2071,7 +2089,10 @@ public final class Arena {
                 && level.getDayTime() != teleportSunsetEndTime) {
             level.setDayTime(teleportSunsetEndTime);
         }
-        if (scoreboardTick % 20 == 0) removeMobsFromProtectedArea();
+        if (scoreboardTick % 20 == 0) {
+            removeMobsFromProtectedArea();
+            if ("xmas".equals(id)) ensureXmasLeftBorder();
+        }
         // Players are intentionally standing in the lobby during COUNTDOWN, and are
         // being moved onto the floor during TELEPORT_COUNTDOWN. Neither phase may run
         // the out-of-bounds elimination check. Start enforcing the arena bounds only
