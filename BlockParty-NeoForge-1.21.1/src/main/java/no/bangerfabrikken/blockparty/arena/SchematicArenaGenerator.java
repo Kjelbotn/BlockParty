@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
 
 /** Imports the bundled Sponge v3 schematic used by the Xmas BlockParty map. */
 public final class SchematicArenaGenerator {
