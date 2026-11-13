@@ -43,8 +43,8 @@ final class BlockPartyHubMenu extends ChestMenu {
         add(11, Items.PLAYER_HEAD, "PROFIL", "Se poeng, rank, rekorder og seire.");
         add(13, Items.MUSIC_DISC_CAT, "MUSIKKAVSTEMNING", "Velg hvilken låt som skal spilles.");
         add(15, Items.GOLDEN_HELMET, "LEADERBOARD", "Se de 10 beste BlockParty-spillerne.");
-        add(29, Items.NETHER_STAR, "PRESTASJONER", "Se prestasjonene dine.");
-        add(31, Items.WRITABLE_BOOK, "DAILY CHALLENGES", "Se dagens tre utfordringer og poengbelønninger.");
+        add(29, Items.CLOCK, "DAILY CHALLENGES", "Tre daglige oppgaver med personlige poengbelønninger.");
+        add(31, Items.COMPASS, "GAME MODE", "Velg Classic eller Memory Mode for neste match.");
         add(33, Items.LEATHER_CHESTPLATE, "KOSMETIKK", "Skins og effekter kommer senere.");
         add(49, Items.LIME_CONCRETE, "BLI MED I NESTE MATCH", "Registrer deg til neste BlockParty-runde.");
     }
@@ -72,7 +72,7 @@ final class BlockPartyHubMenu extends ChestMenu {
                 case 13 -> 12;
                 case 15 -> 14;
                 case 29 -> 30;
-                case 31 -> 31;
+                case 31 -> 34;
                 case 33 -> 32;
                 default -> 49;
             });
