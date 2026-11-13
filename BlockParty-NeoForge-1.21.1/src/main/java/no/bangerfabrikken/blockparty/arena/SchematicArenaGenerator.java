@@ -172,7 +172,7 @@ public final class SchematicArenaGenerator {
         int minZ = floor.minZ;
         int maxX = floor.minX + FLOOR_SIZE - 1;
         int maxZ = floor.minZ + FLOOR_SIZE - 1;
-        int bottomY = Math.max(level.getMinBuildHeight(), origin.getY() + floor.y - 12);
+        int bottomY = Math.max(level.getMinBuildHeight() - origin.getY(), floor.y - 12);
 
         // South/bottom edge of the dance floor: two columns of removed trim.
         for (int z = minZ - 2; z < minZ; z++) {
