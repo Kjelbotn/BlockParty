@@ -1677,7 +1677,8 @@ public final class Arena {
     }
 
     private void openGameModeMenu(ServerPlayer player) {
-        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) return;
+        if (phase != Phase.WAITING || !isLobbyAccessibleTo(player)
+                || !returnLocations.containsKey(player.getUUID())) return;
         player.openMenu(new SimpleMenuProvider(
                 (containerId, inventory, menuPlayer) ->
                         new GameModeMenu(containerId, inventory, this, (ServerPlayer) menuPlayer),
@@ -1697,8 +1698,8 @@ public final class Arena {
     }
 
     public void setPreferredGameMode(ServerPlayer player, GameMode selected) {
-        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
-            player.sendSystemMessage(Component.literal("Velg spillmodus i den åpne BlockParty-lobbyen.")
+        if (phase != Phase.WAITING || !isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("Spillmodus kan bare stemmes på mens lobbyen venter på neste match.")
                     .withStyle(ChatFormatting.RED));
             return;
         }
