@@ -867,6 +867,9 @@ public final class Arena {
         boolean customScreen = lobbyScreenCenter != null;
         int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
         int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
+        // Raise the complete Xmas voting layout into the clear black area between
+        // the candy-cane trim strips, rather than leaving its lower rows at floor level.
+        if ("xmas".equals(id)) screenBaseY += 4;
         int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
         float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
@@ -3012,48 +3015,94 @@ public final class Arena {
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
 
         if ("xmas".equals(id)) {
-            // Locate an actual covered spectator-house interior instead of relying on
-            // the old guessed corridor coordinate. A valid spot has a solid floor,
-            // two clear player blocks, a roof, and at least two enclosing wall sides.
+            // Xmas spectator houses are built around the outside of the dance floor.
+            // Search the full side/front perimeter and require a real roof above a
+            // supported, two-block-high interior. The lobby volume is explicitly excluded.
             BlockPos best = null;
             int bestScore = Integer.MIN_VALUE;
             int floorY = pos1.getY();
-            for (int y = floorY + 2; y <= floorY + 18; y++) {
-                for (int x = minX - 14; x <= maxX + 14; x++) {
-                    for (int z = minZ - 18; z <= maxZ + 24; z++) {
+            for (int y = floorY + 1; y <= floorY + 24; y++) {
+                for (int x = minX - 20; x <= maxX + 20; x++) {
+                    for (int z = minZ - 20; z <= maxZ + 20; z++) {
+                        // Never select the indoor lobby as a spectator destination.
+                        if (Math.abs(x - lobbyX) <= 22
+                                && z >= lobbyZ - 18 && z <= lobbyZ + 38) continue;
+                        boolean outsideFloor = x < minX - 1 || x > maxX + 1
+                                || z < minZ - 1 || z > maxZ + 1;
+                        if (!outsideFloor) continue;
                         BlockPos feet = new BlockPos(x, y, z);
                         BlockPos below = feet.below();
-                        if (!level.hasChunkAt(feet) || !level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)
+                        if (!level.hasChunkAt(feet)
+                                || !level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)
                                 || !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
-                                || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()
-                                || !level.getBlockState(feet.above(2)).isFaceSturdy(level, feet.above(2), Direction.DOWN)) continue;
+                                || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) continue;
+
+                        int roofDistance = 0;
+                        for (int dy = 2; dy <= 6; dy++) {
+                            BlockPos roof = feet.above(dy);
+                            if (level.getBlockState(roof).isFaceSturdy(level, roof, Direction.DOWN)) {
+                                roofDistance = dy;
+                                break;
+                            }
+                        }
+                        if (roofDistance == 0) continue;
+
                         int walls = 0;
                         for (Direction dir : Direction.Plane.HORIZONTAL) {
                             BlockPos side = feet.relative(dir);
                             if (!level.getBlockState(side).getCollisionShape(level, side).isEmpty()
                                     || !level.getBlockState(side.above()).getCollisionShape(level, side.above()).isEmpty()) walls++;
                         }
-                        if (walls < 2) continue;
-                        int distanceFromFloor = Math.min(Math.min(Math.abs(x - minX), Math.abs(x - maxX)),
+                        if (walls < 1) continue;
+
+                        // Prefer enclosed spectator houses close to the floor perimeter,
+                        // with a normal-height ceiling and away from the lobby.
+                        int edgeDistance = Math.min(Math.min(Math.abs(x - minX), Math.abs(x - maxX)),
                                 Math.min(Math.abs(z - minZ), Math.abs(z - maxZ)));
-                        // Prefer raised, enclosed structures just outside the dance floor.
-                        int score = walls * 100 - Math.abs(y - (floorY + 5)) * 4
-                                - Math.abs(distanceFromFloor - 5) * 3;
-                        if (score > bestScore) { bestScore = score; best = feet; }
+                        int score = walls * 100 - Math.abs(roofDistance - 3) * 12
+                                - Math.abs(edgeDistance - 5) * 5
+                                - Math.abs(y - (floorY + 5)) * 2;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            best = feet;
+                        }
                     }
                 }
             }
-            if (best != null) {
-                player.teleportTo(level, best.getX() + 0.5, best.getY(), best.getZ() + 0.5, 90.0F, 0.0F);
-                player.setDeltaMovement(0.0, 0.0, 0.0);
-                player.fallDistance = 0.0F;
-            } else {
-                // Last-resort safe fallback remains indoors; never send spectators onto snow.
-                player.teleportTo(level, lobbyX, lobbyY, lobbyZ, lobbyYaw, lobbyPitch);
-                player.setDeltaMovement(0.0, 0.0, 0.0);
-                player.fallDistance = 0.0F;
-                BlockPartyMod.LOGGER.warn("Fant ikke et dekket spectatorhus i Xmas-arenaen; bruker lobby-spawn.");
+
+            if (best == null) {
+                // Do not silently dump eliminated players into the lobby. Pick a safe
+                // supported point on the outside perimeter as a last resort.
+                double bestDistance = Double.MAX_VALUE;
+                for (int y = floorY + 1; y <= floorY + 12; y++) {
+                    for (int x = minX - 18; x <= maxX + 18; x++) {
+                        for (int z = minZ - 18; z <= maxZ + 18; z++) {
+                            if (Math.abs(x - lobbyX) <= 22 && z >= lobbyZ - 18 && z <= lobbyZ + 38) continue;
+                            if (!(x < minX - 1 || x > maxX + 1 || z < minZ - 1 || z > maxZ + 1)) continue;
+                            BlockPos feet = new BlockPos(x, y, z), below = feet.below();
+                            if (!level.hasChunkAt(feet)
+                                    || !level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)
+                                    || !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                                    || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) continue;
+                            double distance = Math.abs(x - (minX + maxX) / 2.0)
+                                    + Math.abs(z - (minZ + maxZ) / 2.0) + Math.abs(y - (floorY + 4)) * 2.0;
+                            if (distance < bestDistance) { bestDistance = distance; best = feet; }
+                        }
+                    }
+                }
+                if (best == null) {
+                    BlockPartyMod.LOGGER.error("Fant ingen trygg spectatorplass utenfor Xmas-dansegulvet.");
+                    return;
+                }
+                BlockPartyMod.LOGGER.warn("Fant ikke et hus-interiør i Xmas-arenaen; bruker trygg plass på utsiden av gulvet.");
             }
+
+            float facing = (float) (Math.toDegrees(Math.atan2(
+                    (minZ + maxZ) / 2.0 - (best.getZ() + 0.5),
+                    (minX + maxX) / 2.0 - (best.getX() + 0.5))) - 90.0);
+            player.teleportTo(level, best.getX() + 0.5, best.getY(), best.getZ() + 0.5, facing, 0.0F);
+            player.setDeltaMovement(0.0, 0.0, 0.0);
+            player.fallDistance = 0.0F;
             return;
         }
 
