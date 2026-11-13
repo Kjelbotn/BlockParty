@@ -46,6 +46,7 @@ import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -123,6 +124,8 @@ public final class Arena {
     private BlockPos displayCenter;
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
+    private BlockPos lobbyScreenCenter;
+    private float lobbyScreenYaw = 180.0F;
     private double lobbyX;
     private double lobbyY;
     private double lobbyZ;
@@ -232,6 +235,14 @@ public final class Arena {
     }
     public void setLoadedTargetDisplay(BlockPos center, float yaw) { setTargetDisplay(center, yaw); }
     public float getTargetDisplayYaw() { return targetDisplayYaw; }
+    public void setLobbyScreen(BlockPos center, float yaw) {
+        this.lobbyScreenCenter = center == null ? null : center.immutable();
+        this.lobbyScreenYaw = yaw;
+        refreshDjScreen();
+    }
+    public void setLoadedLobbyScreen(BlockPos center, float yaw) { setLobbyScreen(center, yaw); }
+    public BlockPos getLobbyScreenCenter() { return lobbyScreenCenter; }
+    public float getLobbyScreenYaw() { return lobbyScreenYaw; }
     public Phase getPhase() { return phase; }
     public int getPlayerCount() { return players.size(); }
     public boolean containsPlayer(UUID playerId) { return players.contains(playerId); }
@@ -605,22 +616,24 @@ public final class Arena {
         }
         // Snapshot the actual Survival-world time only after everyone has arrived.
         // The lobby countdown therefore never changes or rewinds the world clock.
-        if (originalDayTime == Long.MIN_VALUE) {
-            originalDayTime = level.getDayTime();
-            originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
-            originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
+        if (!"xmas".equals(id)) {
+            if (originalDayTime == Long.MIN_VALUE) {
+                originalDayTime = level.getDayTime();
+                originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+                originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
+            }
+            long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
+            teleportSunsetStartTime = originalDayTime;
+            teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
+            level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+            level.setDayTime(teleportSunsetStartTime);
+            level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
+            level.setWeatherParameters(20 * 60 * 60, 0, false, false);
+        } else {
+            // Xmas uses local snowflake particles; it does not alter the world's clock or weather.
+            teleportSunsetStartTime = Long.MIN_VALUE;
+            teleportSunsetEndTime = Long.MIN_VALUE;
         }
-        long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
-        // Begin at the exact Survival-world time captured after teleportation.
-        // Animate from that value to 13,500 over the five-second arena countdown.
-        teleportSunsetStartTime = originalDayTime;
-        teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
-        // Freeze natural time progression, then manually animate sunset during the
-        // five-second arena countdown so players can watch the sky darken.
-        level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
-        level.setDayTime(teleportSunsetStartTime);
-        level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
-        level.setWeatherParameters(20 * 60 * 60, 0, false, false);
 
         hideLobbyLeaderboard();
         showScoreboard(server);
@@ -648,6 +661,7 @@ public final class Arena {
     /** Applies the non-destructive visual upgrade once when an existing arena is visited. */
     public void applyVisualUpgrade() {
         if (visualUpgradeApplied || !isConfigured()) return;
+        if ("xmas".equals(id)) { visualUpgradeApplied = true; return; }
         if (ArenaGenerator.refreshVisuals(level, pos1, pos2, lobbyX, lobbyY, lobbyZ)) {
             visualUpgradeApplied = true;
             captureArenaAccents();
@@ -801,13 +815,19 @@ public final class Arena {
 
     private void refreshDjScreen() {
         if (level == null || !lobbySet) return;
-        int centerX = (int) Math.floor(lobbyX);
-        int wallZ = (int) Math.floor(lobbyZ) + 35;
-        BlockPos anchor = new BlockPos(centerX, (int) Math.floor(lobbyY) + 9, wallZ - 1);
+        boolean customScreen = lobbyScreenCenter != null;
+        int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
+        int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
+        int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
+        float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
+        double frontOffset = customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72;
+        BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ - (frontOffset < 0 ? 1 : -1));
         if (!level.hasChunkAt(anchor)) return;
         String tag = "bp_dj_" + id;
-        AABB area = new AABB(centerX - 24, lobbyY + 1, wallZ - 5,
-                centerX + 24, lobbyY + 13, wallZ + 2);
+        double screenMinY = customScreen ? screenBaseY - 2 : lobbyY + 1;
+        double screenMaxY = customScreen ? screenBaseY + 13 : lobbyY + 13;
+        AABB area = new AABB(centerX - 24, screenMinY, wallZ - 5,
+                centerX + 24, screenMaxY, wallZ + 2);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
 
@@ -1682,8 +1702,45 @@ public final class Arena {
         captureArenaAccents();
     }
 
+ 
+    private boolean isOutsidePlayableFloor(ServerPlayer player) {
+        if (player == null || pos1 == null || pos2 == null) return false;
+        double minX = Math.min(pos1.getX(), pos2.getX());
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ());
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0;
+        return player.getX() < minX || player.getX() >= maxX
+                || player.getZ() < minZ || player.getZ() >= maxZ;
+    }
+
+    private boolean isInsideFloorAndBorder(ServerPlayer player, double margin) {
+        if (player == null || pos1 == null || pos2 == null || player.serverLevel() != level) return false;
+        double minX = Math.min(pos1.getX(), pos2.getX()) - margin;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 + margin;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - margin;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0 + margin;
+        return player.getX() >= minX && player.getX() < maxX
+                && player.getZ() >= minZ && player.getZ() < maxZ;
+    }
+
+    private void tickXmasSnow() {
+        if (level == null || pos1 == null || pos2 == null) return;
+        double minX = Math.min(pos1.getX(), pos2.getX()) - 12.0;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 13.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 10.0;
+        double maxZ = Math.min(level.getMaxBuildHeight() - 2, Math.max(pos1.getZ(), pos2.getZ()) + 72.0);
+        double minY = pos1.getY() + 5.0;
+        double maxY = pos1.getY() + 22.0;
+        for (int i = 0; i < 18; i++) {
+            double x = minX + random.nextDouble() * (maxX - minX);
+            double y = minY + random.nextDouble() * (maxY - minY);
+            double z = minZ + random.nextDouble() * (maxZ - minZ);
+            level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1, 0.02, 0.02, 0.02, 0.0);
+        }
+    }
+
     private void tickLobbyDanceFloor() {
-        if (level == null || !lobbySet || (phase != Phase.WAITING && phase != Phase.COUNTDOWN)) return;
+        if (level == null || !lobbySet || "xmas".equals(id) || (phase != Phase.WAITING && phase != Phase.COUNTDOWN)) return;
         int frame = (scoreboardTick / 20) % 6;
         if (frame == lastDancePattern) return;
         lastDancePattern = frame;
@@ -1715,6 +1772,7 @@ public final class Arena {
             refreshLobbyDisplays();
         }
         if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
+        if ("xmas".equals(id) && isGameInProgress() && scoreboardTick % 4 == 0) tickXmasSnow();
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
             for (UUID uuid : new HashSet<>(players)) {
@@ -1741,7 +1799,15 @@ public final class Arena {
             for (UUID uuid : new ArrayList<>(alive)) {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
-                if (active.getY() <= pos1.getY() - 3.0) eliminate(active);
+                if (isOutsidePlayableFloor(active) || active.getY() <= pos1.getY() - 3.0) eliminate(active);
+            }
+            // Eliminated dancers may roam the spectator gallery, but never the floor or its trim.
+            for (UUID uuid : players) {
+                if (alive.contains(uuid)) continue;
+                ServerPlayer spectator = server.getPlayerList().getPlayer(uuid);
+                if (spectator != null && isInsideFloorAndBorder(spectator, 3.0)) {
+                    teleportToSpectatorWalkway(spectator);
+                }
             }
         }
         if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
