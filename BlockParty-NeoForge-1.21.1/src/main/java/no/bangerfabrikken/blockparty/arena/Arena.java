@@ -75,7 +75,7 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, FINISHING
+        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, MEMORY_FIND, MEMORY_FINAL_COUNTDOWN, FINISHING
     }
 
     public enum GameMode { CLASSIC, MEMORY }
@@ -95,7 +95,9 @@ public final class Arena {
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
     private static final int WAITING_FOR_COLOR_TICKS = 20; // One-second floor reveal between rounds
-    private static final int MEMORY_REVEAL_TICKS = 100; // Five seconds to memorize the coloured floor
+    private static final int MEMORY_REVEAL_TICKS = 100; // 5 seconds to memorize the coloured floor
+    private static final int MEMORY_FIND_TICKS = 140; // 7 seconds to find the remembered colour
+    private static final int MEMORY_FINAL_COUNTDOWN_TICKS = 40; // 2-second warning before the floor disappears
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
             120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
@@ -476,7 +478,6 @@ public final class Arena {
             return;
         }
         players.add(uuid);
-        preferredGameModes.putIfAbsent(uuid, GameMode.CLASSIC);
         unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
@@ -624,6 +625,20 @@ public final class Arena {
     }
 
     private void beginMatch(MinecraftServer server) {
+        // Count one lobby vote per registered player. A tie or no votes defaults to Classic.
+        int classicVotes = 0;
+        int memoryVotes = 0;
+        for (UUID uuid : players) {
+            GameMode vote = preferredGameModes.get(uuid);
+            if (vote == GameMode.MEMORY) memoryVotes++;
+            else if (vote == GameMode.CLASSIC) classicVotes++;
+        }
+        gameMode = memoryVotes > classicVotes ? GameMode.MEMORY : GameMode.CLASSIC;
+        broadcast(Component.literal("Avstemningen er avsluttet: "
+                + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC")
+                + " vant! (Classic " + classicVotes + " – Memory " + memoryVotes + ")")
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        preferredGameModes.clear(); // Every match starts with a fresh lobby vote.
         matchStartTick = scoreboardTick;
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
@@ -1680,6 +1695,10 @@ public final class Arena {
         return preferredGameModes.getOrDefault(playerId, GameMode.CLASSIC);
     }
 
+    public int getGameModeVoteCount(GameMode mode) {
+        return (int) preferredGameModes.values().stream().filter(mode::equals).count();
+    }
+
     public void setPreferredGameMode(ServerPlayer player, GameMode selected) {
         if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
             player.sendSystemMessage(Component.literal("Velg spillmodus i den åpne BlockParty-lobbyen.")
@@ -1688,8 +1707,11 @@ public final class Arena {
         }
         GameMode mode = selected == null ? GameMode.CLASSIC : selected;
         preferredGameModes.put(player.getUUID(), mode);
-        player.sendSystemMessage(Component.literal("Din spillmodus for neste match er satt til "
-                + (mode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + ".")
+        int classicVotes = getGameModeVoteCount(GameMode.CLASSIC);
+        int memoryVotes = getGameModeVoteCount(GameMode.MEMORY);
+        player.sendSystemMessage(Component.literal("Du stemte på "
+                + (mode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + ". Stemmer nå: Classic "
+                + classicVotes + " – Memory " + memoryVotes + ".")
                 .withStyle(ChatFormatting.GREEN));
         broadcast(Component.literal(player.getGameProfile().getName() + " har valgt "
                 + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
@@ -1964,8 +1986,8 @@ public final class Arena {
         // being moved onto the floor during TELEPORT_COUNTDOWN. Neither phase may run
         // the out-of-bounds elimination check. Start enforcing the arena bounds only
         // once the first round is actually active.
-        if (phase == Phase.PREPARE || phase == Phase.FALL
-                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND
+                || phase == Phase.MEMORY_FINAL_COUNTDOWN || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             // Leaving the playable floor is an elimination, not a vanilla fall death.
             // Check every active player independently of target-contact bookkeeping so
             // jumping deliberately over the edge cannot bypass the normal elimination flow.
@@ -1985,7 +2007,8 @@ public final class Arena {
                 }
             }
         }
-        if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND
+                || phase == Phase.MEMORY_FINAL_COUNTDOWN) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
         tickSpecialSongScreen();
@@ -2132,19 +2155,44 @@ public final class Arena {
                 }
             }
             case MEMORY_REVEAL -> {
-                tickColorRain();
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("HUSK FARGENE!  " + (timerTicks / 20) + "  SEKUNDER")
+                    broadcastActionBar(Component.literal("HUSK PLASSERINGEN!  " + (timerTicks / 20) + "  SEKUNDER")
                             .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                 }
                 if (timerTicks <= 0) {
+                    // Hide every tile visually. The original colour map remains in floorSnapshot
+                    // and is the only source used by the server to judge players' positions.
                     for (BlockPos tile : floorSnapshot.keySet()) {
                         level.setBlock(tile, Blocks.GRAY_CONCRETE.defaultBlockState(), 3);
                     }
-                    broadcastActionBar(Component.literal("FARGENE ER SKJULT! FINN MÅLFARGEN FRA MINNET!")
-                            .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-                    startRoundCountdown(server);
+                    startMemoryFind(server);
+                }
+            }
+            case MEMORY_FIND -> {
+                rememberTargetContacts(server);
+                timerTicks--;
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                    broadcastActionBar(Component.literal("FINN RIKTIG BLOKK!  " + (timerTicks / 20) + "  SEKUNDER")
+                            .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                }
+                if (timerTicks <= 0) {
+                    phase = Phase.MEMORY_FINAL_COUNTDOWN;
+                    timerTicks = MEMORY_FINAL_COUNTDOWN_TICKS;
+                    broadcastActionBar(Component.literal("GULVET FORSVINNER OM 2 SEKUNDER!")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                }
+            }
+            case MEMORY_FINAL_COUNTDOWN -> {
+                rememberTargetContacts(server);
+                timerTicks--;
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                    broadcastActionBar(Component.literal("GULVET FORSVINNER OM " + (timerTicks / 20) + "!")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                }
+                if (timerTicks <= 0) {
+                    rememberTargetContacts(server);
+                    resolveRound();
                 }
             }
             case FINISHING -> {
@@ -2257,16 +2305,27 @@ public final class Arena {
         }
     }
 
-    /** Gives players five seconds to memorize the coloured floor before hiding it. */
+    /** Show the full, coloured floor for five seconds; the target stays server-side only. */
     private void startMemoryReveal(MinecraftServer server) {
         phase = Phase.MEMORY_REVEAL;
         timerTicks = MEMORY_REVEAL_TICKS;
         updateArenaWelcomeDisplay();
-        broadcast(Component.literal("MEMORY MODE: Se nøye på fargene. Gulvet blir grått om fem sekunder!")
+        broadcast(Component.literal("MEMORY MODE: Memorér hvor målfargen ligger. Alle farger skjules om 5 sekunder!")
                 .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        broadcastActionBar(Component.literal("HUSK FARGENE!  5  SEKUNDER")
+        broadcastActionBar(Component.literal("MEMORISER GULVET!  5 SEKUNDER")
                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        updateScoreboard(level.getServer());
+        updateScoreboard(server);
+    }
+
+    /** The floor is now completely grey; players get seven seconds plus a two-second warning. */
+    private void startMemoryFind(MinecraftServer server) {
+        phase = Phase.MEMORY_FIND;
+        timerTicks = MEMORY_FIND_TICKS;
+        broadcast(Component.literal("Alle blokkene er grå! Finn og still deg på blokkene som hadde målfargen.")
+                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        broadcastActionBar(Component.literal("FINN RIKTIG BLOKK!  7 SEKUNDER")
+                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        updateScoreboard(server);
     }
 
     /** Reveals the target and starts the exact round timer after the one-second floor wait. */
@@ -2288,7 +2347,11 @@ public final class Arena {
     /** Selects random replacement tiles in cells distributed across the complete dance floor. */
     private void prepareColorRainForNextRound() {
         pendingColorRainBlocks.clear();
-        if (!colorRainNextRound || level == null || floorSnapshot.isEmpty() || palette.size() < 2) return;
+        if (gameMode == GameMode.MEMORY || !colorRainNextRound || level == null
+                || floorSnapshot.isEmpty() || palette.size() < 2) {
+            colorRainNextRound = false;
+            return;
+        }
         colorRainNextRound = false;
 
         int minX = Math.min(pos1.getX(), pos2.getX());
