@@ -6,6 +6,7 @@ on:
       - main
       - fix/xmas-displays-spectator
       - fix/xmas-1-1-6-screen-spectator-border
+      - fix/1-1-7-xmas-screen-adventure-spectators
   pull_request:
     branches:
       - main
@@ -59,6 +60,12 @@ jobs:
           grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
           grep -q 'MEMORY_REVEAL' "$arena"
           grep -q 'tickColorScanners(server)' "$arena"
+          grep -q 'ensureXmasLeftBorder()' "$arena"
+          grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
+          grep -q 'eliminatedPlayers.add(uuid)' "$arena"
+          grep -q 'GameType.ADVENTURE' "$arena"
+          grep -q 'isArenaColorAccent(state)' "$arena"
+          grep -q 'revealMemoryTarget' "$arena"
 
       - name: Normalize and validate playlist music
         shell: bash
