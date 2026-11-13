@@ -42,6 +42,13 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_195 = musicSound("music_luxus_leverpostei_195");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_SUR_MUS = musicSound("music_luxus_leverpostei_sur_mus");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR = musicSound("music_oingo_boingo_little_girls_pedobear");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_INNI_HODET_DITT = musicSound("music_inni_hodet_ditt");
+
+    /** Eight pre-registered extension slots. Add tracks through music_playlist.json without touching Java. */
+    public static final java.util.List<DeferredHolder<SoundEvent, SoundEvent>> CUSTOM_MUSIC_SOUNDS =
+            java.util.stream.IntStream.rangeClosed(1, 8)
+                    .mapToObj(index -> musicSound("music_custom_" + index))
+                    .toList();
 
     private ModSounds() { }
 

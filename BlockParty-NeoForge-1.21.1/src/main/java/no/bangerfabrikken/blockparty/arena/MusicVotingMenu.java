@@ -3,6 +3,7 @@ package no.bangerfabrikken.blockparty.arena;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -23,8 +24,8 @@ import java.util.UUID;
 final class MusicVotingMenu extends ChestMenu {
     private static final int ROWS = 6;
     private static final int FIRST_ROW = 2;
-    private static final int MAX_COLUMNS = 7;
-    private static final int MAX_VISIBLE_TRACKS = 21;
+    private static final int MAX_COLUMNS = 9;
+    private static final int MAX_VISIBLE_TRACKS = 27;
     private final Arena arena;
     private final SimpleContainer songContainer;
     private final UUID viewerId;
@@ -92,7 +93,9 @@ final class MusicVotingMenu extends ChestMenu {
                 default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
-            icon.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + track.name())
+            MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
+                    .append(MusicTrackManager.displayNameComponent(track.name()));
+            icon.set(DataComponents.CUSTOM_NAME, trackTitle
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
 
             long votes = arena.getTrackVoteCount(track.id());

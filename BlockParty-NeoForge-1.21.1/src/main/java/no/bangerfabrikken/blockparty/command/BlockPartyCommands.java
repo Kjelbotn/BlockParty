@@ -15,6 +15,7 @@ import no.bangerfabrikken.blockparty.arena.ArenaGenerator;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
 import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
 import no.bangerfabrikken.blockparty.arena.MusicTrackManager;
+import no.bangerfabrikken.blockparty.arena.SchematicArenaGenerator;
 
 public final class BlockPartyCommands {
     private BlockPartyCommands() {
@@ -34,6 +35,11 @@ public final class BlockPartyCommands {
                                 .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), ArenaGenerator.DEFAULT_SIZE))
                                 .then(Commands.argument("size", IntegerArgumentType.integer(ArenaGenerator.MIN_SIZE, ArenaGenerator.MAX_SIZE))
                                         .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
+                .then(Commands.literal("xmas").executes(context -> join(context.getSource(), "xmas"))
+                        .then(Commands.literal("generate").requires(source -> source.hasPermission(2))
+                                .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException()))))
+                .then(Commands.literal("generate-xmas").requires(source -> source.hasPermission(2))
+                        .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException())))
                 .then(Commands.literal("arenas")
                         .executes(context -> publicArenaList(context.getSource())))
                 .then(Commands.literal("create")
@@ -120,6 +126,7 @@ public final class BlockPartyCommands {
 
     private static int generate(CommandSourceStack source, String id, int size) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
+        if ("xmas".equalsIgnoreCase(id)) return generateXmas(source, player);
         if (!id.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9_-]{1,32}")) {
             source.sendFailure(Component.literal("Arena-ID må inneholde 1–32 tegn: a-z, 0-9, _ eller -."));
             return 0;
@@ -153,6 +160,35 @@ public final class BlockPartyCommands {
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal("Kunne ikke generere arenaen: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+
+    private static int generateXmas(CommandSourceStack source, ServerPlayer player) {
+        ArenaManager manager = ArenaManager.get();
+        Arena existing = manager.get("xmas");
+        if (existing != null && (existing.getPlayerCount() > 0 || existing.isRunning())) {
+            source.sendFailure(Component.literal("Xmas-arenaen er i bruk. Stopp kampen og tøm arenaen før du genererer på nytt."));
+            return 0;
+        }
+        try {
+            source.sendSuccess(() -> Component.literal("Genererer BlockParty Xmas ...").withStyle(ChatFormatting.YELLOW), true);
+            SchematicArenaGenerator.Result layout = SchematicArenaGenerator.generate(player.serverLevel(), player.blockPosition());
+            if (existing != null) manager.remove("xmas");
+            Arena arena = manager.create("xmas", player);
+            arena.setCorner(1, layout.floorFirst());
+            arena.setCorner(2, layout.floorSecond());
+            arena.setTargetDisplay(layout.displayCenter(), layout.displayYaw());
+            arena.setLobbyScreen(layout.lobbyScreenCenter(), layout.lobbyScreenYaw());
+            arena.setLobby(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
+            manager.save(source.getServer());
+            player.teleportTo(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
+            arena.ensureLobbyItems(player);
+            source.sendSuccess(() -> Component.literal("Xmas er generert! Bruk /bp xmas for å gå inn.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+            return 1;
+        } catch (Exception exception) {
+            source.sendFailure(Component.literal("Kunne ikke generere Xmas: " + exception.getMessage()));
             return 0;
         }
     }
@@ -301,7 +337,13 @@ public final class BlockPartyCommands {
             source.sendFailure(Component.literal("Arenaen har ingen generert stadionflate å rive."));
             return 0;
         }
-        ArenaGenerator.demolish(arena.getLevel(), arena.getPos1(), arena.getPos2(), arena.getLobbyX(), arena.getLobbyZ());
+        try {
+            if ("xmas".equalsIgnoreCase(id)) SchematicArenaGenerator.demolish(arena.getLevel(), arena.getPos1());
+            else ArenaGenerator.demolish(arena.getLevel(), arena.getPos1(), arena.getPos2(), arena.getLobbyX(), arena.getLobbyZ());
+        } catch (Exception exception) {
+            source.sendFailure(Component.literal("Kunne ikke rive hele arenaen: " + exception.getMessage()));
+            return 0;
+        }
         ArenaManager.get().remove(id);
         ArenaManager.get().save(source.getServer());
         source.sendSuccess(() -> Component.literal("BlockParty-arenaen '" + id + "' er revet og fjernet fra listen.").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
@@ -392,7 +434,7 @@ public final class BlockPartyCommands {
 
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen"), false);
+        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen | /bp xmas generate – bygg Xmas-arenaen (admin)"), false);
         source.sendSuccess(() -> Component.literal("/bp arenas – vis valgbare arenaer | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);

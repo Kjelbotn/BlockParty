@@ -121,6 +121,14 @@ public final class PlayerStatsManager {
         return points;
     }
 
+    public static synchronized void addPoints(MinecraftServer server, ServerPlayer player, int amount) {
+        if (amount <= 0) return;
+        PlayerRecord old = getOrCreate(player);
+        PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
+                old.points() + amount, old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards()));
+        save(server);
+    }
+
     public static synchronized void breakStreak(MinecraftServer server, UUID uuid) {
         PlayerRecord old = PLAYERS.get(uuid);
         if (old == null || old.currentStreak() == 0) return;

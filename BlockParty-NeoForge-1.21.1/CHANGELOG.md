@@ -1,3 +1,35 @@
+# BlockParty 1.1.0 — Memory Mode, Daily Challenges and polish
+
+- Added Memory Mode as an alternative to Classic. The floor colours are shown for five seconds, then hidden as gray concrete; players must remember where the announced target colour was. The server retains the original floor pattern for fair validation.
+- Added a lobby Game Mode menu. Registered players' preferences are counted and the majority selects the next match; ties default to Classic.
+- Added three daily challenges selected from a rotating pool. Individual progress and completion checkmarks are saved per player, and completed challenges grant bonus points.
+- Added colourful firework-like bursts around podium finishers for the five-second podium presentation.
+- Restored BareTruls — Inni Hodet Ditt to the music vote list and registered its existing OGG asset.
+- Fixed the vote menu rendering of the literal song title §95 so the section sign is not interpreted as a Minecraft colour code.
+
+# BlockParty 1.0.3 — Countdown pitch adjustment
+
+- Shifted the between-round 3–2–1 Note Block countdown down one pitch step: 3 seconds now uses the former 2-second tone, 2 seconds uses the former 1-second tone, and 1 second adds a new darker tone.
+
+# BlockParty 1.0.2 — Chat and Color Scanner fixes
+
+- Removed the [MUSIKK] prefix and bold styling from music vote announcements; messages now use normal-weight text.
+- Fixed Color Scanner using one shared arena timer and broadcast particles. Each scanner now has its own player timer, and target-color particles are sent only to the player who collected that power-up.
+
+# BlockParty 1.0.1 — Match flow and audio polish
+
+- Reduced the between-round floor restoration pause from two seconds to one second; music and the next target now return sooner.
+- Replaced the low bass-drum countdown cue with three clearer, descending Note Block Pling notes at 3, 2 and 1 seconds before the floor falls.
+- Announced new music votes and changed votes in the arena chat, showing the player's name and selected song.
+
+# BlockParty 1.0.0 — First stable release
+
+- Declared BlockParty 1.0.0 as the first stable, fully playable release.
+- Added a playlist JSON manifest and eight pre-registered custom song slots. A new song now requires only an OGG file and one JSON entry—no per-song Java, sound-definition, duration-file or workflow edits.
+- GitHub Actions now reads the playlist automatically, normalizes each enabled OGG, measures its duration, validates sound-event mappings and verifies all active tracks in the final JAR.
+- Expanded the voting menu to support up to 27 songs, enough for the 17 current tracks plus all eight custom slots.
+- Fixed the podium exit control so podium finishers only receive Redstone Dust after their five-second freeze ends; manual early exit now also clears the freeze state.
+
 # BlockParty 0.19.17-alpha — Seven New Music Tracks
 
 - Added StianNorway — Damer, Objekter.

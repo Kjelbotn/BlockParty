@@ -2,6 +2,7 @@ package no.bangerfabrikken.blockparty.arena;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponents;
@@ -33,7 +34,9 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import org.joml.Vector3f;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.network.chat.numbers.BlankFormat;
@@ -46,6 +49,7 @@ import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -71,8 +75,10 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, FINISHING
+        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, FINISHING
     }
+
+    public enum GameMode { CLASSIC, MEMORY }
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN
@@ -88,7 +94,8 @@ public final class Arena {
     // These transition phases pause the music, so they are deliberately not
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
-    private static final int WAITING_FOR_COLOR_TICKS = 40; // Two-second floor reveal between rounds
+    private static final int WAITING_FOR_COLOR_TICKS = 20; // One-second floor reveal between rounds
+    private static final int MEMORY_REVEAL_TICKS = 100; // Five seconds to memorize the coloured floor
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
             120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
@@ -121,6 +128,10 @@ public final class Arena {
     private BlockPos pos1;
     private BlockPos pos2;
     private BlockPos displayCenter;
+    private boolean customDisplayPosition;
+    private float targetDisplayYaw;
+    private BlockPos lobbyScreenCenter;
+    private float lobbyScreenYaw = 180.0F;
     private double lobbyX;
     private double lobbyY;
     private double lobbyZ;
@@ -132,6 +143,8 @@ public final class Arena {
     private long teleportSunsetEndTime = Long.MIN_VALUE;
 
     private final Set<UUID> players = new LinkedHashSet<>();
+    /** Per-player preference for the next match; Classic is the default. */
+    private final Map<UUID, GameMode> preferredGameModes = new HashMap<>();
     private final Set<UUID> alive = new LinkedHashSet<>();
     private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
@@ -146,7 +159,8 @@ public final class Arena {
     private final Set<UUID> personalBestNotified = new HashSet<>();
     private final Set<UUID> leapFallProtection = new HashSet<>();
     private final Set<UUID> luckyLanding = new HashSet<>();
-    private int scannerTicks;
+    /** Independent three-second scanner effect for each player who collects it. */
+    private final Map<UUID, Integer> scannerTicks = new HashMap<>();
     private long matchStartTick;
     private long lastMatchDurationTicks;
     // Last tick a player was physically standing on the announced target tile.
@@ -161,6 +175,7 @@ public final class Arena {
     private final Random random = new Random();
 
     private Phase phase = Phase.WAITING;
+    private GameMode gameMode = GameMode.CLASSIC;
     private int timerTicks;
     private int round;
     private DyeColor targetColor;
@@ -178,6 +193,8 @@ public final class Arena {
     private final Map<BlockPos, BlockState> podiumFloorSnapshot = new HashMap<>();
     /** Ticks remaining before the post-match podium and its holograms are removed. */
     private int podiumDisplayTicks;
+    /** Repeated colourful bursts around podium finishers for the five-second presentation. */
+    private int podiumFireworksTicks;
     private int lastDancePattern = -1;
 
     /** Active beacon blocks are placed one block above five separate floor tiles. */
@@ -218,8 +235,28 @@ public final class Arena {
     public BlockPos getDisplayCenter() { return displayCenter; }
     public void setDisplayCenter(BlockPos displayCenter) {
         this.displayCenter = displayCenter == null ? null : displayCenter.immutable();
+        this.customDisplayPosition = displayCenter != null;
+        this.targetDisplayYaw = 0.0F;
+        updateArenaWelcomeDisplay();
         refreshLobbyDisplays();
     }
+    public void setTargetDisplay(BlockPos center, float yaw) {
+        this.displayCenter = center == null ? null : center.immutable();
+        this.targetDisplayYaw = yaw;
+        this.customDisplayPosition = center != null;
+        updateArenaWelcomeDisplay();
+        refreshLobbyDisplays();
+    }
+    public void setLoadedTargetDisplay(BlockPos center, float yaw) { setTargetDisplay(center, yaw); }
+    public float getTargetDisplayYaw() { return targetDisplayYaw; }
+    public void setLobbyScreen(BlockPos center, float yaw) {
+        this.lobbyScreenCenter = center == null ? null : center.immutable();
+        this.lobbyScreenYaw = yaw;
+        refreshDjScreen();
+    }
+    public void setLoadedLobbyScreen(BlockPos center, float yaw) { setLobbyScreen(center, yaw); }
+    public BlockPos getLobbyScreenCenter() { return lobbyScreenCenter; }
+    public float getLobbyScreenYaw() { return lobbyScreenYaw; }
     public Phase getPhase() { return phase; }
     public int getPlayerCount() { return players.size(); }
     public boolean containsPlayer(UUID playerId) { return players.contains(playerId); }
@@ -439,6 +476,7 @@ public final class Arena {
             return;
         }
         players.add(uuid);
+        preferredGameModes.putIfAbsent(uuid, GameMode.CLASSIC);
         unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
@@ -450,6 +488,13 @@ public final class Arena {
 
     public void leave(ServerPlayer player, boolean teleport) {
         UUID uuid = player.getUUID();
+        // A manual/early exit must cancel any remaining podium freeze before teleporting.
+        boolean wasPodiumFrozen = podiumFreezeTicks.remove(uuid) != null;
+        wasPodiumFrozen |= podiumFreezePositions.remove(uuid) != null;
+        if (wasPodiumFrozen) {
+            player.setNoGravity(false);
+            player.setDeltaMovement(0.0, 0.0, 0.0);
+        }
         // Treat any retained session snapshot as membership too. This protects /bp leave
         // if the live-player set ever gets out of sync during a phase transition.
         boolean wasMember = players.contains(uuid) || returnLocations.containsKey(uuid)
@@ -461,6 +506,7 @@ public final class Arena {
                     new MusicControlPayload(activeMusicId, MusicControlPayload.STOP));
         }
         players.remove(uuid);
+        preferredGameModes.remove(uuid);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
         removeLobbyItemsFromInventory(player);
@@ -514,6 +560,13 @@ public final class Arena {
             throw new IllegalStateException("Ingen tilkoblede spillere er med i arenaen.");
         }
 
+        long memoryVotes = players.stream()
+                .filter(uuid -> preferredGameModes.getOrDefault(uuid, GameMode.CLASSIC) == GameMode.MEMORY)
+                .count();
+        gameMode = memoryVotes > players.size() / 2 ? GameMode.MEMORY : GameMode.CLASSIC;
+        broadcast(Component.literal("GAME MODE: " + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC"))
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+
         applyVisualUpgrade();
         clearWinnerPodiumAtDjBooth();
         lastPodium.clear();
@@ -521,10 +574,13 @@ public final class Arena {
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
-        int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-        int screenFloorY = pos1.getY();
-        int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-        displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+        if (!customDisplayPosition && !"xmas".equals(id)) {
+            int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+            int screenFloorY = pos1.getY();
+            int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+            displayCenter = new BlockPos(screenCenterX, screenFloorY + 11, screenNorthZ);
+            targetDisplayYaw = 0.0F;
+        }
         updateArenaWelcomeDisplay();
         alive.clear();
         alive.addAll(players);
@@ -596,16 +652,21 @@ public final class Arena {
             originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
         }
         long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
-        // Begin at the exact Survival-world time captured after teleportation.
-        // Animate from that value to 13,500 over the five-second arena countdown.
-        teleportSunsetStartTime = originalDayTime;
-        teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
-        // Freeze natural time progression, then manually animate sunset during the
-        // five-second arena countdown so players can watch the sky darken.
-        level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
-        level.setDayTime(teleportSunsetStartTime);
-        level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
-        level.setWeatherParameters(20 * 60 * 60, 0, false, false);
+        // All matches use Minecraft time 16000 (night). Freeze it for the whole match
+        // and restore the world's original time and gamerules when the match ends.
+        teleportSunsetEndTime = dayStart + 16_000L;
+        if ("xmas".equals(id)) {
+            teleportSunsetStartTime = teleportSunsetEndTime;
+            level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+            level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
+            level.setDayTime(teleportSunsetEndTime);
+        } else {
+            teleportSunsetStartTime = originalDayTime;
+            level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+            level.setDayTime(teleportSunsetStartTime);
+            level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
+            level.setWeatherParameters(20 * 60 * 60, 0, false, false);
+        }
 
         hideLobbyLeaderboard();
         showScoreboard(server);
@@ -633,6 +694,7 @@ public final class Arena {
     /** Applies the non-destructive visual upgrade once when an existing arena is visited. */
     public void applyVisualUpgrade() {
         if (visualUpgradeApplied || !isConfigured()) return;
+        if ("xmas".equals(id)) { visualUpgradeApplied = true; return; }
         if (ArenaGenerator.refreshVisuals(level, pos1, pos2, lobbyX, lobbyY, lobbyZ)) {
             visualUpgradeApplied = true;
             captureArenaAccents();
@@ -776,6 +838,9 @@ public final class Arena {
                 podiumFreezePositions.remove(uuid);
                 player.setNoGravity(false);
                 player.setDeltaMovement(0.0, 0.0, 0.0);
+                // The exit control only becomes available once the podium lock is fully released.
+                ensureLeaveLobbyItem(player);
+                player.inventoryMenu.broadcastChanges();
                 player.sendSystemMessage(Component.literal("Du kan nå bevege deg fritt i lobbyen!")
                         .withStyle(ChatFormatting.GREEN));
             } else {
@@ -786,69 +851,84 @@ public final class Arena {
 
     private void refreshDjScreen() {
         if (level == null || !lobbySet) return;
-        int centerX = (int) Math.floor(lobbyX);
-        int wallZ = (int) Math.floor(lobbyZ) + 35;
-        BlockPos anchor = new BlockPos(centerX, (int) Math.floor(lobbyY) + 9, wallZ - 1);
-        if (!level.hasChunkAt(anchor)) return;
         String tag = "bp_dj_" + id;
-        AABB area = new AABB(centerX - 24, lobbyY + 1, wallZ - 5,
-                centerX + 24, lobbyY + 13, wallZ + 2);
+        boolean customScreen = lobbyScreenCenter != null;
+        int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
+        int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
+        int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
+        float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
+        BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
+        if (!level.hasChunkAt(anchor)) return;
+
+        boolean sideFacingScreen = customScreen && Math.abs(Math.abs(screenYaw) - 90.0F) < 1.0F;
+        // The Xmas voting panel faces +X into the lobby. Its horizontal text axis is
+        // therefore Z; Classic's panel keeps its original horizontal X axis.
+        double frontOffset = customScreen ? 0.72 : -0.72;
+        java.util.function.DoubleFunction<double[]> screenPoint = offset -> sideFacingScreen
+                ? new double[]{centerX + frontOffset, wallZ - offset}
+                : new double[]{centerX + offset, wallZ + frontOffset};
+
+        // The Xmas panel is a side wall, so include the full text width when clearing
+        // previous displays; otherwise old entries can remain beside the refreshed list.
+        AABB area = new AABB(centerX - 28, screenBaseY - 12, wallZ - 24,
+                centerX + 28, screenBaseY + 18, wallZ + 24);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
+                entity -> entity.getTags().contains(tag)
+                        || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) {
+            old.discard();
+        }
 
-        AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
-                centerX + 20, lobbyY + 16, lobbyZ - 13);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
-
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.2, wallZ - 0.72,
-                180.0F, Component.literal("MUSIKKAVSTEMNING")
-                        .withStyle(ChatFormatting.YELLOW), 1.8F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 8.0, lobbyY + 9.45, wallZ - 0.72,
-                180.0F, Component.literal("SPILLELISTE")
-                        .withStyle(ChatFormatting.AQUA), 1.4F, tag);
+        double[] heading = screenPoint.apply(0.5);
+        BlockPartyText.spawnTextDisplay(level, heading[0], screenBaseY + 2.2, heading[1],
+                screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
+        double[] playlist = screenPoint.apply(-8.0);
+        BlockPartyText.spawnTextDisplay(level, playlist[0], screenBaseY + 0.45, playlist[1],
+                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA), 1.4F, tag);
 
         List<Track> catalogue = MusicTrackManager.getTracks();
         int visible = Math.min(catalogue.size(), 10);
         for (int i = 0; i < visible; i++) {
             Track track = catalogue.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            // Text displays face the lobby, so swap physical columns to keep song 01 at upper left.
             int column = 1 - (i / 5);
             int row = i % 5;
-            double x = centerX - 14.0 + column * 12.0;
-            double y = lobbyY + 8.1 - row * 1.1;
+            double localX = -14.0 + column * 12.0;
+            double y = screenBaseY - 0.9 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
-                    .withStyle(ChatFormatting.GOLD)
-                    .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
-            Component details = Component.literal(track.artist())
-                    .withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal("   •   " + votes + " STEMMER")
-                            .withStyle(ChatFormatting.AQUA));
-            BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.72, 180.0F, title, 1.2F, tag);
-            BlockPartyText.spawnTextDisplay(level, x, y - 0.45, wallZ - 0.72, 180.0F, details, 0.84F, tag);
+                    .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
+            Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal("   •   " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
+            double[] titlePoint = screenPoint.apply(localX);
+            double[] detailPoint = screenPoint.apply(localX);
+            BlockPartyText.spawnTextDisplay(level, titlePoint[0], y, titlePoint[1], screenYaw, title, 1.2F, tag);
+            BlockPartyText.spawnTextDisplay(level, detailPoint[0], y - 0.45, detailPoint[1], screenYaw, details, 0.84F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, lobbyY + 1.6, wallZ - 0.72,
-                    180.0F, Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB")
-                            .withStyle(ChatFormatting.GRAY), 0.75F, tag);
+            double[] more = screenPoint.apply(-8.0);
+            BlockPartyText.spawnTextDisplay(level, more[0], screenBaseY - 7.4, more[1], screenYaw,
+                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.75F, tag);
         }
-
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 9.0, wallZ - 0.72,
-                180.0F, Component.literal("MEST STEMTE LÅT")
-                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 6.7, wallZ - 0.72,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
+        double[] leaderHeading = screenPoint.apply(11.0);
+        BlockPartyText.spawnTextDisplay(level, leaderHeading[0], screenBaseY, leaderHeading[1], screenYaw,
+                Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
+        double[] leaderName = screenPoint.apply(11.0);
+        BlockPartyText.spawnTextDisplay(level, leaderName[0], screenBaseY - 2.3, leaderName[1], screenYaw,
+                Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 5.2, wallZ - 0.72,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
-                        : leader.artist() + "  •  " + leaderVotes + " STEMMER")
-                        .withStyle(ChatFormatting.YELLOW), 0.72F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 3.8, wallZ - 0.72,
-                180.0F, Component.literal("HØYREKLIKK KOMPASSET FOR HUB")
-                        .withStyle(ChatFormatting.AQUA), 0.65F, tag);
+        double[] leaderDetails = screenPoint.apply(11.0);
+        BlockPartyText.spawnTextDisplay(level, leaderDetails[0], screenBaseY - 3.8, leaderDetails[1], screenYaw,
+                Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
+                        : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
+        double[] votePrompt = screenPoint.apply(11.0);
+        BlockPartyText.spawnTextDisplay(level, votePrompt[0], screenBaseY - 5.2, votePrompt[1], screenYaw,
+                Component.literal("ÅPNE BOKA FOR Å STEMME").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.85F, tag);
+        double[] hubPrompt = screenPoint.apply(11.0);
+        BlockPartyText.spawnTextDisplay(level, hubPrompt[0], screenBaseY - 6.4, hubPrompt[1], screenYaw,
+                Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
     }
+
 
     private Track mostVotedTrack() {
         List<Track> tracks = MusicTrackManager.getTracks();
@@ -937,24 +1017,36 @@ public final class Arena {
 
     /** Shows the arena title during the pre-round countdown; round one replaces it with the target color. */
     private void updateArenaWelcomeDisplay() {
-        if (displayCenter == null || level == null) return;
+        if (level == null) return;
+        // The schematic generator supplies the exact white-board anchor and facing.
+        // Keep that persisted anchor: recomputing it from pos1/pos2 pushed the display
+        // into the seam between the board and the next block row on the Xmas map.
+        if (displayCenter == null) return;
         String tag = "bp_target_" + id;
         AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.15, 0.0F,
-                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE), 12.0F, tag);
+        boolean xmasTargetScreen = "xmas".equals(id);
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
+                displayCenter.getZ() + 1.0, targetDisplayYaw,
+                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
     }
 
     private void updateColorDisplay() {
-        if (targetColor == null || level == null) return;
+        if (level == null) return;
+        // Use the schematic generator's persisted white-board anchor and facing.
+        // Do not derive a new position from the floor bounds; that places the text
+        // between the board and adjacent blocks on the Xmas variant.
+        if (targetColor == null) return;
         if (displayCenter == null && pos1 != null && pos2 != null) {
-            int centerX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-            int floorY = pos1.getY();
-            int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-            displayCenter = new BlockPos(centerX, floorY + 11, northWallZ);
+            if (!customDisplayPosition) {
+                int centerX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+                int floorY = pos1.getY();
+                int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+                displayCenter = new BlockPos(centerX, floorY + 11, northWallZ);
+                targetDisplayYaw = 0.0F;
+            }
         }
         if (displayCenter == null) return;
         String tag = "bp_target_" + id;
@@ -973,7 +1065,7 @@ public final class Arena {
             };
             if (!lyric.isEmpty()) {
                 BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                        displayCenter.getZ() + 1.15, 0.0F,
+                        displayCenter.getZ() + 1.0, targetDisplayYaw,
                         Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                         12.0F, tag);
             }
@@ -994,7 +1086,7 @@ public final class Arena {
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.15, 0.0F, text, 12.0F, tag);
+                displayCenter.getZ() + 1.0, targetDisplayYaw, text, 12.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
@@ -1084,7 +1176,7 @@ public final class Arena {
                     "COLOR RAIN aktivert! Fargerike blokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COLOR_SCANNER) {
-            scannerTicks = 60;
+            scannerTicks.put(player.getUUID(), 60);
             activated = true;
         } else if (powerUp == PowerUp.LUCKY_LANDING) {
             luckyLanding.add(player.getUUID());
@@ -1098,6 +1190,7 @@ public final class Arena {
         }
         if (activated) {
             powerupsCollected.merge(player.getUUID(), 1, Integer::sum);
+            DailyChallengeManager.recordPowerup(level.getServer(), player);
             boolean penalty = powerUp == PowerUp.SLOWNESS;
             player.sendSystemMessage(Component.literal((penalty ? "PENALTY: " : "POWER-UP: ") + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE));
@@ -1375,6 +1468,19 @@ public final class Arena {
     }
 
     private void ensureLeaveLobbyItem(ServerPlayer player) {
+        // Podium finishers remain pinned in place for five seconds. Withhold the exit item
+        // during that window so they cannot restore their inventory while the freeze is active.
+        if (podiumFreezeTicks.containsKey(player.getUUID())) {
+            boolean changed = false;
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                if (isLeaveLobbyItem(player.getInventory().getItem(i))) {
+                    player.getInventory().setItem(i, ItemStack.EMPTY);
+                    changed = true;
+                }
+            }
+            if (changed) player.inventoryMenu.broadcastChanges();
+            return;
+        }
         // Lobby inventories are cleared on join, so slot 9 is reserved for the leave control.
         // Remove any stale copies first to prevent duplication if ensureLobbyItems runs repeatedly.
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
@@ -1530,13 +1636,49 @@ public final class Arena {
             case 10 -> PlayerStatsManager.sendProfile(player);
             case 12 -> openMusicVoting(player);
             case 14 -> PlayerStatsManager.sendLeaderboard(player);
-            case 30 -> player.sendSystemMessage(Component.literal("Prestasjoner kommer i en senere oppdatering.")
+            case 30 -> openDailyChallenges(player);
+            case 32 -> player.sendSystemMessage(Component.literal("Kosmetikk kommer senere.")
                     .withStyle(ChatFormatting.YELLOW));
-            case 32 -> player.sendSystemMessage(Component.literal("Kosmetikk kommer i en senere oppdatering.")
-                    .withStyle(ChatFormatting.YELLOW));
+            case 34 -> openGameModeMenu(player);
             case 49 -> registerForGame(player);
             default -> { }
         }
+    }
+
+    private void openDailyChallenges(ServerPlayer player) {
+        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) return;
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, menuPlayer) ->
+                        new DailyChallengeMenu(containerId, inventory, (ServerPlayer) menuPlayer),
+                Component.literal("Daily Challenges")));
+    }
+
+    private void openGameModeMenu(ServerPlayer player) {
+        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) return;
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, menuPlayer) ->
+                        new GameModeMenu(containerId, inventory, this, (ServerPlayer) menuPlayer),
+                Component.literal("Choose Game Mode")));
+    }
+
+    public GameMode getPreferredGameMode(UUID playerId) {
+        return preferredGameModes.getOrDefault(playerId, GameMode.CLASSIC);
+    }
+
+    public void setPreferredGameMode(ServerPlayer player, GameMode selected) {
+        if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("Velg spillmodus i den åpne BlockParty-lobbyen.")
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
+        GameMode mode = selected == null ? GameMode.CLASSIC : selected;
+        preferredGameModes.put(player.getUUID(), mode);
+        player.sendSystemMessage(Component.literal("Din spillmodus for neste match er satt til "
+                + (mode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + ".")
+                .withStyle(ChatFormatting.GREEN));
+        broadcast(Component.literal(player.getGameProfile().getName() + " har valgt "
+                + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
+                .withStyle(ChatFormatting.GRAY));
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -1664,8 +1806,95 @@ public final class Arena {
         captureArenaAccents();
     }
 
+ 
+    private boolean isOutsidePlayableFloor(ServerPlayer player) {
+        if (player == null || pos1 == null || pos2 == null) return false;
+        // The configured corners describe the complete 40x40 concrete floor.
+        // Use its exact outer edges: the red/white decorative trim is outside and lethal.
+        double minX = Math.min(pos1.getX(), pos2.getX());
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ());
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0;
+        return player.getX() < minX || player.getX() >= maxX
+                || player.getZ() < minZ || player.getZ() >= maxZ;
+    }
+
+    private boolean isInsideFloorAndBorder(ServerPlayer player, double margin) {
+        if (player == null || pos1 == null || pos2 == null || player.serverLevel() != level) return false;
+        double minX = Math.min(pos1.getX(), pos2.getX()) - margin;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 + margin;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - margin;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0 + margin;
+        return player.getX() >= minX && player.getX() < maxX
+                && player.getZ() >= minZ && player.getZ() < maxZ;
+    }
+
+    private void tickXmasSnow(MinecraftServer server) {
+        if (level == null || pos1 == null || pos2 == null || server == null) return;
+        // Snowfall is limited to the outdoor dance floor and its immediate surroundings.
+        // Lobby visitors never receive snow particles; all effects are particles only.
+        double minX = Math.min(pos1.getX(), pos2.getX()) - 10.0;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 11.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 10.0;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 11.0;
+        for (int i = 0; i < 42; i++) {
+            double x = minX + random.nextDouble() * (maxX - minX);
+            double y = pos1.getY() + 3.0 + random.nextDouble() * 18.0;
+            double z = minZ + random.nextDouble() * (maxZ - minZ);
+            level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1,
+                    0.05, 0.10, 0.05, 0.003);
+        }
+    }
+
+    /** Sends Color Scanner particles only to the player who collected that scanner. */
+    private void tickColorScanners(MinecraftServer server) {
+        if (scannerTicks.isEmpty() || targetColor == null || level == null) return;
+        for (Map.Entry<UUID, Integer> entry : new HashMap<>(scannerTicks).entrySet()) {
+            UUID playerId = entry.getKey();
+            ServerPlayer scannerPlayer = server.getPlayerList().getPlayer(playerId);
+            int remaining = entry.getValue() - 1;
+            if (remaining <= 0 || scannerPlayer == null || scannerPlayer.serverLevel() != level
+                    || !alive.contains(playerId)) {
+                scannerTicks.remove(playerId);
+                continue;
+            }
+            scannerTicks.put(playerId, remaining);
+            if (remaining % 20 != 0) continue;
+            for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
+                if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
+                    level.sendParticles(scannerPlayer, ParticleTypes.END_ROD, false,
+                            tile.getKey().getX() + 0.5, tile.getKey().getY() + 1.08,
+                            tile.getKey().getZ() + 0.5, 2, 0.18, 0.02, 0.18, 0.005);
+                }
+            }
+        }
+    }
+
+    /** Colourful firework-like particle bursts around podium finishers for five seconds. */
+    private void tickPodiumFireworks() {
+        if (podiumFireworksTicks <= 0 || level == null || podiumFreezePositions.isEmpty()) return;
+        if (podiumFireworksTicks % 5 == 0) {
+            for (BlockPos spawn : new ArrayList<>(podiumFreezePositions.values())) {
+                for (int burst = 0; burst < 3; burst++) {
+                    double angle = random.nextDouble() * Math.PI * 2.0;
+                    double radius = 0.8 + random.nextDouble() * 1.5;
+                    double x = spawn.getX() + 0.5 + Math.cos(angle) * radius;
+                    double y = spawn.getY() + 1.3 + random.nextDouble() * 2.4;
+                    double z = spawn.getZ() + 0.5 + Math.sin(angle) * radius;
+                    DustParticleOptions colour = new DustParticleOptions(
+                            new Vector3f(0.25F + random.nextFloat() * 0.75F,
+                                    0.25F + random.nextFloat() * 0.75F,
+                                    0.25F + random.nextFloat() * 0.75F), 1.35F);
+                    level.sendParticles(colour, x, y, z, 16, 0.28, 0.35, 0.28, 0.08);
+                    level.sendParticles(ParticleTypes.FIREWORK, x, y, z, 5, 0.2, 0.25, 0.2, 0.05);
+                }
+            }
+        }
+        podiumFireworksTicks--;
+    }
+
     private void tickLobbyDanceFloor() {
-        if (level == null || !lobbySet || (phase != Phase.WAITING && phase != Phase.COUNTDOWN)) return;
+        if (level == null || !lobbySet || "xmas".equals(id) || (phase != Phase.WAITING && phase != Phase.COUNTDOWN)) return;
         int frame = (scoreboardTick / 20) % 6;
         if (frame == lastDancePattern) return;
         lastDancePattern = frame;
@@ -1691,12 +1920,14 @@ public final class Arena {
 
     public void tick(MinecraftServer server) {
         scoreboardTick++;
+        tickPodiumFireworks();
         tickWinnerPodiumFreeze(server);
         if (podiumDisplayTicks > 0 && --podiumDisplayTicks == 0) {
             clearWinnerPodiumAtDjBooth();
             refreshLobbyDisplays();
         }
         if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
+        if ("xmas".equals(id) && lobbySet && scoreboardTick % 4 == 0) tickXmasSnow(server);
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
             for (UUID uuid : new HashSet<>(players)) {
@@ -1708,36 +1939,42 @@ public final class Arena {
                 }
             }
         }
-        if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.WAITING_FOR_COLOR
-                || phase == Phase.FINISHING) && level != null) {
-            // After the sunset countdown, keep the arena at its final night setting.
-            if (teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
-                level.setDayTime(teleportSunsetEndTime);
-            }
+        // Hold the clock at 16000 throughout countdown and every active match phase.
+        if (isGameInProgress() && level != null && teleportSunsetEndTime != Long.MIN_VALUE
+                && level.getDayTime() != teleportSunsetEndTime) {
+            level.setDayTime(teleportSunsetEndTime);
         }
         if (scoreboardTick % 20 == 0) removeMobsFromProtectedArea();
-        if (isGameInProgress()) {
+        // Players are intentionally standing in the lobby during COUNTDOWN, and are
+        // being moved onto the floor during TELEPORT_COUNTDOWN. Neither phase may run
+        // the out-of-bounds elimination check. Start enforcing the arena bounds only
+        // once the first round is actually active.
+        if (phase == Phase.PREPARE || phase == Phase.FALL
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             // Leaving the playable floor is an elimination, not a vanilla fall death.
             // Check every active player independently of target-contact bookkeeping so
             // jumping deliberately over the edge cannot bypass the normal elimination flow.
             for (UUID uuid : new ArrayList<>(alive)) {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
-                if (active.getY() <= pos1.getY() - 3.0) eliminate(active);
+                if (isOutsidePlayableFloor(active) || active.getY() <= pos1.getY() - 3.0) {
+                    eliminate(active);
+                }
+            }
+            // Eliminated dancers may roam the spectator gallery, but never the floor or its trim.
+            for (UUID uuid : players) {
+                if (alive.contains(uuid)) continue;
+                ServerPlayer spectator = server.getPlayerList().getPlayer(uuid);
+                if (spectator != null && isInsideFloorAndBorder(spectator, 5.0)) {
+                    teleportToSpectatorWalkway(spectator);
+                }
             }
         }
         if (phase == Phase.PREPARE || phase == Phase.FALL) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
         tickSpecialSongScreen();
-        if (scannerTicks > 0 && --scannerTicks % 20 == 0 && targetColor != null && level != null) {
-            for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
-                if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
-                    level.sendParticles(ParticleTypes.END_ROD, tile.getKey().getX() + 0.5, tile.getKey().getY() + 1.08,
-                            tile.getKey().getZ() + 0.5, 2, 0.18, 0.02, 0.18, 0.005);
-                }
-            }
-        }
+        tickColorScanners(server);
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
             case COUNTDOWN -> {
@@ -1812,12 +2049,13 @@ public final class Arena {
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
                 if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                    // Three descending, darker harp notes: 3s = 1.00, 2s = 0.79, 1s = 0.63.
                     float pitch = switch (timerTicks / 20) {
-                        case 3 -> 0.95F;
-                        case 2 -> 0.75F;
-                        default -> 0.55F;
+                        case 3 -> 1.00F;
+                        case 2 -> 0.79F;
+                        default -> 0.63F;
                     };
-                    playSound(SoundEvents.NOTE_BLOCK_BASEDRUM, SoundSource.PLAYERS, 0.9F, pitch);
+                    playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
                 if (timerTicks <= 0) {
                     rememberTargetContacts(server);
@@ -1873,7 +2111,26 @@ public final class Arena {
                     broadcastActionBar(Component.literal("Waiting...")
                             .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
                 }
-                if (timerTicks <= 0) startRoundCountdown(server);
+                if (timerTicks <= 0) {
+                    if (gameMode == GameMode.MEMORY) startMemoryReveal(server);
+                    else startRoundCountdown(server);
+                }
+            }
+            case MEMORY_REVEAL -> {
+                tickColorRain();
+                timerTicks--;
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                    broadcastActionBar(Component.literal("HUSK FARGENE!  " + (timerTicks / 20) + "  SEKUNDER")
+                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                }
+                if (timerTicks <= 0) {
+                    for (BlockPos tile : floorSnapshot.keySet()) {
+                        level.setBlock(tile, Blocks.GRAY_CONCRETE.defaultBlockState(), 3);
+                    }
+                    broadcastActionBar(Component.literal("FARGENE ER SKJULT! FINN MÅLFARGEN FRA MINNET!")
+                            .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+                    startRoundCountdown(server);
+                }
             }
             case FINISHING -> {
                 timerTicks--;
@@ -1962,9 +2219,10 @@ public final class Arena {
         previousTargetColor = targetColor;
 
         if (firstRound) {
-            startRoundCountdown(server);
+            if (gameMode == GameMode.MEMORY) startMemoryReveal(server);
+            else startRoundCountdown(server);
         } else {
-            // The full floor comes back first. Hide the target and wait two seconds
+            // The full floor comes back first. Hide the target and wait one second
             // before starting this round's countdown.
             for (UUID uuid : alive) {
                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
@@ -1984,7 +2242,19 @@ public final class Arena {
         }
     }
 
-    /** Reveals the target and starts the exact round timer after the two-second wait. */
+    /** Gives players five seconds to memorize the coloured floor before hiding it. */
+    private void startMemoryReveal(MinecraftServer server) {
+        phase = Phase.MEMORY_REVEAL;
+        timerTicks = MEMORY_REVEAL_TICKS;
+        updateArenaWelcomeDisplay();
+        broadcast(Component.literal("MEMORY MODE: Se nøye på fargene. Gulvet blir grått om fem sekunder!")
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        broadcastActionBar(Component.literal("HUSK FARGENE!  5  SEKUNDER")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        updateScoreboard(level.getServer());
+    }
+
+    /** Reveals the target and starts the exact round timer after the one-second floor wait. */
     private void startRoundCountdown(MinecraftServer server) {
         updateArenaAccents(targetColor);
         updateTargetItems(server);
@@ -2150,7 +2420,8 @@ public final class Arena {
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
         String roundSpeed = phase == Phase.PREPARE
                 ? formatSeconds(Math.max(0, timerTicks)) + "s"
-                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..." : "--";
+                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..."
+                : phase == Phase.MEMORY_REVEAL ? "MEMORY" : "--";
         String[] ids = {
                 "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
                 "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10"
@@ -2310,13 +2581,22 @@ public final class Arena {
         player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
     }
 
+    /** Reads original tile colours in Memory Mode even after the visible floor turns gray. */
+    private DyeColor getGameplayFloorColor(BlockPos pos) {
+        if (gameMode == GameMode.MEMORY) {
+            BlockState remembered = floorSnapshot.get(pos);
+            if (remembered != null) return BlockPartyColors.getColor(remembered);
+        }
+        return level == null ? null : BlockPartyColors.getColor(level.getBlockState(pos));
+    }
+
     private void rememberTargetContacts(MinecraftServer server) {
         if (targetColor == null) return;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor
+            if (getGameplayFloorColor(tile) == targetColor
                     && player.getY() >= pos1.getY() + 0.75
                     && player.getY() <= pos1.getY() + 2.5) {
                 lastTargetContactPos.put(uuid, tile.immutable());
@@ -2332,7 +2612,7 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor) {
+            if (getGameplayFloorColor(tile) == targetColor) {
                 lastTargetContactTick.put(uuid, (long) scoreboardTick);
                 lastTargetContactPos.put(uuid, tile.immutable());
             }
@@ -2342,7 +2622,7 @@ public final class Arena {
     private boolean isStandingOnTargetTile(ServerPlayer player) {
         if (targetColor == null || pos1 == null || level == null) return false;
         BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-        return BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor
+        return getGameplayFloorColor(tile) == targetColor
                 && player.getY() >= pos1.getY() + 0.75
                 && player.getY() <= pos1.getY() + 2.5;
     }
@@ -2356,7 +2636,7 @@ public final class Arena {
                 continue;
             }
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            DyeColor standingColor = BlockPartyColors.getColor(level.getBlockState(tile));
+            DyeColor standingColor = getGameplayFloorColor(tile);
             boolean onTargetNow = standingColor == targetColor;
             long lastContact = lastTargetContactTick.getOrDefault(uuid, Long.MIN_VALUE);
             BlockPos lastTile = lastTargetContactPos.get(uuid);
@@ -2445,12 +2725,15 @@ public final class Arena {
         for (UUID uuid : alive) {
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-            if (player != null) PlayerStatsManager.recordRoundSurvived(level.getServer(), player, round);
+            if (player != null) {
+                PlayerStatsManager.recordRoundSurvived(level.getServer(), player, round);
+                DailyChallengeManager.recordRound(level.getServer(), player);
+            }
         }
         clearActivePowerUps(level.getServer());
         removeActiveBeacon();
 
-        // Restore the next floor right away, then show WAITING FOR COLOR for two seconds.
+        // Restore the next floor right away, then show WAITING FOR COLOR for one second.
         broadcastActionBar(Component.literal("RUNDE " + round + " FULLFØRT  •  " + alive.size() + " IGJEN")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         refreshLobbyDisplays();
@@ -2524,6 +2807,7 @@ public final class Arena {
         }
         if (winner != null) {
             PlayerStatsManager.recordWin(level.getServer(), winner);
+            DailyChallengeManager.recordWin(level.getServer(), winner);
             level.sendParticles(ParticleTypes.FIREWORK, winner.getX(), winner.getY() + 1.5, winner.getZ(),
                     90, 2.4, 2.0, 2.4, 0.18);
             level.sendParticles(ParticleTypes.END_ROD, winner.getX(), winner.getY() + 1.0, winner.getZ(),
@@ -2615,17 +2899,22 @@ public final class Arena {
             // The Nether Star is the explicit opt-in; only then is the vote book granted.
             player.getInventory().setItem(0, createJoinGameItem());
             player.getInventory().setItem(6, createHubItem());
-            player.getInventory().setItem(8, createLeaveLobbyItem());
-            player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);
             int podiumRank = lastPodiumPlayers.indexOf(uuid);
             if (matchWinnerId != null && podiumRank >= 0) teleportPlayerToPodium(player, podiumRank);
+            // Non-podium participants can leave immediately. Podium finishers receive
+            // Redstone Dust from tickWinnerPodiumFreeze after their five-second lock ends.
+            if (!podiumFreezeTicks.containsKey(uuid)) {
+                player.getInventory().setItem(8, createLeaveLobbyItem());
+            }
+            player.inventoryMenu.broadcastChanges();
             player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
                     .withStyle(ChatFormatting.GREEN));
         }
 
         // Start the 20-second podium display window only after all participants have returned.
         podiumDisplayTicks = matchWinnerId != null && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
+        podiumFireworksTicks = matchWinnerId != null && !podiumFreezePositions.isEmpty() ? 100 : 0;
 
         alive.clear();
         pendingEliminations.clear();
@@ -2639,13 +2928,15 @@ public final class Arena {
         luckyLanding.clear();
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
-        scannerTicks = 0;
+        scannerTicks.clear();
+        gameMode = GameMode.CLASSIC;
         matchStartTick = 0L;
         phase = Phase.WAITING;
         timerTicks = 0;
         matchWinnerId = null;
         round = 0;
         targetColor = null;
+        updateArenaWelcomeDisplay();
         previousTargetColor = null;
         previousPattern = -1;
         lastPowerupRound = -10;
@@ -2707,11 +2998,44 @@ public final class Arena {
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
+
+        if ("xmas".equals(id)) {
+            // The Xmas schematic places its spectator gallery in the indoor lobby
+            // behind the dance-floor's north wall. Use the gallery's known floor strip,
+            // not a whole-structure "best candidate" scan that can choose a nearby roof.
+            // The lobby wall is at origin-relative z=95; the gallery corridor is the
+            // raised indoor platform immediately behind the DJ/voting wall.
+            int x = minX - 7;
+            int z = minZ + 40;
+            int y = pos1.getY() + 5;
+            BlockPos feet = new BlockPos(x, y, z);
+            if (level.getBlockState(feet.below()).isFaceSturdy(level, feet.below(), Direction.UP)
+                    && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                    && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) {
+                player.teleportTo(level, x + 0.5, y, z + 0.5, 90.0F, 0.0F);
+                player.setDeltaMovement(0.0, 0.0, 0.0);
+                player.fallDistance = 0.0F;
+                return;
+            }
+            // Never silently drop an eliminated Xmas player onto the snowy exterior.
+            // Keep the player at a safe supported indoor spawn near the lobby corridor.
+            BlockPos lobbyFallback = new BlockPos((int) Math.floor(lobbyX), (int) Math.floor(lobbyY) + 1,
+                    (int) Math.floor(lobbyZ));
+            if (level.getBlockState(lobbyFallback.below()).isFaceSturdy(level, lobbyFallback.below(), Direction.UP)
+                    && level.getBlockState(lobbyFallback).getCollisionShape(level, lobbyFallback).isEmpty()
+                    && level.getBlockState(lobbyFallback.above()).getCollisionShape(level, lobbyFallback.above()).isEmpty()) {
+                player.teleportTo(level, lobbyX, lobbyY, lobbyZ, lobbyYaw, lobbyPitch);
+                player.setDeltaMovement(0.0, 0.0, 0.0);
+                player.fallDistance = 0.0F;
+            }
+            return;
+        }
+
         int centerX = minX + (maxX - minX + 1) / 2;
         int centerZ = minZ + (maxZ - minZ + 1) / 2;
         int x;
         int z;
-        // Preserve the side/quadrant from which the player fell, then place them on the raised ring.
+        // Classic arena uses its purpose-built raised spectator ring.
         if (Math.abs(player.getX() - centerX) > Math.abs(player.getZ() - centerZ)) {
             x = player.getX() < centerX ? minX - 6 : maxX + 6;
             z = Math.max(minZ - 2, Math.min(maxZ + 2, player.blockPosition().getZ()));
@@ -2721,6 +3045,8 @@ public final class Arena {
         }
         int y = pos1.getY() + ArenaGenerator.SPECTATOR_HEIGHT + 1;
         player.teleportTo(level, x + 0.5, y, z + 0.5, player.getYRot(), 0.0F);
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
     }
 
     private void restoreOriginalFloor() {
@@ -2740,7 +3066,7 @@ public final class Arena {
         double minX = lobbyX - 70.0;
         double maxX = lobbyX + 70.0;
         double minZ = lobbyZ - 110.0;
-        double maxZ = lobbyZ + 75.0;
+        double maxZ = lobbyZ + ("xmas".equals(id) ? 145.0 : 75.0);
         double minY = lobbyY - 30.0;
         double maxY = lobbyY + 55.0;
         if (pos1 != null && pos2 != null) {
@@ -2769,24 +3095,32 @@ public final class Arena {
     /** Refreshes the lobby-only leaderboard. Its text is hidden while players are in the arena. */
     private void refreshLobbyLeaderboard() {
         if (level == null || !lobbySet) return;
+        // Xmas uses its left black wall exclusively for the music-voting display.
+        // Remove legacy leaderboard/command holograms there and never recreate them.
+        if ("xmas".equals(id)) {
+            hideLobbyLeaderboard();
+            return;
+        }
         if (phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             hideLobbyLeaderboard();
             return;
         }
         hideLobbyLeaderboard();
-        double boardX = lobbyX + 30.0;
-        // The east wall is split into two balanced panels. Commands occupy the
-        // lower-Z side; the top-five leaderboard occupies the upper-Z side.
-        double boardZ = lobbyZ + 18.5;
-        double commandsZ = lobbyZ - 6.5;
+        boolean xmasLobby = "xmas".equals(id);
+        // Mount Xmas panels on the two indoor side walls instead of outside the glass.
+        double boardX = xmasLobby ? lobbyX - 22.0 : lobbyX + 30.0;
+        double boardZ = xmasLobby ? lobbyZ - 1.0 : lobbyZ + 18.5;
+        double commandsZ = xmasLobby ? lobbyZ - 1.0 : lobbyZ - 6.5;
+        double commandsX = xmasLobby ? lobbyX + 22.0 : boardX;
+        float boardYaw = xmasLobby ? -90.0F : 90.0F;
         BlockPos anchor = BlockPos.containing(boardX, lobbyY + 8.0, boardZ);
         if (!level.hasChunkAt(anchor)) return;
 
         String tag = "blockparty_lb_" + id;
         // Both panels share one cleanup region and tag, so periodic refreshes cannot duplicate text.
-        AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
-                boardX + 5.0, lobbyY + 16.0, lobbyZ + 32.0);
+        AABB area = new AABB(Math.min(boardX, commandsX) - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
+                Math.max(boardX, commandsX) + 5.0, lobbyY + 16.0, lobbyZ + ("xmas".equals(id) ? 100.0 : 32.0));
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 display -> display.getTags().contains(tag))) old.discard();
         for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,
@@ -2819,7 +3153,7 @@ public final class Arena {
         for (int i = 0; i < lines.size(); i++) {
             float scale = i == 0 ? 1.9F : (i == 1 ? 1.25F : (i == lines.size() - 1 ? 0.95F : 1.0F));
             double y = firstLineY - i * lineSpacing;
-            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, 90.0F, lines.get(i), scale, tag);
+            BlockPartyText.spawnTextDisplay(level, boardX, y, boardZ, boardYaw, lines.get(i), scale, tag);
         }
 
         // COMMANDS PANEL — the three most useful player commands and what they do.
@@ -2837,7 +3171,7 @@ public final class Arena {
         for (int i = 0; i < commandLines.size(); i++) {
             float scale = i == 0 ? 1.65F : (i % 2 == 1 ? 1.15F : 0.78F);
             double y = commandFirstY - i * commandSpacing;
-            BlockPartyText.spawnTextDisplay(level, boardX, y, commandsZ, 90.0F,
+            BlockPartyText.spawnTextDisplay(level, commandsX, y, commandsZ, 90.0F,
                     commandLines.get(i), scale, tag);
         }
     }
@@ -2847,15 +3181,47 @@ public final class Arena {
     }
 
     private void teleportToRandomFloorTile(ServerPlayer player) {
-        List<BlockPos> positions = new ArrayList<>(floorSnapshot.keySet());
-        if (positions.isEmpty()) return;
-        BlockPos tile = positions.get(random.nextInt(positions.size()));
-        player.teleportTo(level, tile.getX() + 0.5, tile.getY() + 1.05, tile.getZ() + 0.5, player.getYRot(), player.getXRot());
+        if (level == null || pos1 == null || pos2 == null) {
+            throw new IllegalStateException("Arenaen mangler gyldige gulvposisjoner.");
+        }
+        int minX = Math.min(pos1.getX(), pos2.getX());
+        int maxX = Math.max(pos1.getX(), pos2.getX());
+        int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int maxZ = Math.max(pos1.getZ(), pos2.getZ());
+        int floorY = pos1.getY();
+
+        // Only choose a real, currently solid concrete tile inside the configured
+        // playfield. This avoids stale/out-of-bounds snapshot entries placing a dancer
+        // beside the arena or above an empty section of the pit.
+        List<BlockPos> safeTiles = floorSnapshot.keySet().stream()
+                .filter(pos -> pos.getY() == floorY
+                        && pos.getX() >= minX && pos.getX() <= maxX
+                        && pos.getZ() >= minZ && pos.getZ() <= maxZ
+                        && level.getBlockState(pos).isSolid()
+                        && BlockPartyColors.isConcrete(level.getBlockState(pos))
+                        && level.isEmptyBlock(pos.above())
+                        && level.isEmptyBlock(pos.above(2)))
+                .toList();
+        if (safeTiles.isEmpty()) {
+            throw new IllegalStateException("Fant ingen ledige concrete-blokker på dansegulvet. Kontroller pos1/pos2 og gulvet.");
+        }
+
+        BlockPos tile = safeTiles.get(random.nextInt(safeTiles.size()));
+        double x = tile.getX() + 0.5;
+        double y = tile.getY() + 1.01;
+        double z = tile.getZ() + 0.5;
+        player.stopRiding();
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
+        player.teleportTo(level, x, y, z, player.getYRot(), 0.0F);
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
+        player.setOnGround(true);
     }
 
     private boolean isGameInProgress() {
         return phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
-                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING;
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.MEMORY_REVEAL || phase == Phase.FINISHING;
     }
 
     private static String formatSeconds(int ticks) {
