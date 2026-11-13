@@ -1072,7 +1072,9 @@ public final class Arena {
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
         boolean revealMemoryTarget = gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL && targetColor != null;
-        Component welcome = revealMemoryTarget
+        boolean showBetweenRoundTarget = phase == Phase.WAITING_FOR_COLOR && targetColor != null;
+        boolean showTarget = revealMemoryTarget || showBetweenRoundTarget;
+        Component welcome = showTarget
                 ? Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
                     .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)
                 : Component.literal("BLOCKPARTY").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
@@ -1089,7 +1091,7 @@ public final class Arena {
         if (level == null || pos1 == null || pos2 == null || !"xmas".equals(id)) return;
 
         boolean showTarget = targetColor != null
-                && ((gameMode == GameMode.CLASSIC && (phase == Phase.PREPARE || phase == Phase.FALL))
+                && ((gameMode == GameMode.CLASSIC && (phase == Phase.WAITING_FOR_COLOR || phase == Phase.PREPARE || phase == Phase.FALL))
                 || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
         String text = showTarget
                 ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
