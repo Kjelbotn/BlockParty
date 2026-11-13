@@ -65,6 +65,7 @@ public final class SchematicArenaGenerator {
         }
 
         FloorRegion floor = findDanceFloor(schematic);
+        trimLobbySideBorder(level, origin, schematic, floor);
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
@@ -162,6 +163,43 @@ public final class SchematicArenaGenerator {
                     + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
         }
         return best;
+    }
+
+    /**
+     * The imported map has a two-block-wide trim on the lobby-facing (positive Z)
+     * edge of the dance floor. Keep the inner row and remove only the outer row,
+     * leaving the requested single-block border. The trim is detected from the
+     * schematic itself so this does not depend on the arena's world coordinates.
+     */
+    private static void trimLobbySideBorder(ServerLevel level, BlockPos origin,
+                                             Schematic schematic, FloorRegion floor) {
+        int innerZ = floor.minZ + FLOOR_SIZE;
+        int outerZ = innerZ + 1;
+        int y = floor.y;
+        int matchingColumns = 0;
+        for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
+            BlockState inner = schematic.palette.get(schematic.indices[
+                    x + innerZ * schematic.width + y * schematic.width * schematic.length]);
+            BlockState outer = schematic.palette.get(schematic.indices[
+                    x + outerZ * schematic.width + y * schematic.width * schematic.length]);
+            if (!inner.isAir() && !outer.isAir()
+                    && inner.getBlock() == outer.getBlock()
+                    && inner.getBlock().defaultBlockState().isSolid()) {
+                matchingColumns++;
+            }
+        }
+        // Avoid touching architectural walls or trim unless both rows form the
+        // same continuous border material across almost the complete arena width.
+        if (matchingColumns < FLOOR_SIZE * 3 / 4) return;
+        for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
+            BlockState inner = schematic.palette.get(schematic.indices[
+                    x + innerZ * schematic.width + y * schematic.width * schematic.length]);
+            BlockState outer = schematic.palette.get(schematic.indices[
+                    x + outerZ * schematic.width + y * schematic.width * schematic.length]);
+            if (!inner.isAir() && inner.getBlock() == outer.getBlock()) {
+                level.setBlock(origin.offset(x, y, outerZ), Blocks.AIR.defaultBlockState(), 3);
+            }
+        }
     }
 
     /** Adds invisible light sources above the full dance floor and in front of its white target board. */
