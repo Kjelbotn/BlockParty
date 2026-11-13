@@ -27,6 +27,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
+import no.bangerfabrikken.blockparty.arena.DailyChallengeManager;
 import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
 import no.bangerfabrikken.blockparty.arena.MusicTrackManager;
 import no.bangerfabrikken.blockparty.command.BlockPartyCommands;
