@@ -312,7 +312,7 @@ public final class Arena {
         if (player == null || level == null || player.serverLevel() != level || !alive.contains(player.getUUID())
                 || !isGameInProgress() || pos1 == null) return false;
         double eliminationY = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
-        if (player.getY() >= eliminationY) return false;
+        if (player.getY() > eliminationY) return false;
         // A fall/void death event can arrive before the regular arena tick. Revive the
         // player just enough for the normal elimination teleport to complete cleanly.
         if (player.getHealth() <= 0.0F) player.setHealth(1.0F);
@@ -2165,7 +2165,7 @@ public final class Arena {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
                 double fallThreshold = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
-                if (isOutsidePlayableFloor(active) || active.getY() < fallThreshold) {
+                if (isOutsidePlayableFloor(active) || active.getY() <= fallThreshold) {
                     eliminate(active);
                 }
             }
