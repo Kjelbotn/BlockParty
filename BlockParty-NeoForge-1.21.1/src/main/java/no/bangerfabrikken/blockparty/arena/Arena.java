@@ -2864,7 +2864,7 @@ public final class Arena {
         String tag = "blockparty_lb_" + id;
         // Both panels share one cleanup region and tag, so periodic refreshes cannot duplicate text.
         AABB area = new AABB(boardX - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
-                boardX + 5.0, lobbyY + 16.0, lobbyZ + (xmas ? 100.0 : 32.0));
+                boardX + 5.0, lobbyY + 16.0, lobbyZ + ("xmas".equals(id) ? 100.0 : 32.0));
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 display -> display.getTags().contains(tag))) old.discard();
         for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,
