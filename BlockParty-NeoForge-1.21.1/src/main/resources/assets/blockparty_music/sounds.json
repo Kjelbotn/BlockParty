@@ -169,6 +169,86 @@
       }
     ]
   },
+  "music_custom_1": {
+    "subtitle": "subtitles.blockparty.music_custom_1",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_1",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_2": {
+    "subtitle": "subtitles.blockparty.music_custom_2",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_2",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_3": {
+    "subtitle": "subtitles.blockparty.music_custom_3",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_3",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_4": {
+    "subtitle": "subtitles.blockparty.music_custom_4",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_4",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_5": {
+    "subtitle": "subtitles.blockparty.music_custom_5",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_5",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_6": {
+    "subtitle": "subtitles.blockparty.music_custom_6",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_6",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_7": {
+    "subtitle": "subtitles.blockparty.music_custom_7",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_7",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_custom_8": {
+    "subtitle": "subtitles.blockparty.music_custom_8",
+    "sounds": [
+      {
+        "name": "blockparty:music/custom_8",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
   "music_inni_hodet_ditt": {
     "subtitle": "subtitles.blockparty.music_inni_hodet_ditt",
     "sounds": [
