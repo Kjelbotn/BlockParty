@@ -22,13 +22,18 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.GZIPInputStream;
 
 /** Imports the bundled Sponge v3 schematic used by the Xmas BlockParty map. */
 public final class SchematicArenaGenerator {
     private static final String RESOURCE = "/assets/blockparty/schematics/xmas.schem.b64";
-    private static final int FLOOR_MIN_X = 12, FLOOR_MAX_X = 51;
-    private static final int FLOOR_MIN_Z = 12, FLOOR_MAX_Z = 51, FLOOR_Y = 2;
+    private static final int FLOOR_SIZE = 40;
+    private static final Set<Block> CONCRETE_BLOCKS = Set.of(
+            Blocks.WHITE_CONCRETE, Blocks.ORANGE_CONCRETE, Blocks.MAGENTA_CONCRETE,
+            Blocks.LIGHT_BLUE_CONCRETE, Blocks.YELLOW_CONCRETE, Blocks.LIME_CONCRETE,
+            Blocks.PINK_CONCRETE, Blocks.GRAY_CONCRETE, Blocks.LIGHT_GRAY_CONCRETE,
+            Blocks.CYAN_CONCRETE, Blocks.PURPLE_CONCRETE, Blocks.BLUE_CONCRETE,
+            Blocks.BROWN_CONCRETE, Blocks.GREEN_CONCRETE, Blocks.RED_CONCRETE,
+            Blocks.BLACK_CONCRETE);
 
     private SchematicArenaGenerator() {}
 
@@ -56,20 +61,54 @@ public final class SchematicArenaGenerator {
             }
         }
 
-        BlockPos first = origin.offset(FLOOR_MIN_X, FLOOR_Y, FLOOR_MIN_Z);
-        BlockPos second = origin.offset(FLOOR_MAX_X, FLOOR_Y, FLOOR_MAX_Z);
-
-        // Screen panel is the tall white-backed display on the side of the arena.
-        // TextDisplay yaw 90 faces west, toward the 40x40 dance floor.
-        BlockPos display = origin.offset(10, 16, 95);
-        // The black music panel is on the west interior wall (x=9), spanning z=76..113.
+        FloorRegion floor = findDanceFloor(schematic);
+        BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
+        BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
+                floor.minZ + FLOOR_SIZE - 1);
+        int centerX = floor.minX + FLOOR_SIZE / 2;
+        // The white target screen faces the OUTDOOR dance floor.
+        BlockPos display = origin.offset(centerX, floor.y + 11, floor.minZ - 9);
+        // The black music panel belongs to the separate indoor lobby.
         BlockPos lobbyScreen = origin.offset(9, 14, 95);
         placeHiddenLobbyLights(level, origin);
-        return new Result(first, second, display, lobbyScreen, 0.0F, 90.0F,
-                origin.getX() + 32.5, origin.getY() + 3.0, origin.getZ() + 7.5,
-                0.0F, 0.0F);
+        // Spawn inside the Christmas room, not outside beside the dance floor.
+        return new Result(first, second, display, lobbyScreen, 0.0F, 0.0F,
+                origin.getX() + 32.5, origin.getY() + 3.0, origin.getZ() + 95.5,
+                90.0F, 0.0F);
     }
 
+
+    private record FloorRegion(int minX, int minZ, int y) {}
+
+    /** Find the actual 40x40 concrete dance floor, not the indoor wooden lobby floor. */
+    private static FloorRegion findDanceFloor(Schematic schematic) throws IOException {
+        FloorRegion best = null;
+        int bestConcrete = -1, bestColors = -1;
+        for (int y = 0; y < schematic.height; y++) {
+            for (int z = 0; z <= schematic.length - FLOOR_SIZE; z++) {
+                for (int x = 0; x <= schematic.width - FLOOR_SIZE; x++) {
+                    Set<Block> colors = new java.util.HashSet<>();
+                    int concrete = 0;
+                    for (int dz = 0; dz < FLOOR_SIZE; dz++) {
+                        for (int dx = 0; dx < FLOOR_SIZE; dx++) {
+                            int index = schematic.indices[x + dx + (z + dz) * schematic.width
+                                    + y * schematic.width * schematic.length];
+                            Block block = schematic.palette.get(index).getBlock();
+                            if (CONCRETE_BLOCKS.contains(block)) { concrete++; colors.add(block); }
+                        }
+                    }
+                    if (concrete > bestConcrete || (concrete == bestConcrete && colors.size() > bestColors)) {
+                        bestConcrete = concrete; bestColors = colors.size(); best = new FloorRegion(x, z, y);
+                    }
+                }
+            }
+        }
+        if (best == null || bestConcrete != FLOOR_SIZE * FLOOR_SIZE || bestColors < 4) {
+            throw new IOException("Fant ikke et komplett 40x40 dansegulv av farget concrete i Xmas-schematicen ("
+                    + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
+        }
+        return best;
+    }
 
     private static void placeHiddenLobbyLights(ServerLevel level, BlockPos origin) {
         BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15);
