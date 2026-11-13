@@ -1729,19 +1729,33 @@ public final class Arena {
                 && player.getZ() >= minZ && player.getZ() < maxZ;
     }
 
-    private void tickXmasSnow() {
-        if (level == null || pos1 == null || pos2 == null) return;
-        double minX = Math.min(pos1.getX(), pos2.getX()) - 12.0;
-        double maxX = Math.max(pos1.getX(), pos2.getX()) + 13.0;
-        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 10.0;
-        double maxZ = Math.min(level.getMaxBuildHeight() - 2, Math.max(pos1.getZ(), pos2.getZ()) + 72.0);
-        double minY = pos1.getY() + 5.0;
-        double maxY = pos1.getY() + 22.0;
-        for (int i = 0; i < 28; i++) {
+    private void tickXmasSnow(MinecraftServer server) {
+        if (level == null || pos1 == null || pos2 == null || server == null) return;
+        // Snow is particle-only: no snow layers or blocks are placed, so the floor stays clear.
+        // Spawn around each participant/lobby visitor so particles are always in client render
+        // range, including the indoor lobby and the outdoor dance floor.
+        for (UUID uuid : new HashSet<>(players)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null || player.serverLevel() != level) continue;
+            for (int i = 0; i < 14; i++) {
+                double x = player.getX() + (random.nextDouble() - 0.5) * 30.0;
+                double z = player.getZ() + (random.nextDouble() - 0.5) * 30.0;
+                double y = player.getY() + 4.0 + random.nextDouble() * 12.0;
+                level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1,
+                        0.08, 0.12, 0.08, 0.005);
+            }
+        }
+        // Keep a light snowfall over the whole arena footprint as well, not only around players.
+        double minX = Math.min(pos1.getX(), pos2.getX()) - 14.0;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 15.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 12.0;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 73.0;
+        for (int i = 0; i < 10; i++) {
             double x = minX + random.nextDouble() * (maxX - minX);
-            double y = minY + random.nextDouble() * (maxY - minY);
+            double y = pos1.getY() + 7.0 + random.nextDouble() * 14.0;
             double z = minZ + random.nextDouble() * (maxZ - minZ);
-            level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1, 0.02, 0.02, 0.02, 0.0);
+            level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1,
+                    0.04, 0.08, 0.04, 0.002);
         }
     }
 
@@ -1778,7 +1792,7 @@ public final class Arena {
             refreshLobbyDisplays();
         }
         if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
-        if ("xmas".equals(id) && isGameInProgress() && scoreboardTick % 2 == 0) tickXmasSnow();
+        if ("xmas".equals(id) && lobbySet && scoreboardTick % 4 == 0) tickXmasSnow(server);
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
             for (UUID uuid : new HashSet<>(players)) {
@@ -1796,7 +1810,7 @@ public final class Arena {
         }
         if ((phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.WAITING_FOR_COLOR
                 || phase == Phase.FINISHING) && level != null) {
-            // After the sunset countdown, keep the arena at its final night setting.
+            // Keep the Xmas arena fixed at 12:00 (Minecraft day time 6000).
             if (teleportSunsetEndTime != Long.MIN_VALUE && level.getDayTime() != teleportSunsetEndTime) {
                 level.setDayTime(teleportSunsetEndTime);
             }
