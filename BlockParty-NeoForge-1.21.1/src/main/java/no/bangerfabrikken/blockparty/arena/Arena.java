@@ -907,7 +907,7 @@ public final class Arena {
         }
 
         double[] heading = screenPoint.apply(0.5);
-        BlockPartyText.spawnTextDisplay(level, heading[0], screenBaseY + 2.2, heading[1],
+        BlockPartyText.spawnTextDisplay(level, heading[0], screenBaseY + 0.2, heading[1],
                 screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
         double[] playlist = screenPoint.apply(-8.0);
         BlockPartyText.spawnTextDisplay(level, playlist[0], screenBaseY + 0.45, playlist[1],
@@ -918,7 +918,7 @@ public final class Arena {
         for (int i = 0; i < visible; i++) {
             Track track = catalogue.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = 1 - (i / 5);
+            int column = i / 5;
             int row = i % 5;
             double localX = -14.0 + column * 12.0;
             double y = screenBaseY - 0.9 - row * 1.1;
@@ -1011,7 +1011,7 @@ public final class Arena {
                 for (int y = floorY + 1; y <= floorY + 22; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
                     BlockState state = level.getBlockState(pos);
-                    if (isArenaColorAccent(state)) {
+                    if (!"xmas".equals(id) && isArenaColorAccent(state)) {
                         // Capture the complete coloured trim around the stadium, not only
                         // purple/magenta blocks. The dance floor is below this scan and the
                         // lobby is outside these bounds, so only wall/arena accents are changed.
@@ -1036,7 +1036,8 @@ public final class Arena {
     }
 
     private void updateArenaAccents(DyeColor color) {
-        if (level == null || color == null) return;
+        // Xmas is a fixed white/neutral palette: never recolour its stained-glass walls or screen.
+        if (level == null || color == null || "xmas".equals(id)) return;
         for (Map.Entry<BlockPos, BlockState> entry : originalArenaAccentSnapshot.entrySet()) {
             Block original = entry.getValue().getBlock();
             boolean stainedGlass = false;
@@ -1104,7 +1105,7 @@ public final class Arena {
         double x = (minX + maxX + 1) / 2.0;
         // The white panel is north of the floor. Place the text several blocks south
         // of the panel, visibly in the arena airspace, at the panel's vertical centre.
-        double y = floorY + 12.5;
+        double y = floorY + 14.5;
         double z = minZ - 1.5;
         String tag = "bp_target_" + id;
         AABB area = new AABB(minX - 32, floorY + 2, minZ - 32,
@@ -1125,7 +1126,7 @@ public final class Arena {
                 Component.literal(text).withStyle(
                         showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
                         ChatFormatting.BOLD),
-                showTarget ? 9.0F : 8.0F, tag);
+                showTarget ? 16.0F : 16.0F, tag);
         if (created != null) {
             lastXmasScreenText = text;
             BlockPartyMod.LOGGER.info("Xmas arena screen '{}' spawned at ({}, {}, {}) facing south.",
