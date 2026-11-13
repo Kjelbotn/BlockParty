@@ -3,6 +3,7 @@ package no.bangerfabrikken.blockparty.arena;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -92,7 +93,7 @@ final class MusicVotingMenu extends ChestMenu {
                 default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
-            Component displayName;
+            MutableComponent displayName;
             if ("luxus_leverpostei_195".equals(track.id())) {
                 // Keep the section sign and the digits in separate literal components so
                 // the legacy text renderer cannot interpret "§1" as a color code.
