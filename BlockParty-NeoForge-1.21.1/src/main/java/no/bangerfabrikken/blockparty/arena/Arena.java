@@ -2349,17 +2349,23 @@ public final class Arena {
                     entity -> entity.getTags().contains("bp_target_" + id))) old.discard();
         }
         updateArenaWelcomeDisplay();
-        broadcast(Component.literal("MEMORY MODE: Memorér hvor målfargen ligger. Alle farger skjules om 5 sekunder!")
-                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        broadcastActionBar(Component.literal("MEMORISER GULVET!  5 SEKUNDER")
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        showMemoryTargetToPlayers(server);
+        Component targetName = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD);
+        broadcast(Component.literal("MEMORY MODE! MÅLFARGE: ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
+                .append(targetName)
+                .append(Component.literal(" — memorér hvor denne fargen ligger!").withStyle(ChatFormatting.GRAY)));
+        broadcastActionBar(Component.literal("MÅLFARGE: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)
+                .append(targetName)
+                .append(Component.literal("  •  5 SEKUNDER").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
         if (musicPaused) resumeMusic();
         else if (activeMusicId == null && !musicFinished) playSelectedMusic();
         updateScoreboard(server);
     }
 
-    /** The floor is now completely grey; players get seven seconds plus a two-second warning. */
+    /** The floor is now completely grey; remove the hint item so the find phase tests memory only. */
     private void startMemoryFind(MinecraftServer server) {
+        clearMemoryTargetItems(server);
         phase = Phase.MEMORY_FIND;
         timerTicks = MEMORY_FIND_TICKS;
         broadcast(Component.literal("Alle blokkene er grå! Finn og still deg på blokkene som hadde målfargen.")
@@ -2660,6 +2666,62 @@ public final class Arena {
             used.add(color);
         }
         return used;
+    }
+
+    /**
+     * Memory Mode must tell every dancer which colour to memorize. Put a named
+     * concrete block in the selected centre hotbar slot and announce the same
+     * target in chat and the action bar for the entire five-second reveal.
+     */
+    private void showMemoryTargetToPlayers(MinecraftServer server) {
+        if (targetColor == null) return;
+        ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(targetColor));
+        targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(
+                "MÅLFARGE: " + BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD));
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            player.getInventory().setItem(TARGET_BLOCK_SLOT, targetBlock.copy());
+            player.getInventory().selected = TARGET_BLOCK_SLOT;
+            player.getInventory().setChanged();
+            player.inventoryMenu.broadcastChanges();
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+            player.sendSystemMessage(Component.literal("HUSK DENNE FARGEN: ")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
+                    .append(Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                            .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)));
+        }
+    }
+
+    /** Remove the temporary memory hint item as soon as all floor tiles turn grey. */
+    private void clearMemoryTargetItems(MinecraftServer server) {
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            ItemStack held = player.getInventory().getItem(TARGET_BLOCK_SLOT);
+            Component name = held.get(DataComponents.CUSTOM_NAME);
+            if (name != null && name.getString().startsWith("MÅLFARGE: ")) {
+                player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
+                player.getInventory().setChanged();
+                player.inventoryMenu.broadcastChanges();
+            }
+        }
+    }
+
+    private static ChatFormatting getTargetChatFormatting(DyeColor color) {
+        return switch (color) {
+            case WHITE -> ChatFormatting.WHITE;
+            case ORANGE, BROWN -> ChatFormatting.GOLD;
+            case MAGENTA, PINK, PURPLE -> ChatFormatting.LIGHT_PURPLE;
+            case LIGHT_BLUE, CYAN -> ChatFormatting.AQUA;
+            case YELLOW -> ChatFormatting.YELLOW;
+            case LIME, GREEN -> ChatFormatting.GREEN;
+            case GRAY, BLACK -> ChatFormatting.DARK_GRAY;
+            case LIGHT_GRAY -> ChatFormatting.GRAY;
+            case BLUE -> ChatFormatting.BLUE;
+            case RED -> ChatFormatting.RED;
+        };
     }
 
     private void updateTargetItems(MinecraftServer server) {
