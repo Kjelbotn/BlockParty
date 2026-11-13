@@ -972,16 +972,9 @@ public final class Arena {
     /** Shows the arena title during the pre-round countdown; round one replaces it with the target color. */
     private void updateArenaWelcomeDisplay() {
         if (level == null) return;
-        // Derive the Xmas screen from the actual dance-floor corners every time.
-        // This avoids stale schematic display coordinates leaving the white board blank.
-        if ("xmas".equals(id) && pos1 != null && pos2 != null) {
-            int centerX = Math.min(pos1.getX(), pos2.getX())
-                    + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-            int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-            displayCenter = new BlockPos(centerX, pos1.getY() + 11, northWallZ);
-            // The white target board is mounted on the north side and must face north.
-            targetDisplayYaw = 180.0F;
-        }
+        // The schematic generator supplies the exact white-board anchor and facing.
+        // Keep that persisted anchor: recomputing it from pos1/pos2 pushed the display
+        // into the seam between the board and the next block row on the Xmas map.
         if (displayCenter == null) return;
         String tag = "bp_target_" + id;
         AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
@@ -996,16 +989,9 @@ public final class Arena {
 
     private void updateColorDisplay() {
         if (level == null) return;
-        // Recalculate the Xmas white-board position from the concrete floor itself.
-        // The schematic's saved display marker has varied between map revisions.
-        if ("xmas".equals(id) && pos1 != null && pos2 != null) {
-            int centerX = Math.min(pos1.getX(), pos2.getX())
-                    + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
-            int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
-            displayCenter = new BlockPos(centerX, pos1.getY() + 11, northWallZ);
-            // The white target board is mounted on the north side and must face north.
-            targetDisplayYaw = 180.0F;
-        }
+        // Use the schematic generator's persisted white-board anchor and facing.
+        // Do not derive a new position from the floor bounds; that places the text
+        // between the board and adjacent blocks on the Xmas variant.
         if (targetColor == null) return;
         if (displayCenter == null && pos1 != null && pos2 != null) {
             if (!customDisplayPosition) {
