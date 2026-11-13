@@ -149,6 +149,8 @@ public final class Arena {
     /** Per-player preference for the next match; Classic is the default. */
     private final Map<UUID, GameMode> preferredGameModes = new HashMap<>();
     private final Set<UUID> alive = new LinkedHashSet<>();
+    /** Players eliminated from the current match, retained in Adventure mode in the spectator area. */
+    private final Set<UUID> eliminatedPlayers = new LinkedHashSet<>();
     private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
     private final Map<UUID, InventorySnapshot> originalHeldItems = new HashMap<>();
@@ -330,6 +332,18 @@ public final class Arena {
     }
 
     private void enforceBlockPartyNeeds(MinecraftServer server) {
+        for (UUID uuid : eliminatedPlayers) {
+            ServerPlayer eliminated = server.getPlayerList().getPlayer(uuid);
+            if (eliminated == null || eliminated.serverLevel() != level) continue;
+            if (eliminated.gameMode.getGameModeForPlayer() != GameType.ADVENTURE) {
+                eliminated.setGameMode(GameType.ADVENTURE);
+            }
+            eliminated.setNoGravity(false);
+            eliminated.getAbilities().mayfly = false;
+            eliminated.getAbilities().flying = false;
+            eliminated.onUpdateAbilities();
+            // Do not setPos or zero velocity here: movement in the spectator area is free.
+        }
         for (UUID uuid : players) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null || player.serverLevel() != level) continue;
@@ -510,6 +524,7 @@ public final class Arena {
         players.remove(uuid);
         preferredGameModes.remove(uuid);
         alive.remove(uuid);
+        eliminatedPlayers.remove(uuid);
         pendingEliminations.remove(uuid);
         removeLobbyItemsFromInventory(player);
         fullLobbyInventoryNotices.remove(uuid);
@@ -592,6 +607,7 @@ public final class Arena {
         updateArenaWelcomeDisplay();
         alive.clear();
         alive.addAll(players);
+        eliminatedPlayers.clear();
         pendingEliminations.clear();
         lastEliminatedPlayer = null;
         points.clear();
@@ -1051,9 +1067,13 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
+        boolean revealMemoryTarget = gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL && targetColor != null;
+        Component welcome = revealMemoryTarget
+                ? Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                    .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)
+                : Component.literal("BLOCKPARTY").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.0, targetDisplayYaw,
-                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
+                displayCenter.getZ() + 1.0, targetDisplayYaw, welcome, 5.0F, tag);
     }
 
     /**
@@ -1062,30 +1082,53 @@ public final class Arena {
      * refresh or chunk/entity reload has removed the Text Display.
      */
     private void refreshXmasArenaScreen() {
-        if (level == null || displayCenter == null || !"xmas".equals(id)) return;
+        if (level == null || pos1 == null || pos2 == null || !"xmas".equals(id)) return;
+
         boolean showTarget = targetColor != null
                 && ((gameMode == GameMode.CLASSIC && (phase == Phase.PREPARE || phase == Phase.FALL))
                 || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
         String text = showTarget
                 ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
                 : (gameMode == GameMode.MEMORY && isGameInProgress() ? "MEMORY MODE" : "BLOCKPARTY");
-        if (text.isBlank()) text = "BLOCKPARTY";
+
+        // Do NOT trust the old saved displayCenter. It came from earlier schematic
+        // offsets and was repeatedly putting the entity behind/above the physical panel.
+        // Recalculate directly from the live 40x40 dance-floor bounds every refresh.
+        int minX = Math.min(pos1.getX(), pos2.getX());
+        int maxX = Math.max(pos1.getX(), pos2.getX());
+        int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int floorY = pos1.getY();
+        double x = (minX + maxX + 1) / 2.0;
+        // The white panel is north of the floor. Place the text several blocks south
+        // of the panel, visibly in the arena airspace, at the panel's vertical centre.
+        double y = floorY + 13.5;
+        double z = minZ - 2.5;
         String tag = "bp_target_" + id;
-        AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 8, displayCenter.getZ() - 8,
-                displayCenter.getX() + 64, displayCenter.getY() + 8, displayCenter.getZ() + 12);
+        AABB area = new AABB(minX - 24, floorY + 4, minZ - 24,
+                maxX + 24, floorY + 26, minZ + 8);
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
-        if (text.equals(lastXmasScreenText) && !existing.isEmpty()) return;
-        for (Display.TextDisplay old : existing) old.discard();
-        // The white board is north of the dance floor. Put a camera-facing display
-        // clearly in front of its arena-facing surface; automatic billboard orientation
-        // avoids the fixed-yaw/back-face issue that left the board blank.
-        Display.TextDisplay created = BlockPartyText.spawnBillboardTextDisplay(level,
-                displayCenter.getX() + 0.5, displayCenter.getY() + 2.0, displayCenter.getZ() + 3.0,
+        for (Display.TextDisplay old : existing) {
+            boolean correctlyPlaced = Math.abs(old.getX() - x) < 0.75
+                    && Math.abs(old.getY() - y) < 0.75
+                    && Math.abs(old.getZ() - z) < 0.75;
+            if (text.equals(lastXmasScreenText) && correctlyPlaced) return;
+            old.discard();
+        }
+
+        // Yaw 0 faces south (+Z), toward players standing on the dance floor.
+        Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
                 Component.literal(text).withStyle(
-                        showTarget ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
-                showTarget ? 7.0F : 6.0F, tag);
-        if (created != null) lastXmasScreenText = text;
+                        showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
+                        ChatFormatting.BOLD),
+                showTarget ? 9.0F : 8.0F, tag);
+        if (created != null) {
+            lastXmasScreenText = text;
+            BlockPartyMod.LOGGER.info("Xmas arena screen '{}' spawned at ({}, {}, {}) facing south.",
+                    text, x, y, z);
+        } else {
+            BlockPartyMod.LOGGER.error("Could not create Xmas arena Text Display at ({}, {}, {}).", x, y, z);
+        }
     }
 
     private void updateColorDisplay() {
@@ -1141,7 +1184,7 @@ public final class Arena {
             case GREEN -> ChatFormatting.GREEN;
             case RED -> ChatFormatting.RED;
         };
-        Component text = Component.literal(BlockPartyColors.displayName(targetColor))
+        Component text = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
@@ -2904,14 +2947,21 @@ public final class Arena {
         // could be a Nether Star or Redstone Dust and expose lobby controls mid-match.
         player.getInventory().clearContent();
         player.inventoryMenu.broadcastChanges();
-        // Eliminated players become true spectators: free flight and free movement
-        // around the gallery/houses, with no periodic teleport snapping them back.
-        player.setGameMode(GameType.SPECTATOR);
-        player.getAbilities().flying = true;
-        player.getAbilities().mayfly = true;
+        // Eliminated players stay in Adventure mode, but are free to walk around the
+        // spectator houses. Only teleport once on elimination; never snap them back.
+        eliminatedPlayers.add(uuid);
+        player.setNoGravity(false);
+        player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+        player.removeEffect(MobEffects.BLINDNESS);
+        player.getAbilities().flying = false;
+        player.getAbilities().mayfly = false;
         player.onUpdateAbilities();
+        player.setGameMode(GameType.ADVENTURE);
         teleportToSpectatorWalkway(player);
-        player.sendSystemMessage(Component.literal("Du er ute! Du kan følge kampen fra spectatorgangen.")
+        player.setNoGravity(false);
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
+        player.sendSystemMessage(Component.literal("Du er ute! Du kan bevege deg fritt rundt i spectatorområdet.")
                 .withStyle(ChatFormatting.RED));
         playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.55F, 1.0F);
     }
@@ -3113,6 +3163,7 @@ public final class Arena {
         podiumFireworksTicks = matchWinnerId != null && !podiumFreezePositions.isEmpty() ? 100 : 0;
 
         alive.clear();
+        eliminatedPlayers.clear();
         pendingEliminations.clear();
         players.clear();
         musicVotingUnlocked.clear();
