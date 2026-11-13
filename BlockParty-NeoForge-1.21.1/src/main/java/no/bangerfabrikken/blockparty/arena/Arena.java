@@ -836,8 +836,9 @@ public final class Arena {
         // out into the lobby floor in earlier builds.
         double planeX = centerX + (xmasPanel ? 0.72 : 0.0);
         double planeZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
-        AABB area = new AABB(centerX - 3, screenBaseY - 12, wallZ - 30,
-                centerX + 3, screenBaseY + 10, wallZ + 30);
+        // Wide cleanup also removes the old misplaced text entities from earlier builds.
+        AABB area = new AABB(centerX - 32, screenBaseY - 16, wallZ - 34,
+                centerX + 32, screenBaseY + 14, wallZ + 34);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
 
@@ -977,8 +978,9 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() + 2.2,
-                (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
+        boolean xmasTargetScreen = "xmas".equals(id);
+        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() + 2.2,
+                (customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
     }
 
@@ -1001,10 +1003,11 @@ public final class Arena {
                 entity -> entity.getTags().contains(tag))) old.discard();
 
         // Keep the arena branding visible above the changing target text on both maps.
+        boolean xmasTargetScreen = "xmas".equals(id);
         BlockPartyText.spawnTextDisplay(level,
-                customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5,
+                customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5,
                 displayCenter.getY() + 2.2,
-                customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15,
+                customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15,
                 targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
                 5.0F, tag);
@@ -1018,8 +1021,8 @@ public final class Arena {
                 default -> "";
             };
             if (!lyric.isEmpty()) {
-                BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
-                        (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
+                BlockPartyText.spawnTextDisplay(level, (customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
+                        (customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
                         Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                         12.0F, tag);
             }
@@ -1039,8 +1042,8 @@ public final class Arena {
         Component text = Component.literal(BlockPartyColors.displayName(targetColor))
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
-        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
-                (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw, text, 12.0F, tag);
+        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition && !xmasTargetScreen ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
+                (customDisplayPosition && !xmasTargetScreen ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw, text, 12.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
