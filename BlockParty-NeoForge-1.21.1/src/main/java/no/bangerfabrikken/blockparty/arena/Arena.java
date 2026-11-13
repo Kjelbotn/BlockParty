@@ -974,7 +974,17 @@ public final class Arena {
 
     /** Shows the arena title during the pre-round countdown; round one replaces it with the target color. */
     private void updateArenaWelcomeDisplay() {
-        if (displayCenter == null || level == null) return;
+        if (level == null) return;
+        // Derive the Xmas screen from the actual dance-floor corners every time.
+        // This avoids stale schematic display coordinates leaving the white board blank.
+        if ("xmas".equals(id) && pos1 != null && pos2 != null) {
+            int centerX = Math.min(pos1.getX(), pos2.getX())
+                    + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+            int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+            displayCenter = new BlockPos(centerX, pos1.getY() + 11, northWallZ);
+            targetDisplayYaw = 0.0F;
+        }
+        if (displayCenter == null) return;
         String tag = "bp_target_" + id;
         AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
@@ -987,7 +997,17 @@ public final class Arena {
     }
 
     private void updateColorDisplay() {
-        if (targetColor == null || level == null) return;
+        if (level == null) return;
+        // Recalculate the Xmas white-board position from the concrete floor itself.
+        // The schematic's saved display marker has varied between map revisions.
+        if ("xmas".equals(id) && pos1 != null && pos2 != null) {
+            int centerX = Math.min(pos1.getX(), pos2.getX())
+                    + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
+            int northWallZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
+            displayCenter = new BlockPos(centerX, pos1.getY() + 11, northWallZ);
+            targetDisplayYaw = 0.0F;
+        }
+        if (targetColor == null) return;
         if (displayCenter == null && pos1 != null && pos2 != null) {
             if (!customDisplayPosition) {
                 int centerX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
@@ -1737,10 +1757,11 @@ public final class Arena {
  
     private boolean isOutsidePlayableFloor(ServerPlayer player) {
         if (player == null || pos1 == null || pos2 == null) return false;
-        double minX = Math.min(pos1.getX(), pos2.getX());
-        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0;
-        double minZ = Math.min(pos1.getZ(), pos2.getZ());
-        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0;
+        double inset = "xmas".equals(id) ? 2.0 : 0.0;
+        double minX = Math.min(pos1.getX(), pos2.getX()) + inset;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 - inset;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) + inset;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0 - inset;
         return player.getX() < minX || player.getX() >= maxX
                 || player.getZ() < minZ || player.getZ() >= maxZ;
     }
@@ -2849,8 +2870,11 @@ public final class Arena {
             // are placed on that corridor rather than outside/in the snow.
             BlockPos best = null;
             double bestScore = Double.MAX_VALUE;
-            int searchMinX = minX - 14, searchMaxX = maxX + 14;
-            int searchMinZ = minZ - 14, searchMaxZ = maxZ + 14;
+            // Search the complete spectator-side footprint of the Xmas schematic.
+            // A narrow 14-block scan can miss the raised gallery and fall back onto
+            // the red/white trim, leaving eliminated players apparently stuck.
+            int searchMinX = minX - 32, searchMaxX = maxX + 32;
+            int searchMinZ = minZ - 32, searchMaxZ = maxZ + 32;
             int preferredY = pos1.getY() + 5;
             for (int y = pos1.getY() + 1; y <= pos1.getY() + 20; y++) {
                 for (int z = searchMinZ; z <= searchMaxZ; z++) {
