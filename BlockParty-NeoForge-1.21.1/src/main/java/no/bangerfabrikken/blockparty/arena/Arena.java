@@ -34,7 +34,9 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import org.joml.Vector3f;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.network.chat.numbers.BlankFormat;
@@ -73,8 +75,10 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, FINISHING
+        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, FINISHING
     }
+
+    public enum GameMode { CLASSIC, MEMORY }
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN
@@ -138,6 +142,8 @@ public final class Arena {
     private long teleportSunsetEndTime = Long.MIN_VALUE;
 
     private final Set<UUID> players = new LinkedHashSet<>();
+    /** Per-player preference for the next match; Classic is the default. */
+    private final Map<UUID, GameMode> preferredGameModes = new HashMap<>();
     private final Set<UUID> alive = new LinkedHashSet<>();
     private final Set<UUID> pendingEliminations = new LinkedHashSet<>();
     private final Map<UUID, GameType> originalGameModes = new HashMap<>();
@@ -152,7 +158,8 @@ public final class Arena {
     private final Set<UUID> personalBestNotified = new HashSet<>();
     private final Set<UUID> leapFallProtection = new HashSet<>();
     private final Set<UUID> luckyLanding = new HashSet<>();
-    private int scannerTicks;
+    /** Independent three-second scanner effect for each player who collects it. */
+    private final Map<UUID, Integer> scannerTicks = new HashMap<>();
     private long matchStartTick;
     private long lastMatchDurationTicks;
     // Last tick a player was physically standing on the announced target tile.
@@ -167,6 +174,7 @@ public final class Arena {
     private final Random random = new Random();
 
     private Phase phase = Phase.WAITING;
+    private GameMode gameMode = GameMode.CLASSIC;
     private int timerTicks;
     private int round;
     private DyeColor targetColor;
@@ -184,6 +192,8 @@ public final class Arena {
     private final Map<BlockPos, BlockState> podiumFloorSnapshot = new HashMap<>();
     /** Ticks remaining before the post-match podium and its holograms are removed. */
     private int podiumDisplayTicks;
+    /** Repeated colourful bursts around podium finishers for the five-second presentation. */
+    private int podiumFireworksTicks;
     private int lastDancePattern = -1;
 
     /** Active beacon blocks are placed one block above five separate floor tiles. */
@@ -465,6 +475,7 @@ public final class Arena {
             return;
         }
         players.add(uuid);
+        preferredGameModes.putIfAbsent(uuid, GameMode.CLASSIC);
         unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
@@ -476,6 +487,13 @@ public final class Arena {
 
     public void leave(ServerPlayer player, boolean teleport) {
         UUID uuid = player.getUUID();
+        // A manual/early exit must cancel any remaining podium freeze before teleporting.
+        boolean wasPodiumFrozen = podiumFreezeTicks.remove(uuid) != null;
+        wasPodiumFrozen |= podiumFreezePositions.remove(uuid) != null;
+        if (wasPodiumFrozen) {
+            player.setNoGravity(false);
+            player.setDeltaMovement(0.0, 0.0, 0.0);
+        }
         // Treat any retained session snapshot as membership too. This protects /bp leave
         // if the live-player set ever gets out of sync during a phase transition.
         boolean wasMember = players.contains(uuid) || returnLocations.containsKey(uuid)
@@ -487,6 +505,7 @@ public final class Arena {
                     new MusicControlPayload(activeMusicId, MusicControlPayload.STOP));
         }
         players.remove(uuid);
+        preferredGameModes.remove(uuid);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
         removeLobbyItemsFromInventory(player);
@@ -811,6 +830,9 @@ public final class Arena {
                 podiumFreezePositions.remove(uuid);
                 player.setNoGravity(false);
                 player.setDeltaMovement(0.0, 0.0, 0.0);
+                // The exit control only becomes available once the podium lock is fully released.
+                ensureLeaveLobbyItem(player);
+                player.inventoryMenu.broadcastChanges();
                 player.sendSystemMessage(Component.literal("Du kan nå bevege deg fritt i lobbyen!")
                         .withStyle(ChatFormatting.GREEN));
             } else {
@@ -1146,7 +1168,7 @@ public final class Arena {
                     "COLOR RAIN aktivert! Fargerike blokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COLOR_SCANNER) {
-            scannerTicks = 60;
+            scannerTicks.put(player.getUUID(), 60);
             activated = true;
         } else if (powerUp == PowerUp.LUCKY_LANDING) {
             luckyLanding.add(player.getUUID());
@@ -1438,6 +1460,19 @@ public final class Arena {
     }
 
     private void ensureLeaveLobbyItem(ServerPlayer player) {
+        // Podium finishers remain pinned in place for five seconds. Withhold the exit item
+        // during that window so they cannot restore their inventory while the freeze is active.
+        if (podiumFreezeTicks.containsKey(player.getUUID())) {
+            boolean changed = false;
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                if (isLeaveLobbyItem(player.getInventory().getItem(i))) {
+                    player.getInventory().setItem(i, ItemStack.EMPTY);
+                    changed = true;
+                }
+            }
+            if (changed) player.inventoryMenu.broadcastChanges();
+            return;
+        }
         // Lobby inventories are cleared on join, so slot 9 is reserved for the leave control.
         // Remove any stale copies first to prevent duplication if ensureLobbyItems runs repeatedly.
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
@@ -1795,6 +1830,7 @@ public final class Arena {
 
     public void tick(MinecraftServer server) {
         scoreboardTick++;
+        tickPodiumFireworks();
         tickWinnerPodiumFreeze(server);
         if (podiumDisplayTicks > 0 && --podiumDisplayTicks == 0) {
             clearWinnerPodiumAtDjBooth();
@@ -1848,14 +1884,7 @@ public final class Arena {
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         tickMusicEffects();
         tickSpecialSongScreen();
-        if (scannerTicks > 0 && --scannerTicks % 20 == 0 && targetColor != null && level != null) {
-            for (Map.Entry<BlockPos, BlockState> tile : floorSnapshot.entrySet()) {
-                if (BlockPartyColors.getColor(tile.getValue()) == targetColor) {
-                    level.sendParticles(ParticleTypes.END_ROD, tile.getKey().getX() + 0.5, tile.getKey().getY() + 1.08,
-                            tile.getKey().getZ() + 0.5, 2, 0.18, 0.02, 0.18, 0.005);
-                }
-            }
-        }
+        tickColorScanners(server);
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
             case COUNTDOWN -> {
@@ -1992,7 +2021,26 @@ public final class Arena {
                     broadcastActionBar(Component.literal("Waiting...")
                             .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
                 }
-                if (timerTicks <= 0) startRoundCountdown(server);
+                if (timerTicks <= 0) {
+                    if (gameMode == GameMode.MEMORY) startMemoryReveal(server);
+                    else startRoundCountdown(server);
+                }
+            }
+            case MEMORY_REVEAL -> {
+                tickColorRain();
+                timerTicks--;
+                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                    broadcastActionBar(Component.literal("HUSK FARGENE!  " + (timerTicks / 20) + "  SEKUNDER")
+                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                }
+                if (timerTicks <= 0) {
+                    for (BlockPos tile : floorSnapshot.keySet()) {
+                        level.setBlock(tile, Blocks.GRAY_CONCRETE.defaultBlockState(), 3);
+                    }
+                    broadcastActionBar(Component.literal("FARGENE ER SKJULT! FINN MÅLFARGEN FRA MINNET!")
+                            .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+                    startRoundCountdown(server);
+                }
             }
             case FINISHING -> {
                 timerTicks--;
@@ -2103,7 +2151,19 @@ public final class Arena {
         }
     }
 
-    /** Reveals the target and starts the exact round timer after the two-second wait. */
+    /** Gives players five seconds to memorize the coloured floor before hiding it. */
+    private void startMemoryReveal(MinecraftServer server) {
+        phase = Phase.MEMORY_REVEAL;
+        timerTicks = MEMORY_REVEAL_TICKS;
+        updateArenaWelcomeDisplay();
+        broadcast(Component.literal("MEMORY MODE: Se nøye på fargene. Gulvet blir grått om fem sekunder!")
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        broadcastActionBar(Component.literal("HUSK FARGENE!  5  SEKUNDER")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        updateScoreboard(level.getServer());
+    }
+
+    /** Reveals the target and starts the exact round timer after the one-second floor wait. */
     private void startRoundCountdown(MinecraftServer server) {
         updateArenaAccents(targetColor);
         updateTargetItems(server);
@@ -2269,7 +2329,8 @@ public final class Arena {
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
         String roundSpeed = phase == Phase.PREPARE
                 ? formatSeconds(Math.max(0, timerTicks)) + "s"
-                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..." : "--";
+                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..."
+                : phase == Phase.MEMORY_REVEAL ? "MEMORY" : "--";
         String[] ids = {
                 "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
                 "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10"
@@ -2429,13 +2490,22 @@ public final class Arena {
         player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
     }
 
+    /** Reads original tile colours in Memory Mode even after the visible floor turns gray. */
+    private DyeColor getGameplayFloorColor(BlockPos pos) {
+        if (gameMode == GameMode.MEMORY) {
+            BlockState remembered = floorSnapshot.get(pos);
+            if (remembered != null) return BlockPartyColors.getColor(remembered);
+        }
+        return level == null ? null : BlockPartyColors.getColor(level.getBlockState(pos));
+    }
+
     private void rememberTargetContacts(MinecraftServer server) {
         if (targetColor == null) return;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor
+            if (getGameplayFloorColor(tile) == targetColor
                     && player.getY() >= pos1.getY() + 0.75
                     && player.getY() <= pos1.getY() + 2.5) {
                 lastTargetContactPos.put(uuid, tile.immutable());
@@ -2451,7 +2521,7 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            if (BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor) {
+            if (getGameplayFloorColor(tile) == targetColor) {
                 lastTargetContactTick.put(uuid, (long) scoreboardTick);
                 lastTargetContactPos.put(uuid, tile.immutable());
             }
@@ -2461,7 +2531,7 @@ public final class Arena {
     private boolean isStandingOnTargetTile(ServerPlayer player) {
         if (targetColor == null || pos1 == null || level == null) return false;
         BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-        return BlockPartyColors.getColor(level.getBlockState(tile)) == targetColor
+        return getGameplayFloorColor(tile) == targetColor
                 && player.getY() >= pos1.getY() + 0.75
                 && player.getY() <= pos1.getY() + 2.5;
     }
@@ -2475,7 +2545,7 @@ public final class Arena {
                 continue;
             }
             BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            DyeColor standingColor = BlockPartyColors.getColor(level.getBlockState(tile));
+            DyeColor standingColor = getGameplayFloorColor(tile);
             boolean onTargetNow = standingColor == targetColor;
             long lastContact = lastTargetContactTick.getOrDefault(uuid, Long.MIN_VALUE);
             BlockPos lastTile = lastTargetContactPos.get(uuid);
@@ -2738,17 +2808,22 @@ public final class Arena {
             // The Nether Star is the explicit opt-in; only then is the vote book granted.
             player.getInventory().setItem(0, createJoinGameItem());
             player.getInventory().setItem(6, createHubItem());
-            player.getInventory().setItem(8, createLeaveLobbyItem());
-            player.inventoryMenu.broadcastChanges();
             teleportToLobby(player);
             int podiumRank = lastPodiumPlayers.indexOf(uuid);
             if (matchWinnerId != null && podiumRank >= 0) teleportPlayerToPodium(player, podiumRank);
+            // Non-podium participants can leave immediately. Podium finishers receive
+            // Redstone Dust from tickWinnerPodiumFreeze after their five-second lock ends.
+            if (!podiumFreezeTicks.containsKey(uuid)) {
+                player.getInventory().setItem(8, createLeaveLobbyItem());
+            }
+            player.inventoryMenu.broadcastChanges();
             player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
                     .withStyle(ChatFormatting.GREEN));
         }
 
         // Start the 20-second podium display window only after all participants have returned.
         podiumDisplayTicks = matchWinnerId != null && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
+        podiumFireworksTicks = matchWinnerId != null && !podiumFreezePositions.isEmpty() ? 100 : 0;
 
         alive.clear();
         pendingEliminations.clear();
@@ -2762,7 +2837,8 @@ public final class Arena {
         luckyLanding.clear();
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
-        scannerTicks = 0;
+        scannerTicks.clear();
+        gameMode = GameMode.CLASSIC;
         matchStartTick = 0L;
         phase = Phase.WAITING;
         timerTicks = 0;
@@ -3054,7 +3130,7 @@ public final class Arena {
 
     private boolean isGameInProgress() {
         return phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
-                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING;
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.MEMORY_REVEAL || phase == Phase.FINISHING;
     }
 
     private static String formatSeconds(int ticks) {
