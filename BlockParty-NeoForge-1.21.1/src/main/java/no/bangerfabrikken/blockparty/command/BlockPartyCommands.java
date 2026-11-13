@@ -176,6 +176,7 @@ public final class BlockPartyCommands {
             arena.setCorner(1, layout.floorFirst());
             arena.setCorner(2, layout.floorSecond());
             arena.setTargetDisplay(layout.displayCenter(), layout.displayYaw());
+            arena.setLobbyScreen(layout.lobbyScreenCenter(), layout.lobbyScreenYaw());
             arena.setLobby(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
             manager.save(source.getServer());
             player.teleportTo(player.serverLevel(), layout.lobbyX(), layout.lobbyY(), layout.lobbyZ(), layout.lobbyYaw(), layout.lobbyPitch());
