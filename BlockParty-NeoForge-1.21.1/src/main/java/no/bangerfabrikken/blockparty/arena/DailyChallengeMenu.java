@@ -14,10 +14,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ItemLore;
 
-import java.util.ArrayList;
 import java.util.List;
 
-/** Read-only overview of the three daily objectives, personal progress, checkmarks and rewards. */
+/** Read-only overview of today's personal objectives and their progress. */
 final class DailyChallengeMenu extends ChestMenu {
     private final SimpleContainer contents;
 
@@ -30,31 +29,20 @@ final class DailyChallengeMenu extends ChestMenu {
         this.contents = contents;
         ItemStack frame = named(Items.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int slot = 0; slot < 27; slot++) {
-            if (slot < 9 || slot >= 18 || slot % 9 == 0 || slot % 9 == 8) {
-                contents.setItem(slot, frame.copy());
-            }
+            if (slot < 9 || slot >= 18 || slot % 9 == 0 || slot % 9 == 8) contents.setItem(slot, frame.copy());
         }
-
+        List<Component> lines = DailyChallengeManager.getLines(viewer);
         contents.setItem(4, named(Items.CLOCK, "DAILY CHALLENGES",
-                List.of(Component.literal("Tre personlige oppgaver – nye hver dag").withStyle(ChatFormatting.GRAY))));
-
-        var server = viewer.serverLevel().getServer();
-        List<DailyChallengeManager.Challenge> challenges = DailyChallengeManager.getChallenges(server);
-        int[] slots = {10, 13, 16};
-        for (int i = 0; i < Math.min(3, challenges.size()); i++) {
-            DailyChallengeManager.Challenge challenge = challenges.get(i);
-            int progress = DailyChallengeManager.getProgress(server, viewer.getUUID(), challenge.id());
-            boolean done = DailyChallengeManager.isCompleted(server, viewer.getUUID(), challenge.id());
-            List<Component> lore = new ArrayList<>();
-            lore.add(Component.literal(challenge.description()).withStyle(ChatFormatting.GRAY));
-            lore.add(Component.literal("Fremdrift: " + progress + " / " + challenge.goal())
-                    .withStyle(ChatFormatting.AQUA));
-            lore.add(Component.literal("Belønning: +" + challenge.reward() + " poeng")
-                    .withStyle(ChatFormatting.GOLD));
-            lore.add(Component.literal(done ? "☑ FULLFØRT" : "☐ IKKE FULLFØRT")
-                    .withStyle(done ? ChatFormatting.GREEN : ChatFormatting.YELLOW, ChatFormatting.BOLD));
-            contents.setItem(slots[i], named(challenge.icon(),
-                    (done ? "☑ " : "☐ ") + challenge.title(), lore));
+                lines.isEmpty() ? List.of() : List.of(lines.get(0))));
+        int[] slots = {10, 12, 14, 16};
+        for (int i = 1; i < lines.size() && i <= slots.length; i++) {
+            contents.setItem(slots[i - 1], named(Items.PAPER, lines.get(i).getString(),
+                    List.of(lines.get(i))));
+        }
+        if (lines.size() > 6) {
+            contents.setItem(22, named(Items.EMERALD, lines.get(lines.size() - 1).getString(),
+                    List.of(Component.literal("Fremdriften lagres automatisk.")
+                            .withStyle(ChatFormatting.GRAY))));
         }
     }
 
@@ -68,6 +56,5 @@ final class DailyChallengeMenu extends ChestMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Informational screen: challenge icons cannot be picked up or moved.
-        if (!(player instanceof ServerPlayer)) return;
     }
 }
