@@ -13,6 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,12 +23,15 @@ public final class DailyChallengeManager {
     private static final ZoneId ZONE = ZoneId.of("Europe/Oslo");
     private static final String FILE = "blockparty-daily-challenges.properties";
     private static final int COMPLETION_BONUS = 50;
+    private static final DateTimeFormatter DATE_FORMAT =
+            DateTimeFormatter.ofPattern("d. MMMM", Locale.forLanguageTag("nb-NO"));
     private static final List<Challenge> CATALOGUE = List.of(
             new Challenge("survive_8", "Survivor", "Overlev 8 runder", 8, 15, Kind.ROUND),
-            new Challenge("powerups_3", "Power Hunter", "Samle 3 power-ups", 3, 10, Kind.POWERUP),
-            new Challenge("win_1", "Match Winner", "Vinn 1 match", 1, 20, Kind.WIN),
             new Challenge("survive_15", "Endurance", "Overlev 15 runder", 15, 25, Kind.ROUND),
+            new Challenge("powerups_3", "Power Hunter", "Samle 3 power-ups", 3, 10, Kind.POWERUP),
             new Challenge("powerups_5", "Power Collector", "Samle 5 power-ups", 5, 15, Kind.POWERUP),
+            new Challenge("powerups_8", "Power Master", "Samle 8 power-ups", 8, 25, Kind.POWERUP),
+            new Challenge("win_1", "Match Winner", "Vinn 1 match", 1, 20, Kind.WIN),
             new Challenge("win_2", "Champion", "Vinn 2 matcher", 2, 25, Kind.WIN)
     );
     private static final Map<UUID, Progress> DATA = new HashMap<>();
@@ -116,10 +121,16 @@ public final class DailyChallengeManager {
     }
 
     private static List<String> choose(UUID uuid, String date) {
-        List<Challenge> pool = new ArrayList<>(CATALOGUE);
         long seed = uuid.getMostSignificantBits() ^ uuid.getLeastSignificantBits() ^ date.hashCode();
-        Collections.shuffle(pool, new Random(seed));
-        return pool.subList(0, 3).stream().map(Challenge::id).toList();
+        Random random = new Random(seed);
+        List<String> selected = new ArrayList<>(3);
+        // Always one objective of each type: no duplicate "survive X rounds"
+        // challenge can appear on the same player's daily set.
+        for (Kind kind : List.of(Kind.ROUND, Kind.POWERUP, Kind.WIN)) {
+            List<Challenge> pool = CATALOGUE.stream().filter(c -> c.kind == kind).toList();
+            selected.add(pool.get(random.nextInt(pool.size())).id);
+        }
+        return List.copyOf(selected);
     }
 
     public static synchronized void recordRound(MinecraftServer server, ServerPlayer player) { record(server, player, Kind.ROUND); }
@@ -162,7 +173,8 @@ public final class DailyChallengeManager {
     public static synchronized List<Component> getLines(ServerPlayer player) {
         Progress d = get(player);
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("DAILY CHALLENGES  •  " + d.date).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        lines.add(Component.literal("DAILY CHALLENGES  •  " + LocalDate.parse(d.date).format(DATE_FORMAT))
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         lines.add(Component.literal("Fullfør alle tre for +50 bonuspoeng.").withStyle(ChatFormatting.GRAY));
         for (String id : d.ids) {
             Challenge c = find(id);
@@ -177,6 +189,12 @@ public final class DailyChallengeManager {
         lines.add(Component.literal("Fullført: " + completed + "/3").withStyle(ChatFormatting.AQUA));
         lines.add(Component.literal("Fullføringsbonus: " + (d.bonusClaimed ? "MOTTATT" : "+50 poeng"))
                 .withStyle(d.bonusClaimed ? ChatFormatting.GREEN : ChatFormatting.GOLD));
+        lines.add(Component.empty());
+        lines.add(Component.literal("ALLE MULIGE DAILY CHALLENGES").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        for (Challenge c : CATALOGUE) {
+            lines.add(Component.literal("• " + c.description + "  (+" + c.reward + " poeng)")
+                    .withStyle(ChatFormatting.GRAY));
+        }
         return lines;
     }
 
