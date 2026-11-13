@@ -52,7 +52,12 @@ jobs:
             fi
             diff_range="$diff_range $GITHUB_SHA"
           fi
-          if git diff --name-only $diff_range | grep -Eq '^BlockParty-NeoForge-1\\.21\\.1/src/main/resources/assets/(blockparty/sounds/music/.*\\.ogg|blockparty_music/sounds\\.json|blockparty/music_durations\\.properties)
+          if git diff --name-only $diff_range | grep -Eq '^BlockParty-NeoForge-1[.]21[.]1/src/main/resources/assets/(blockparty/sounds/music/.*[.]ogg|blockparty_music/sounds[.]json|blockparty/music_durations[.]properties)$'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
