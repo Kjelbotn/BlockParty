@@ -132,6 +132,7 @@ public final class Arena {
     private BlockPos displayCenter;
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
+    private String lastXmasScreenText;
     private BlockPos lobbyScreenCenter;
     private float lobbyScreenYaw = 180.0F;
     private double lobbyX;
@@ -1038,26 +1039,58 @@ public final class Arena {
         setDjLights(true);
     }
 
-    /** Shows the arena title during the pre-round countdown; round one replaces it with the target color. */
+    /** Updates the Xmas screen independently from the other arena variants. */
     private void updateArenaWelcomeDisplay() {
-        if (level == null) return;
-        // The schematic generator supplies the exact white-board anchor and facing.
-        // Keep that persisted anchor: recomputing it from pos1/pos2 pushed the display
-        // into the seam between the board and the next block row on the Xmas map.
-        if (displayCenter == null) return;
+        if (level == null || displayCenter == null) return;
+        if ("xmas".equals(id)) {
+            refreshXmasArenaScreen();
+            return;
+        }
         String tag = "bp_target_" + id;
         AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        boolean xmasTargetScreen = "xmas".equals(id);
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
                 displayCenter.getZ() + 1.0, targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
     }
 
+    /**
+     * Xmas-only renderer: centre the text on the white panel, put it one block
+     * in front of the panel, and face it toward the dancers. Recreate it if another
+     * refresh or chunk/entity reload has removed the Text Display.
+     */
+    private void refreshXmasArenaScreen() {
+        if (level == null || displayCenter == null || !"xmas".equals(id)) return;
+        boolean showTarget = targetColor != null && gameMode == GameMode.CLASSIC
+                && (phase == Phase.PREPARE || phase == Phase.FALL);
+        String text = showTarget
+                ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
+                : (gameMode == GameMode.MEMORY && isGameInProgress() ? "MEMORY MODE" : "BLOCKPARTY");
+        if (text.isBlank()) text = "BLOCKPARTY";
+        String tag = "bp_target_" + id;
+        AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 8, displayCenter.getZ() - 8,
+                displayCenter.getX() + 64, displayCenter.getY() + 8, displayCenter.getZ() + 12);
+        List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                entity -> entity.getTags().contains(tag));
+        if (text.equals(lastXmasScreenText) && !existing.isEmpty()) return;
+        for (Display.TextDisplay old : existing) old.discard();
+        // White-board anchor is its vertical centre. +Z is the arena-facing side.
+        Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level,
+                displayCenter.getX() + 0.5, displayCenter.getY() + 0.5, displayCenter.getZ() + 1.0,
+                0.0F, Component.literal(text).withStyle(
+                        showTarget ? ChatFormatting.GOLD : ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
+                showTarget ? 8.0F : 6.0F, tag);
+        if (created != null) lastXmasScreenText = text;
+    }
+
     private void updateColorDisplay() {
         if (level == null) return;
+        if ("xmas".equals(id)) {
+            refreshXmasArenaScreen();
+            return;
+        }
         // Use the schematic generator's persisted white-board anchor and facing.
         // Do not derive a new position from the floor bounds; that places the text
         // between the board and adjacent blocks on the Xmas variant.
@@ -2008,6 +2041,7 @@ public final class Arena {
         if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND
                 || phase == Phase.MEMORY_FINAL_COUNTDOWN) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
+        if ("xmas".equals(id) && scoreboardTick % 20 == 0) refreshXmasArenaScreen();
         tickMusicEffects();
         tickSpecialSongScreen();
         tickColorScanners(server);
