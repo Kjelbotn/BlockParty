@@ -2,6 +2,7 @@ package no.bangerfabrikken.blockparty.arena;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponents;
