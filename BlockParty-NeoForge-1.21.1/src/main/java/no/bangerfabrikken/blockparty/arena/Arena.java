@@ -616,23 +616,24 @@ public final class Arena {
         }
         // Snapshot the actual Survival-world time only after everyone has arrived.
         // The lobby countdown therefore never changes or rewinds the world clock.
-        if (!"xmas".equals(id)) {
-            if (originalDayTime == Long.MIN_VALUE) {
-                originalDayTime = level.getDayTime();
-                originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
-                originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
-            }
-            long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
+        if (originalDayTime == Long.MIN_VALUE) {
+            originalDayTime = level.getDayTime();
+            originalDaylightCycle = level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+            originalWeatherCycle = level.getGameRules().getBoolean(GameRules.RULE_WEATHER_CYCLE);
+        }
+        long dayStart = originalDayTime - Math.floorMod(originalDayTime, 24_000L);
+        if ("xmas".equals(id)) {
+            teleportSunsetStartTime = dayStart + 6_000L;
+            teleportSunsetEndTime = teleportSunsetStartTime;
+            level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
+            level.setDayTime(teleportSunsetStartTime);
+        } else {
             teleportSunsetStartTime = originalDayTime;
             teleportSunsetEndTime = dayStart + TELEPORT_SUNSET_END;
             level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
             level.setDayTime(teleportSunsetStartTime);
             level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
             level.setWeatherParameters(20 * 60 * 60, 0, false, false);
-        } else {
-            // Xmas uses local snowflake particles; it does not alter the world's clock or weather.
-            teleportSunsetStartTime = Long.MIN_VALUE;
-            teleportSunsetEndTime = Long.MIN_VALUE;
         }
 
         hideLobbyLeaderboard();
@@ -821,68 +822,55 @@ public final class Arena {
         int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
         float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
         double frontOffset = customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72;
+        double textZ = wallZ + frontOffset;
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ - (frontOffset < 0 ? 1 : -1));
         if (!level.hasChunkAt(anchor)) return;
         String tag = "bp_dj_" + id;
-        double screenMinY = customScreen ? screenBaseY - 2 : lobbyY + 1;
-        double screenMaxY = customScreen ? screenBaseY + 13 : lobbyY + 13;
-        AABB area = new AABB(centerX - 24, screenMinY, wallZ - 5,
-                centerX + 24, screenMaxY, wallZ + 2);
+        AABB area = new AABB(centerX - 24, screenBaseY - 3, wallZ - 5,
+                centerX + 24, screenBaseY + 13, wallZ + 5);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_")))) old.discard();
-
-        AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
-                centerX + 20, lobbyY + 16, lobbyZ - 13);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
-
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, lobbyY + 11.2, wallZ - 0.72,
-                180.0F, Component.literal("MUSIKKAVSTEMNING")
-                        .withStyle(ChatFormatting.YELLOW), 1.8F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 8.0, lobbyY + 9.45, wallZ - 0.72,
-                180.0F, Component.literal("SPILLELISTE")
-                        .withStyle(ChatFormatting.AQUA), 1.4F, tag);
-
+                entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
+        if (!customScreen) {
+            AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
+                    centerX + 20, lobbyY + 16, lobbyZ - 13);
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
+        }
+        BlockPartyText.spawnTextDisplay(level, centerX + 0.5, screenBaseY + 2.2, textZ,
+                screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY + 0.45, textZ,
+                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA), 1.4F, tag);
         List<Track> catalogue = MusicTrackManager.getTracks();
         int visible = Math.min(catalogue.size(), 10);
         for (int i = 0; i < visible; i++) {
             Track track = catalogue.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            // Text displays face the lobby, so swap physical columns to keep song 01 at upper left.
             int column = 1 - (i / 5);
             int row = i % 5;
             double x = centerX - 14.0 + column * 12.0;
-            double y = lobbyY + 8.1 - row * 1.1;
+            double y = screenBaseY - 0.9 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
-                    .withStyle(ChatFormatting.GOLD)
-                    .append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
-            Component details = Component.literal(track.artist())
-                    .withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal("   •   " + votes + " STEMMER")
-                            .withStyle(ChatFormatting.AQUA));
-            BlockPartyText.spawnTextDisplay(level, x, y, wallZ - 0.72, 180.0F, title, 1.2F, tag);
-            BlockPartyText.spawnTextDisplay(level, x, y - 0.45, wallZ - 0.72, 180.0F, details, 0.84F, tag);
+                    .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
+            Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal("   •   " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
+            BlockPartyText.spawnTextDisplay(level, x, y, textZ, screenYaw, title, 1.2F, tag);
+            BlockPartyText.spawnTextDisplay(level, x, y - 0.45, textZ, screenYaw, details, 0.84F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, lobbyY + 1.6, wallZ - 0.72,
-                    180.0F, Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB")
-                            .withStyle(ChatFormatting.GRAY), 0.75F, tag);
+            BlockPartyText.spawnTextDisplay(level, centerX - 8.0, screenBaseY - 7.4, textZ, screenYaw,
+                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.75F, tag);
         }
-
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 9.0, wallZ - 0.72,
-                180.0F, Component.literal("MEST STEMTE LÅT")
-                        .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 6.7, wallZ - 0.72,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY, textZ, screenYaw,
+                Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 2.3, textZ, screenYaw,
+                Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 5.2, wallZ - 0.72,
-                180.0F, Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
-                        : leader.artist() + "  •  " + leaderVotes + " STEMMER")
-                        .withStyle(ChatFormatting.YELLOW), 0.72F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, lobbyY + 3.8, wallZ - 0.72,
-                180.0F, Component.literal("HØYREKLIKK KOMPASSET FOR HUB")
-                        .withStyle(ChatFormatting.AQUA), 0.65F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 3.8, textZ, screenYaw,
+                Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
+                        : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 5.2, textZ, screenYaw,
+                Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
     }
 
     private Track mostVotedTrack() {
@@ -1731,7 +1719,7 @@ public final class Arena {
         double maxZ = Math.min(level.getMaxBuildHeight() - 2, Math.max(pos1.getZ(), pos2.getZ()) + 72.0);
         double minY = pos1.getY() + 5.0;
         double maxY = pos1.getY() + 22.0;
-        for (int i = 0; i < 18; i++) {
+        for (int i = 0; i < 28; i++) {
             double x = minX + random.nextDouble() * (maxX - minX);
             double y = minY + random.nextDouble() * (maxY - minY);
             double z = minZ + random.nextDouble() * (maxZ - minZ);
@@ -1772,7 +1760,7 @@ public final class Arena {
             refreshLobbyDisplays();
         }
         if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
-        if ("xmas".equals(id) && isGameInProgress() && scoreboardTick % 4 == 0) tickXmasSnow();
+        if ("xmas".equals(id) && isGameInProgress() && scoreboardTick % 2 == 0) tickXmasSnow();
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
             for (UUID uuid : new HashSet<>(players)) {
@@ -1805,7 +1793,7 @@ public final class Arena {
             for (UUID uuid : players) {
                 if (alive.contains(uuid)) continue;
                 ServerPlayer spectator = server.getPlayerList().getPlayer(uuid);
-                if (spectator != null && isInsideFloorAndBorder(spectator, 3.0)) {
+                if (spectator != null && isInsideFloorAndBorder(spectator, 5.0)) {
                     teleportToSpectatorWalkway(spectator);
                 }
             }

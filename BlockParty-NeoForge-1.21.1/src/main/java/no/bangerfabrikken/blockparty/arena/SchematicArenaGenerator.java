@@ -9,6 +9,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LightBlock;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
@@ -30,6 +33,7 @@ public final class SchematicArenaGenerator {
     private SchematicArenaGenerator() {}
 
     public record Result(BlockPos floorFirst, BlockPos floorSecond, BlockPos displayCenter,
+                         BlockPos lobbyScreenCenter, float lobbyScreenYaw,
                          float displayYaw, double lobbyX, double lobbyY, double lobbyZ,
                          float lobbyYaw, float lobbyPitch) {}
 
@@ -46,6 +50,7 @@ public final class SchematicArenaGenerator {
                 for (int x = 0; x < schematic.width; x++) {
                     int index = schematic.indices[x + z * schematic.width + y * schematic.width * schematic.length];
                     BlockState state = schematic.palette.get(index);
+                    if (y >= 12 && state.getBlock() instanceof StairBlock) state = state.rotate(Rotation.CLOCKWISE_180);
                     if (!state.isAir()) level.setBlock(origin.offset(x, y, z), state, 3);
                 }
             }
@@ -57,11 +62,25 @@ public final class SchematicArenaGenerator {
         // Screen panel is the tall white-backed display on the side of the arena.
         // TextDisplay yaw 90 faces west, toward the 40x40 dance floor.
         BlockPos display = origin.offset(10, 16, 95);
-
-        // The entrance porch in front of the dance floor is the lobby/registration point.
-        return new Result(first, second, display, 90.0F,
+        BlockPos lobbyScreen = origin.offset(32, 15, 2);
+        placeHiddenLobbyLights(level, origin);
+        return new Result(first, second, display, lobbyScreen, 0.0F, 90.0F,
                 origin.getX() + 32.5, origin.getY() + 3.0, origin.getZ() + 7.5,
                 0.0F, 0.0F);
+    }
+
+
+    private static void placeHiddenLobbyLights(ServerLevel level, BlockPos origin) {
+        BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15);
+        for (int yOffset : new int[]{18, 24}) {
+            int step = yOffset == 18 ? 8 : 6;
+            for (int x = 5; x < 60; x += step) {
+                for (int z = 1; z < 122; z += step) {
+                    BlockPos pos = origin.offset(x, yOffset, z);
+                    if (level.hasChunkAt(pos) && level.getBlockState(pos).isAir()) level.setBlock(pos, light, 3);
+                }
+            }
+        }
     }
 
     private static Schematic load() throws IOException {
