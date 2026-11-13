@@ -825,59 +825,63 @@ public final class Arena {
         int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
         int wallZ = customScreen ? lobbyScreenCenter.getZ() : (int) Math.floor(lobbyZ) + 35;
         float screenYaw = customScreen ? lobbyScreenYaw : 180.0F;
-        // Xmas voting panel is mounted on the left wall (an X-facing plane).
-        // Its interior side is +X, whereas the standard lobby screen faces north/south.
-        boolean facesEast = customScreen && Math.abs(screenYaw + 90.0F) < 1.0F;
-        double textXOffset = facesEast ? 0.72 : 0.0;
-        double textZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
+        boolean xmasPanel = "xmas".equals(id) && customScreen
+                && Math.abs(screenYaw + 90.0F) < 1.0F;
+        String tag = "bp_dj_" + id;
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
         if (!level.hasChunkAt(anchor)) return;
-        String tag = "bp_dj_" + id;
-        AABB area = new AABB(centerX - 24, screenBaseY - 3, wallZ - 5,
-                centerX + 24, screenBaseY + 13, wallZ + 5);
+
+        // All Xmas text shares the same X plane as the wall-mounted black panel.
+        // Only Z changes horizontally; changing X was what sent playlist entries
+        // out into the lobby floor in earlier builds.
+        double planeX = centerX + (xmasPanel ? 0.72 : 0.0);
+        double planeZ = wallZ + (customScreen && Math.abs(screenYaw) < 1.0F ? 0.72 : -0.72);
+        AABB area = new AABB(centerX - 3, screenBaseY - 12, wallZ - 30,
+                centerX + 3, screenBaseY + 10, wallZ + 30);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag) || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
-        if (!customScreen) {
-            AABB entranceArea = new AABB(centerX - 20, lobbyY + 4, lobbyZ - 25,
-                    centerX + 20, lobbyY + 16, lobbyZ - 13);
-            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, entranceArea)) old.discard();
-        }
-        BlockPartyText.spawnTextDisplay(level, centerX + 0.5 + textXOffset, screenBaseY + 2.2, textZ,
-                screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.8F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX - 8.0 + textXOffset, screenBaseY + 0.45, textZ,
-                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA), 1.4F, tag);
+
+        // The main heading and all playlist rows remain inside the black panel.
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 3.4, planeZ,
+                screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 1.55F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.9, planeZ - 12.0,
+                screenYaw, Component.literal("SPILLELISTE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), 1.0F, tag);
         List<Track> catalogue = MusicTrackManager.getTracks();
         int visible = Math.min(catalogue.size(), 10);
         for (int i = 0; i < visible; i++) {
             Track track = catalogue.get(i);
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
-            int column = 1 - (i / 5);
+            int column = i / 5;
             int row = i % 5;
-            double x = centerX - 14.0 + column * 12.0 + textXOffset;
-            double y = screenBaseY - 0.9 - row * 1.1;
+            double z = planeZ - 17.0 + column * 18.0;
+            double y = screenBaseY + 0.6 - row * 1.05;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
             Component details = Component.literal(track.artist()).withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal("   •   " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
-            BlockPartyText.spawnTextDisplay(level, x, y, textZ, screenYaw, title, 1.2F, tag);
-            BlockPartyText.spawnTextDisplay(level, x, y - 0.45, textZ, screenYaw, details, 0.84F, tag);
+                    .append(Component.literal("  •  " + votes + " STEMMER").withStyle(ChatFormatting.AQUA));
+            BlockPartyText.spawnTextDisplay(level, planeX, y, z, screenYaw, title, 0.92F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, y - 0.38, z, screenYaw, details, 0.62F, tag);
         }
         if (catalogue.size() > visible) {
-            BlockPartyText.spawnTextDisplay(level, centerX - 8.0 + textXOffset, screenBaseY - 7.4, textZ, screenYaw,
-                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.75F, tag);
+            BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 5.2, planeZ - 12.0, screenYaw,
+                    Component.literal("+" + (catalogue.size() - visible) + " FLERE LÅTER I HUB").withStyle(ChatFormatting.GRAY), 0.62F, tag);
         }
+
+        // A dedicated right-hand instruction column explains how to vote.
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 1.9, planeZ + 13.0, screenYaw,
+                Component.literal("SLIK STEMMER DU").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 0.95F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY + 0.3, planeZ + 13.0, screenYaw,
+                Component.literal("ÅPNE BOKA").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 1.0, planeZ + 13.0, screenYaw,
+                Component.literal("Velg sangen du vil høre").withStyle(ChatFormatting.WHITE), 0.58F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 2.1, planeZ + 13.0, screenYaw,
+                Component.literal("og trykk for å stemme.").withStyle(ChatFormatting.WHITE), 0.58F, tag);
+
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY, textZ, screenYaw,
-                Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY - 2.3, textZ, screenYaw,
-                Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
-                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY - 3.8, textZ, screenYaw,
-                Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
-                        : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
-        BlockPartyText.spawnTextDisplay(level, centerX + 11.0 + textXOffset, screenBaseY - 5.2, textZ, screenYaw,
-                Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
+        BlockPartyText.spawnTextDisplay(level, planeX, screenBaseY - 4.0, planeZ + 13.0, screenYaw,
+                Component.literal("LEDER: " + (leader == null || leaderVotes == 0 ? "INGEN ENNÅ" : leader.name()))
+                        .withStyle(ChatFormatting.YELLOW), 0.68F, tag);
     }
 
     private Track mostVotedTrack() {
@@ -973,9 +977,9 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() - 0.3,
+        BlockPartyText.spawnTextDisplay(level, (customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5), displayCenter.getY() + 2.2,
                 (customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15), targetDisplayYaw,
-                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE), 12.0F, tag);
+                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
     }
 
     private void updateColorDisplay() {
@@ -1704,6 +1708,23 @@ public final class Arena {
                 palette.add(color);
             }
         }
+        if ("xmas".equals(id)) {
+            // Remove the snowy platform directly beneath the 40x40 dance floor.
+            // Falling through a missing tile must lead into the pit and eliminate the dancer.
+            for (int y = pos1.getY() - 1; y >= Math.max(level.getMinBuildHeight(), pos1.getY() - 10); y--) {
+                for (int z = Math.min(pos1.getZ(), pos2.getZ()); z <= Math.max(pos1.getZ(), pos2.getZ()); z++) {
+                    for (int x = Math.min(pos1.getX(), pos2.getX()); x <= Math.max(pos1.getX(), pos2.getX()); x++) {
+                        BlockPos below = new BlockPos(x, y, z);
+                        BlockState state = level.getBlockState(below);
+                        if (state.is(Blocks.SNOW_BLOCK) || state.is(Blocks.SNOW)
+                                || state.is(Blocks.POWDER_SNOW) || state.getBlock() == Blocks.WHITE_CONCRETE
+                                || state.getBlock() == Blocks.ICE || state.getBlock() == Blocks.PACKED_ICE) {
+                            level.setBlock(below, Blocks.AIR.defaultBlockState(), 3);
+                        }
+                    }
+                }
+            }
+        }
         if (palette.size() < 2) throw new IllegalStateException("Gulvet må inneholde minst to forskjellige farger.");
         captureArenaAccents();
     }
@@ -1731,31 +1752,18 @@ public final class Arena {
 
     private void tickXmasSnow(MinecraftServer server) {
         if (level == null || pos1 == null || pos2 == null || server == null) return;
-        // Snow is particle-only: no snow layers or blocks are placed, so the floor stays clear.
-        // Spawn around each participant/lobby visitor so particles are always in client render
-        // range, including the indoor lobby and the outdoor dance floor.
-        for (UUID uuid : new HashSet<>(players)) {
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player == null || player.serverLevel() != level) continue;
-            for (int i = 0; i < 14; i++) {
-                double x = player.getX() + (random.nextDouble() - 0.5) * 30.0;
-                double z = player.getZ() + (random.nextDouble() - 0.5) * 30.0;
-                double y = player.getY() + 4.0 + random.nextDouble() * 12.0;
-                level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1,
-                        0.08, 0.12, 0.08, 0.005);
-            }
-        }
-        // Keep a light snowfall over the whole arena footprint as well, not only around players.
-        double minX = Math.min(pos1.getX(), pos2.getX()) - 14.0;
-        double maxX = Math.max(pos1.getX(), pos2.getX()) + 15.0;
-        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 12.0;
-        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 73.0;
-        for (int i = 0; i < 10; i++) {
+        // Snowfall is limited to the outdoor dance floor and its immediate surroundings.
+        // Lobby visitors never receive snow particles; all effects are particles only.
+        double minX = Math.min(pos1.getX(), pos2.getX()) - 10.0;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 11.0;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - 10.0;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 11.0;
+        for (int i = 0; i < 42; i++) {
             double x = minX + random.nextDouble() * (maxX - minX);
-            double y = pos1.getY() + 7.0 + random.nextDouble() * 14.0;
+            double y = pos1.getY() + 3.0 + random.nextDouble() * 18.0;
             double z = minZ + random.nextDouble() * (maxZ - minZ);
             level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 1,
-                    0.04, 0.08, 0.04, 0.002);
+                    0.05, 0.10, 0.05, 0.003);
         }
     }
 
