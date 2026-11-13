@@ -76,7 +76,7 @@ public final class SchematicArenaGenerator {
         BlockPos lobbyScreen = origin.offset(10, 14, 95);
         placeHiddenLobbyLights(level, origin);
         BlockPos spawn = findLobbySpawn(level, origin);
-        return new Result(first, second, display, lobbyScreen, 0.0F, 0.0F,
+        return new Result(first, second, display, lobbyScreen, -90.0F, 0.0F,
                 spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
                 90.0F, 0.0F);
     }
