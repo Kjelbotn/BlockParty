@@ -2518,6 +2518,7 @@ public final class Arena {
         updateColorDisplay();
         timerTicks = getRoundDurationTicks(round);
         phase = Phase.PREPARE;
+        updateArenaWelcomeDisplay();
         if (musicPaused) resumeMusic();
         else if (activeMusicId == null && !musicFinished) playSelectedMusic();
         broadcastTargetHud();
