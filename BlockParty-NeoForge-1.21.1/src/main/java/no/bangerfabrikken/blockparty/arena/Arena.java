@@ -1670,10 +1670,9 @@ public final class Arena {
 
     private void openDailyChallenges(ServerPlayer player) {
         if (!isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) return;
-        player.openMenu(new SimpleMenuProvider(
-                (containerId, inventory, menuPlayer) ->
-                        new DailyChallengeMenu(containerId, inventory, (ServerPlayer) menuPlayer),
-                Component.literal("Daily Challenges")));
+        // Keep the hub interaction lightweight: show the player's live challenge
+        // progress directly in chat instead of opening an inventory/container GUI.
+        DailyChallengeManager.open(player);
     }
 
     private void openGameModeMenu(ServerPlayer player) {
