@@ -24,8 +24,8 @@ import java.util.UUID;
 final class MusicVotingMenu extends ChestMenu {
     private static final int ROWS = 6;
     private static final int FIRST_ROW = 2;
-    private static final int MAX_COLUMNS = 7;
-    private static final int MAX_VISIBLE_TRACKS = 21;
+    private static final int MAX_COLUMNS = 9;
+    private static final int MAX_VISIBLE_TRACKS = 27;
     private final Arena arena;
     private final SimpleContainer songContainer;
     private final UUID viewerId;
@@ -93,17 +93,9 @@ final class MusicVotingMenu extends ChestMenu {
                 default -> Items.YELLOW_CONCRETE;
             });
             boolean selected = track.id().equals(selectedTrack);
-            MutableComponent displayName;
-            if ("luxus_leverpostei_195".equals(track.id())) {
-                // Keep the section sign and the digits in separate literal components so
-                // the legacy text renderer cannot interpret "§1" as a color code.
-                displayName = Component.literal(selected ? "✓ " : "")
-                        .append(Component.literal("§"))
-                        .append(Component.literal("195"));
-            } else {
-                displayName = Component.literal((selected ? "✓ " : "") + track.name());
-            }
-            icon.set(DataComponents.CUSTOM_NAME, displayName
+            MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
+                    .append(MusicTrackManager.displayNameComponent(track.name()));
+            icon.set(DataComponents.CUSTOM_NAME, trackTitle
                     .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
 
             long votes = arena.getTrackVoteCount(track.id());
