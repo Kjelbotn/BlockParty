@@ -71,6 +71,8 @@ jobs:
           grep -q 'showTarget ? 16.0F : 16.0F' "$arena"
           grep -q 'showBetweenRoundTarget' "$arena"
           grep -q 'normalizeSnowApron' "$schematic"
+          grep -q 'restoreMainArenaScreenPanel' "$arena"
+          grep -q 'isInsideMainArenaScreenPanel(pos)' "$arena"
           grep -q 'support.is(Blocks.SNOW_BLOCK)' "$schematic"
           grep -q 'color == null || "xmas".equals(id)' "$arena"
           grep -q 'revealMemoryTarget' "$arena"
