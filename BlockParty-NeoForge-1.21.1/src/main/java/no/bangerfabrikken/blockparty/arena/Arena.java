@@ -821,6 +821,7 @@ public final class Arena {
 
     private void refreshDjScreen() {
         if (level == null || !lobbySet) return;
+        String tag = "bp_dj_" + id;
         if ("xmas".equals(id) && pos1 != null && pos2 != null) {
             // Xmas music voting is handled by the lobby book/menu. There should be no
             // floating playlist/instruction holograms outside the actual lobby screen.
@@ -835,7 +836,6 @@ public final class Arena {
             }
             return;
         }
-        String tag = "bp_dj_" + id;
         boolean customScreen = lobbyScreenCenter != null;
         int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
         int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
