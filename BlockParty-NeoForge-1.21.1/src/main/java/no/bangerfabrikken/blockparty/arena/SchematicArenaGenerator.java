@@ -16,8 +16,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
 import java.io.ByteArrayInputStream;
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -99,17 +97,16 @@ public final class SchematicArenaGenerator {
             String encoded = new String(resource.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII).trim();
             byte[] compressed = Base64.getDecoder().decode(encoded);
             CompoundTag root;
-            // Read the GZIP stream exactly once, then parse its NBT payload.
-            // Using NbtIo.read directly also preserves the underlying parse error,
-            // instead of hiding it behind the generic "Loading NBT data" wrapper.
-            try (DataInputStream nbtInput = new DataInputStream(
-                    new BufferedInputStream(new GZIPInputStream(new ByteArrayInputStream(compressed))))) {
-                root = NbtIo.read(nbtInput, NbtAccounter.unlimitedHeap());
-            } catch (IOException exception) {
-                Throwable cause = exception.getCause();
-                String detail = cause != null && cause.getMessage() != null
-                        ? cause.getMessage() : exception.getMessage();
-                throw new IOException("Kunne ikke lese Xmas-NBT: " + detail, exception);
+            // The resource is GZIP-compressed NBT. readCompressed owns the GZIP
+            // stream; do not wrap it in GZIPInputStream first (that double-decompresses).
+            try (InputStream compressedInput = new ByteArrayInputStream(compressed)) {
+                root = NbtIo.readCompressed(compressedInput, NbtAccounter.unlimitedHeap());
+            } catch (IOException | RuntimeException exception) {
+                Throwable detail = exception;
+                while (detail.getCause() != null && detail.getCause() != detail) detail = detail.getCause();
+                String message = detail.getMessage() == null ? detail.getClass().getSimpleName() : detail.getMessage();
+                throw new IOException("Kunne ikke lese Xmas-NBT (" + exception.getClass().getSimpleName()
+                        + "): " + message, exception);
             }
             CompoundTag schematic = root.getCompound("Schematic");
             if (schematic.getInt("Version") != 3) throw new IOException("Xmas-schematic må være Sponge v3.");
