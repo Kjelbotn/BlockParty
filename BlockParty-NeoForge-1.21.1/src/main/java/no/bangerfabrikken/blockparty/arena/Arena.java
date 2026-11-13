@@ -2409,6 +2409,8 @@ public final class Arena {
             }
             phase = Phase.WAITING_FOR_COLOR;
             timerTicks = WAITING_FOR_COLOR_TICKS;
+            // Replace the previous round's title immediately with the next target colour.
+            updateArenaWelcomeDisplay();
             broadcastActionBar(Component.literal("Waiting...")
                     .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
             updateScoreboard(server);
