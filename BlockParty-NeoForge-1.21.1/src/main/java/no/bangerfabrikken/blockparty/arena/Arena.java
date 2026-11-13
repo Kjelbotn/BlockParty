@@ -2969,7 +2969,6 @@ public final class Arena {
         player.setDeltaMovement(0.0, 0.0, 0.0);
         player.fallDistance = 0.0F;
         player.setOnGround(true);
-        player.connection.teleport(x, y, z, player.getYRot(), 0.0F);
     }
 
     private boolean isGameInProgress() {
