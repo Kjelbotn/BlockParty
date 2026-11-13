@@ -65,6 +65,11 @@ jobs:
           grep -q 'eliminatedPlayers.add(uuid)' "$arena"
           grep -q 'GameType.ADVENTURE' "$arena"
           grep -q 'isArenaColorAccent(state)' "$arena"
+          grep -q 'int column = i / 5;' "$arena"
+          grep -q 'screenBaseY + 0.2' "$arena"
+          grep -q 'double y = floorY + 14.5;' "$arena"
+          grep -q 'showTarget ? 16.0F : 16.0F' "$arena"
+          grep -q 'color == null || "xmas".equals(id)' "$arena"
           grep -q 'revealMemoryTarget' "$arena"
 
       - name: Normalize and validate playlist music
