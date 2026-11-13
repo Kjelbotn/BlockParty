@@ -547,7 +547,7 @@ public final class Arena {
         captureFloor();
         // Recalculate the target screen from the stored floor corners. This repairs stale
         // display coordinates saved by earlier builds without rebuilding the whole arena.
-        if (!customDisplayPosition) {
+        if (!customDisplayPosition && !"xmas".equals(id)) {
             int screenCenterX = Math.min(pos1.getX(), pos2.getX()) + (Math.abs(pos2.getX() - pos1.getX()) + 1) / 2;
             int screenFloorY = pos1.getY();
             int screenNorthZ = Math.min(pos1.getZ(), pos2.getZ()) - 9;
@@ -841,8 +841,10 @@ public final class Arena {
 
         // Text must be in front of the black panel from the lobby's viewing direction.
         // The Xmas wall is mounted facing into the lobby; its configured yaw is -90 degrees.
+        // Xmas uses yaw -90 degrees: the front of that panel points toward +X,
+        // into the lobby. Place the text on that visible face.
         double frontOffset = customScreen
-                ? (Math.abs(Math.abs(screenYaw) - 90.0F) < 1.0F ? -0.72 : 0.72)
+                ? (Math.abs(Math.abs(screenYaw) - 90.0F) < 1.0F ? 0.72 : -0.72)
                 : -0.72;
         double textZ = wallZ + frontOffset;
         BlockPartyText.spawnTextDisplay(level, centerX + 0.5, screenBaseY + 2.2, textZ,
@@ -880,6 +882,8 @@ public final class Arena {
                 Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
                         : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
         BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 5.2, textZ, screenYaw,
+                Component.literal("ÅPNE BOKA FOR Å STEMME").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.85F, tag);
+        BlockPartyText.spawnTextDisplay(level, centerX + 11.0, screenBaseY - 6.4, textZ, screenYaw,
                 Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
     }
 
@@ -983,7 +987,7 @@ public final class Arena {
                 entity -> entity.getTags().contains(tag))) old.discard();
         boolean xmasTargetScreen = "xmas".equals(id);
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.65, targetDisplayYaw,
+                displayCenter.getZ() + 1.0, targetDisplayYaw,
                 Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
     }
 
@@ -1019,7 +1023,7 @@ public final class Arena {
             };
             if (!lyric.isEmpty()) {
                 BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                        displayCenter.getZ() + 1.65, targetDisplayYaw,
+                        displayCenter.getZ() + 1.0, targetDisplayYaw,
                         Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                         12.0F, tag);
             }
@@ -1040,7 +1044,7 @@ public final class Arena {
                 .withStyle(textColor, ChatFormatting.BOLD);
         // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.65, targetDisplayYaw, text, 12.0F, tag);
+                displayCenter.getZ() + 1.0, targetDisplayYaw, text, 12.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
