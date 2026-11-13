@@ -1788,24 +1788,21 @@ public final class Arena {
             }
         }
         if (scoreboardTick % 20 == 0) removeMobsFromProtectedArea();
-        if (isGameInProgress()) {
+        // Players are intentionally standing in the lobby during COUNTDOWN, and are
+        // being moved onto the floor during TELEPORT_COUNTDOWN. Neither phase may run
+        // the out-of-bounds elimination check. Start enforcing the arena bounds only
+        // once the first round is actually active.
+        if (phase == Phase.PREPARE || phase == Phase.FALL
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             // Leaving the playable floor is an elimination, not a vanilla fall death.
             // Check every active player independently of target-contact bookkeeping so
             // jumping deliberately over the edge cannot bypass the normal elimination flow.
             for (UUID uuid : new ArrayList<>(alive)) {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
-                boolean outsideFloor = isOutsidePlayableFloor(active)
-                        || active.getY() <= pos1.getY() - 3.0;
-                if (phase == Phase.TELEPORT_COUNTDOWN) {
-                    // The teleport countdown is a protected arrival window. Some clients
-                    // can briefly report their pre-teleport lobby position while the server
-                    // completes the dimension/position sync. Re-send the floor teleport
-                    // instead of eliminating a dancer before the first round has begun.
-                    if (outsideFloor) teleportToRandomFloorTile(active);
-                    continue;
+                if (isOutsidePlayableFloor(active) || active.getY() <= pos1.getY() - 3.0) {
+                    eliminate(active);
                 }
-                if (outsideFloor) eliminate(active);
             }
             // Eliminated dancers may roam the spectator gallery, but never the floor or its trim.
             for (UUID uuid : players) {
