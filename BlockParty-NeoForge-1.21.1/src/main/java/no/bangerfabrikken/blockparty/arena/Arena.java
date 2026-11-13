@@ -1124,6 +1124,7 @@ public final class Arena {
         }
         if (activated) {
             powerupsCollected.merge(player.getUUID(), 1, Integer::sum);
+            DailyChallengeManager.recordPowerup(level.getServer(), player);
             boolean penalty = powerUp == PowerUp.SLOWNESS;
             player.sendSystemMessage(Component.literal((penalty ? "PENALTY: " : "POWER-UP: ") + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE));
@@ -1558,6 +1559,7 @@ public final class Arena {
             case 14 -> PlayerStatsManager.sendLeaderboard(player);
             case 30 -> player.sendSystemMessage(Component.literal("Prestasjoner kommer i en senere oppdatering.")
                     .withStyle(ChatFormatting.YELLOW));
+            case 31 -> DailyChallengeManager.open(player);
             case 32 -> player.sendSystemMessage(Component.literal("Kosmetikk kommer i en senere oppdatering.")
                     .withStyle(ChatFormatting.YELLOW));
             case 49 -> registerForGame(player);
@@ -2517,7 +2519,10 @@ public final class Arena {
         for (UUID uuid : alive) {
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-            if (player != null) PlayerStatsManager.recordRoundSurvived(level.getServer(), player, round);
+            if (player != null) {
+                PlayerStatsManager.recordRoundSurvived(level.getServer(), player, round);
+                DailyChallengeManager.recordRound(level.getServer(), player);
+            }
         }
         clearActivePowerUps(level.getServer());
         removeActiveBeacon();
@@ -2596,6 +2601,7 @@ public final class Arena {
         }
         if (winner != null) {
             PlayerStatsManager.recordWin(level.getServer(), winner);
+            DailyChallengeManager.recordWin(level.getServer(), winner);
             level.sendParticles(ParticleTypes.FIREWORK, winner.getX(), winner.getY() + 1.5, winner.getZ(),
                     90, 2.4, 2.0, 2.4, 0.18);
             level.sendParticles(ParticleTypes.END_ROD, winner.getX(), winner.getY() + 1.0, winner.getZ(),

@@ -56,6 +56,14 @@ public final class SchematicArenaGenerator {
             }
         }
 
+        // The Xmas lobby does not use the animated dance floor. Restore its 17x15
+        // footprint to spruce planks, matching the surrounding wooden lobby.
+        for (int x = 24; x <= 40; x++) {
+            for (int z = 1; z <= 15; z++) {
+                level.setBlock(origin.offset(x, FLOOR_Y, z), Blocks.SPRUCE_PLANKS.defaultBlockState(), 3);
+            }
+        }
+
         BlockPos first = origin.offset(FLOOR_MIN_X, FLOOR_Y, FLOOR_MIN_Z);
         BlockPos second = origin.offset(FLOOR_MAX_X, FLOOR_Y, FLOOR_MAX_Z);
 

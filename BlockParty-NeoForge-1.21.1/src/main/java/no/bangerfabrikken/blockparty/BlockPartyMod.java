@@ -165,6 +165,7 @@ public final class BlockPartyMod {
 
     private void onServerStarted(ServerStartedEvent event) {
         PlayerStatsManager.load(event.getServer());
+        DailyChallengeManager.load(event.getServer());
         ArenaManager.get().load(event.getServer());
         MusicTrackManager.load(event.getServer());
         ArenaManager.get().refreshLobbyDisplays();
@@ -174,6 +175,7 @@ public final class BlockPartyMod {
         ArenaManager.get().save(event.getServer());
         ArenaManager.get().shutdown(event.getServer());
         PlayerStatsManager.save(event.getServer());
+        DailyChallengeManager.save();
     }
 
     private void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
