@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/xmas-displays-spectator
+      - fix/xmas-1-1-6-screen-spectator-border
   pull_request:
     branches:
       - main
@@ -44,6 +45,10 @@ jobs:
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/GameModeMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/DailyChallengeMenu.java
           grep -q 'trimLobbySideBorder' "$schematic"
+          grep -q 'placeNonPlayableLobbyEdge' "$schematic"
+          grep -q 'Blocks.BARRIER' "$schematic"
+          grep -q 'screenBaseY += 4' "$arena"
+          grep -q 'roofDistance' "$arena"
           grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
           grep -q 'MEMORY_REVEAL' "$arena"
           grep -q 'tickColorScanners(server)' "$arena"
