@@ -39,13 +39,14 @@ final class GameModeMenu extends ChestMenu {
         }
 
         Arena.GameMode current = arena.getPreferredGameMode(viewer.getUUID());
+        boolean hasVoted = arena.hasGameModeVote(viewer.getUUID());
         int classicVotes = arena.getGameModeVoteCount(Arena.GameMode.CLASSIC);
         int memoryVotes = arena.getGameModeVoteCount(Arena.GameMode.MEMORY);
         add(4, Items.COMPASS, "VOTE: GAME MODE",
                 "Flest stemmer vinner. Stemmer nullstilles etter hver match.");
-        add(11, Items.NETHER_STAR, (current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
+        add(11, Items.NETHER_STAR, (hasVoted && current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
                 "Vanlig BlockParty. Stemmer: " + classicVotes + ".");
-        add(15, Items.ENDER_EYE, (current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
+        add(15, Items.ENDER_EYE, (hasVoted && current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
                 "5s memorering, 7s grått gulv + 2s varsel. Stemmer: " + memoryVotes + ".");
     }
 
