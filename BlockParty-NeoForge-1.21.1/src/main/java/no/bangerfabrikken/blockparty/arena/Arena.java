@@ -852,6 +852,18 @@ public final class Arena {
     private void refreshDjScreen() {
         if (level == null || !lobbySet) return;
         String tag = "bp_dj_" + id;
+        // Xmas voting holograms are lobby-only. Remove every previous copy from the
+        // whole schematic footprint (older versions could leave them floating outside).
+        if ("xmas".equals(id)) {
+            AABB fullMap = new AABB(lobbyX - 75, lobbyY - 30, lobbyZ - 125,
+                    lobbyX + 75, lobbyY + 45, lobbyZ + 45);
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, fullMap,
+                    entity -> entity.getTags().contains(tag)
+                            || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) {
+                old.discard();
+            }
+            if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
+        }
         boolean customScreen = lobbyScreenCenter != null;
         int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
         int screenBaseY = customScreen ? lobbyScreenCenter.getY() : (int) Math.floor(lobbyY) + 9;
@@ -3000,33 +3012,47 @@ public final class Arena {
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
 
         if ("xmas".equals(id)) {
-            // The Xmas schematic places its spectator gallery in the indoor lobby
-            // behind the dance-floor's north wall. Use the gallery's known floor strip,
-            // not a whole-structure "best candidate" scan that can choose a nearby roof.
-            // The lobby wall is at origin-relative z=95; the gallery corridor is the
-            // raised indoor platform immediately behind the DJ/voting wall.
-            int x = minX - 7;
-            int z = minZ + 40;
-            int y = pos1.getY() + 5;
-            BlockPos feet = new BlockPos(x, y, z);
-            if (level.getBlockState(feet.below()).isFaceSturdy(level, feet.below(), Direction.UP)
-                    && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
-                    && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) {
-                player.teleportTo(level, x + 0.5, y, z + 0.5, 90.0F, 0.0F);
+            // Locate an actual covered spectator-house interior instead of relying on
+            // the old guessed corridor coordinate. A valid spot has a solid floor,
+            // two clear player blocks, a roof, and at least two enclosing wall sides.
+            BlockPos best = null;
+            int bestScore = Integer.MIN_VALUE;
+            int floorY = pos1.getY();
+            for (int y = floorY + 2; y <= floorY + 18; y++) {
+                for (int x = minX - 14; x <= maxX + 14; x++) {
+                    for (int z = minZ - 18; z <= maxZ + 24; z++) {
+                        BlockPos feet = new BlockPos(x, y, z);
+                        BlockPos below = feet.below();
+                        if (!level.hasChunkAt(feet) || !level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)
+                                || !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                                || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()
+                                || !level.getBlockState(feet.above(2)).isFaceSturdy(level, feet.above(2), Direction.DOWN)) continue;
+                        int walls = 0;
+                        for (Direction dir : Direction.Plane.HORIZONTAL) {
+                            BlockPos side = feet.relative(dir);
+                            if (!level.getBlockState(side).getCollisionShape(level, side).isEmpty()
+                                    || !level.getBlockState(side.above()).getCollisionShape(level, side.above()).isEmpty()) walls++;
+                        }
+                        if (walls < 2) continue;
+                        int distanceFromFloor = Math.min(Math.min(Math.abs(x - minX), Math.abs(x - maxX)),
+                                Math.min(Math.abs(z - minZ), Math.abs(z - maxZ)));
+                        // Prefer raised, enclosed structures just outside the dance floor.
+                        int score = walls * 100 - Math.abs(y - (floorY + 5)) * 4
+                                - Math.abs(distanceFromFloor - 5) * 3;
+                        if (score > bestScore) { bestScore = score; best = feet; }
+                    }
+                }
+            }
+            if (best != null) {
+                player.teleportTo(level, best.getX() + 0.5, best.getY(), best.getZ() + 0.5, 90.0F, 0.0F);
                 player.setDeltaMovement(0.0, 0.0, 0.0);
                 player.fallDistance = 0.0F;
-                return;
-            }
-            // Never silently drop an eliminated Xmas player onto the snowy exterior.
-            // Keep the player at a safe supported indoor spawn near the lobby corridor.
-            BlockPos lobbyFallback = new BlockPos((int) Math.floor(lobbyX), (int) Math.floor(lobbyY) + 1,
-                    (int) Math.floor(lobbyZ));
-            if (level.getBlockState(lobbyFallback.below()).isFaceSturdy(level, lobbyFallback.below(), Direction.UP)
-                    && level.getBlockState(lobbyFallback).getCollisionShape(level, lobbyFallback).isEmpty()
-                    && level.getBlockState(lobbyFallback.above()).getCollisionShape(level, lobbyFallback.above()).isEmpty()) {
+            } else {
+                // Last-resort safe fallback remains indoors; never send spectators onto snow.
                 player.teleportTo(level, lobbyX, lobbyY, lobbyZ, lobbyYaw, lobbyPitch);
                 player.setDeltaMovement(0.0, 0.0, 0.0);
                 player.fallDistance = 0.0F;
+                BlockPartyMod.LOGGER.warn("Fant ikke et dekket spectatorhus i Xmas-arenaen; bruker lobby-spawn.");
             }
             return;
         }
