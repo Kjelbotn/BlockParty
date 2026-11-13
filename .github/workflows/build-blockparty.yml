@@ -68,8 +68,11 @@ jobs:
           grep -q 'int column = i / 5;' "$arena"
           grep -q 'screenBaseY + 0.2' "$arena"
           grep -q 'double y = floorY + 14.5;' "$arena"
-          grep -q 'showTarget ? 16.0F : 16.0F' "$arena"
-          grep -q 'showBetweenRoundTarget' "$arena"
+          grep -q 'classicTarget' "$arena"
+          grep -q 'memoryRevealTarget' "$arena"
+          grep -q 'fallThreshold' "$arena"
+          grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
+          grep -q 'slotId == 48 || slotId == 50' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
           grep -q 'normalizeSnowApron' "$schematic"
           grep -q 'restoreMainArenaScreenPanel' "$arena"
           grep -q 'isInsideMainArenaScreenPanel(pos)' "$arena"
