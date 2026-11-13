@@ -56,21 +56,14 @@ public final class SchematicArenaGenerator {
             }
         }
 
-        // The Xmas lobby does not use the animated dance floor. Restore its 17x15
-        // footprint to spruce planks, matching the surrounding wooden lobby.
-        for (int x = 24; x <= 40; x++) {
-            for (int z = 1; z <= 15; z++) {
-                level.setBlock(origin.offset(x, FLOOR_Y, z), Blocks.SPRUCE_PLANKS.defaultBlockState(), 3);
-            }
-        }
-
         BlockPos first = origin.offset(FLOOR_MIN_X, FLOOR_Y, FLOOR_MIN_Z);
         BlockPos second = origin.offset(FLOOR_MAX_X, FLOOR_Y, FLOOR_MAX_Z);
 
         // Screen panel is the tall white-backed display on the side of the arena.
         // TextDisplay yaw 90 faces west, toward the 40x40 dance floor.
         BlockPos display = origin.offset(10, 16, 95);
-        BlockPos lobbyScreen = origin.offset(32, 15, 2);
+        // The black music panel is on the west interior wall (x=9), spanning z=76..113.
+        BlockPos lobbyScreen = origin.offset(9, 14, 95);
         placeHiddenLobbyLights(level, origin);
         return new Result(first, second, display, lobbyScreen, 0.0F, 90.0F,
                 origin.getX() + 32.5, origin.getY() + 3.0, origin.getZ() + 7.5,
