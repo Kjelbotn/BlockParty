@@ -31,6 +31,22 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Verify integrated BlockParty features
+        shell: bash
+        run: |
+          set -euo pipefail
+          arena="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java"
+          schematic="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java"
+          test -s "$arena"
+          test -s "$schematic"
+          test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/GameModeMenu.java
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/DailyChallengeMenu.java
+          grep -q 'trimLobbySideBorder' "$schematic"
+          grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
+          grep -q 'MEMORY_REVEAL' "$arena"
+          grep -q 'tickColorScanners(server)' "$arena"
+
       - name: Normalize and validate playlist music
         shell: bash
         run: |
@@ -157,6 +173,7 @@ jobs:
           grep -Fxq "assets/blockparty_music/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/music_playlist.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/music_durations.properties" "$RUNNER_TEMP/blockparty-jar-contents.txt"
+          grep -Fxq "assets/blockparty/schematics/xmas.schem.b64" "$RUNNER_TEMP/blockparty-jar-contents.txt"
 
           python3 - "$RUNNER_TEMP/blockparty-jar-contents.txt" <<'PY'
           import json, pathlib, sys
