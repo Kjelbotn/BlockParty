@@ -45,7 +45,9 @@ jobs:
           grep -q 'GameType.ADVENTURE' "$arena"
           grep -q 'ensureXmasLeftBorder()' "$arena"
           grep -q 'isArenaColorAccent(state)' "$arena"
-          grep -q 'revealMemoryTarget' "$arena"
+          grep -q 'memoryRevealTarget' "$arena"
+          grep -q 'fallThreshold' "$arena"
+          grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
           grep -q 'mod_version=1.3.0' BlockParty-NeoForge-1.21.1/gradle.properties
 
       - name: Build BlockParty
