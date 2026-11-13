@@ -7,7 +7,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="Bangerfabrikken"
-description='''A BlockParty minigame for Minecraft 1.21.1. Includes Classic Mode, DJ lobby with music voting and custom resource-pack tracks, tempo-reactive lights and particles, target-colour stadium trim, Xmas lobby displays and covered spectator houses, six power-ups, 25 timed concrete-colour rounds, an elevated spectator promenade, profiles, ranks, a lobby-only leaderboard and a winner presentation.'''
+description='''A BlockParty minigame for Minecraft 1.21.1. Includes Classic Mode, DJ lobby with music voting and custom resource-pack tracks, tempo-reactive lights and particles, target-colour stadium trim, camera-facing Xmas arena screen, free Adventure-mode spectator area, and covered spectator houses, six power-ups, 25 timed concrete-colour rounds, an elevated spectator promenade, profiles, ranks, a lobby-only leaderboard and a winner presentation.'''
 
 [[dependencies.${mod_id}]]
 modId="neoforge"
