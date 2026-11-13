@@ -177,7 +177,7 @@ public final class SchematicArenaGenerator {
         // South/bottom edge of the dance floor: two columns of removed trim.
         for (int z = minZ - 2; z < minZ; z++) {
             for (int x = minX; x <= maxX; x++) {
-                for (int y = bottomY; y <= origin.getY() + floor.y + 3; y++) {
+                for (int y = bottomY; y <= floor.y + 3; y++) {
                     level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
                 }
             }
@@ -185,7 +185,7 @@ public final class SchematicArenaGenerator {
         // West/left edge of the dance floor.
         for (int x = minX - 2; x < minX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
-                for (int y = bottomY; y <= origin.getY() + floor.y + 3; y++) {
+                for (int y = bottomY; y <= floor.y + 3; y++) {
                     level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
                 }
             }

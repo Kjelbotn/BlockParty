@@ -1813,14 +1813,14 @@ public final class Arena {
  
     private boolean isOutsidePlayableFloor(ServerPlayer player) {
         if (player == null || pos1 == null || pos2 == null) return false;
-        // The configured corners are the actual playable concrete edges on both maps.
-        // Do not inset the boundary: that incorrectly eliminates players standing on
-        // perfectly valid outer concrete tiles, especially on the Xmas 40x40 floor.
-        double inset = 0.0;
-        double minX = Math.min(pos1.getX(), pos2.getX()) + inset;
-        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 - inset;
-        double minZ = Math.min(pos1.getZ(), pos2.getZ()) + inset;
-        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0 - inset;
+        // Allow the player's half-width when standing on an outermost tile.
+        // The centre can extend 0.3 blocks beyond the tile edge while the bounding
+        // box is still supported; without this tolerance the outer row is eliminated.
+        double edgeTolerance = 0.31;
+        double minX = Math.min(pos1.getX(), pos2.getX()) - edgeTolerance;
+        double maxX = Math.max(pos1.getX(), pos2.getX()) + 1.0 + edgeTolerance;
+        double minZ = Math.min(pos1.getZ(), pos2.getZ()) - edgeTolerance;
+        double maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 1.0 + edgeTolerance;
         return player.getX() < minX || player.getX() >= maxX
                 || player.getZ() < minZ || player.getZ() >= maxZ;
     }
@@ -2929,18 +2929,14 @@ public final class Arena {
             // are placed on that corridor rather than outside/in the snow.
             BlockPos best = null;
             double bestScore = Double.MAX_VALUE;
-            // Search the complete spectator-side footprint of the Xmas schematic.
-            // A narrow 14-block scan can miss the raised gallery and fall back onto
-            // the red/white trim, leaving eliminated players apparently stuck.
+            // Place eliminated Xmas dancers inside a sheltered spectator house,
+            // never on the snowy ground or decorative trim around the dance floor.
             int searchMinX = minX - 32, searchMaxX = maxX + 32;
-            int searchMinZ = minZ - 32, searchMaxZ = maxZ + 32;
-            int preferredY = pos1.getY() + 5;
+            int searchMinZ = minZ - 32, searchMaxZ = maxZ + 82;
+            int preferredY = pos1.getY() + 4;
             for (int y = pos1.getY() + 1; y <= pos1.getY() + 20; y++) {
                 for (int z = searchMinZ; z <= searchMaxZ; z++) {
                     for (int x = searchMinX; x <= searchMaxX; x++) {
-                        // Exclude the complete concrete + red/white trim zone.
-                        // The gallery starts beyond this safety buffer, so an eliminated
-                        // player can never be sent straight back onto the arena border.
                         if (x >= minX - 4 && x <= maxX + 4
                                 && z >= minZ - 4 && z <= maxZ + 4) continue;
                         BlockPos feet = new BlockPos(x, y, z);
@@ -2948,10 +2944,26 @@ public final class Arena {
                         if (!level.getBlockState(support).isFaceSturdy(level, support, Direction.UP)
                                 || !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
                                 || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) continue;
+                        boolean roof = false;
+                        for (int dy = 3; dy <= 7; dy++) {
+                            BlockPos above = feet.above(dy);
+                            if (level.getBlockState(above).isFaceSturdy(level, above, Direction.DOWN)) {
+                                roof = true;
+                                break;
+                            }
+                        }
+                        if (!roof) continue;
+                        int walls = 0;
+                        for (Direction direction : Direction.Plane.HORIZONTAL) {
+                            BlockPos side = feet.relative(direction);
+                            if (!level.getBlockState(side).getCollisionShape(level, side).isEmpty()
+                                    || !level.getBlockState(side.above()).getCollisionShape(level, side.above()).isEmpty()) walls++;
+                        }
+                        if (walls < 1) continue;
                         double dx = (x + 0.5) - player.getX();
                         double dz = (z + 0.5) - player.getZ();
                         double dy = y - preferredY;
-                        double score = dx * dx + dz * dz + dy * dy * 2.5;
+                        double score = dx * dx + dz * dz + dy * dy * 2.5 - walls * 3.0;
                         if (score < bestScore) {
                             bestScore = score;
                             best = feet.immutable();
