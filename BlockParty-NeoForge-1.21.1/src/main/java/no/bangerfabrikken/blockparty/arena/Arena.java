@@ -311,7 +311,8 @@ public final class Arena {
     public boolean handleOutOfBoundsDeath(ServerPlayer player) {
         if (player == null || level == null || player.serverLevel() != level || !alive.contains(player.getUUID())
                 || !isGameInProgress() || pos1 == null) return false;
-        if (player.getY() > pos1.getY() - 3.0) return false;
+        double eliminationY = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
+        if (player.getY() >= eliminationY) return false;
         // A fall/void death event can arrive before the regular arena tick. Revive the
         // player just enough for the normal elimination teleport to complete cleanly.
         if (player.getHealth() <= 0.0F) player.setHealth(1.0F);
@@ -576,7 +577,7 @@ public final class Arena {
         broadcast(Component.literal("AVSTEMNING: " + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC")
                         + " vant! (Classic " + classicVotes + " – Memory " + memoryVotes + ")")
                 .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        preferredGameModes.clear(); // Reset the vote before this match begins.
+        // Keep mode votes through the lobby countdown so the combined GUI remains usable.
 
         applyVisualUpgrade();
         clearWinnerPodiumAtDjBooth();
@@ -637,6 +638,7 @@ public final class Arena {
     }
 
     private void beginMatch(MinecraftServer server) {
+        preferredGameModes.clear();
         matchStartTick = scoreboardTick;
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
@@ -1111,15 +1113,16 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        boolean revealMemoryTarget = gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL && targetColor != null;
-        boolean showBetweenRoundTarget = phase == Phase.WAITING_FOR_COLOR && targetColor != null;
-        boolean showTarget = revealMemoryTarget || showBetweenRoundTarget;
-        Component welcome = showTarget
-                ? Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                    .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)
-                : Component.literal("BLOCKPARTY").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
+        boolean classicTarget = gameMode == GameMode.CLASSIC
+                && (phase == Phase.PREPARE || phase == Phase.FALL) && targetColor != null;
+        boolean memoryRevealTarget = gameMode == GameMode.MEMORY
+                && phase == Phase.MEMORY_REVEAL && targetColor != null;
+        // Main arena board stays blank outside the active target/reveal window.
+        if (!classicTarget && !memoryRevealTarget) return;
+        Component target = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD);
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.0, targetDisplayYaw, welcome, 5.0F, tag);
+                displayCenter.getZ() + 1.0, targetDisplayYaw, target, 5.0F, tag);
     }
 
     /**
@@ -1825,7 +1828,8 @@ public final class Arena {
     }
 
     public void setPreferredGameMode(ServerPlayer player, GameMode selected) {
-        if (phase != Phase.WAITING || !isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
+        if ((phase != Phase.WAITING && phase != Phase.COUNTDOWN)
+                || !isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
             player.sendSystemMessage(Component.literal("Spillmodus kan bare stemmes på mens lobbyen venter på neste match.")
                     .withStyle(ChatFormatting.RED));
             return;
@@ -1838,9 +1842,17 @@ public final class Arena {
                 + (mode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + ". Stemmer nå: Classic "
                 + classicVotes + " – Memory " + memoryVotes + ".")
                 .withStyle(ChatFormatting.GREEN));
+        // A song vote may start the 10-second countdown; keep mode voting open
+        // during that countdown and apply the latest majority before teleport.
+        if (phase == Phase.COUNTDOWN) {
+            long memory = players.stream().filter(uuid -> preferredGameModes.get(uuid) == GameMode.MEMORY).count();
+            long classic = players.stream().filter(uuid -> preferredGameModes.get(uuid) == GameMode.CLASSIC).count();
+            gameMode = memory > classic ? GameMode.MEMORY : GameMode.CLASSIC;
+        }
         broadcast(Component.literal(player.getGameProfile().getName() + " har valgt "
                 + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
                 .withStyle(ChatFormatting.GRAY));
+        refreshOpenMusicVotingMenus();
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -1870,6 +1882,7 @@ public final class Arena {
             ServerPlayer viewer = level.getServer().getPlayerList().getPlayer(uuid);
             if (viewer != null && viewer.containerMenu instanceof MusicVotingMenu menu) {
                 menu.refreshContents();
+                menu.broadcastChanges();
             }
         }
     }
@@ -2151,7 +2164,8 @@ public final class Arena {
             for (UUID uuid : new ArrayList<>(alive)) {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
-                if (isOutsidePlayableFloor(active) || active.getY() <= pos1.getY() - 3.0) {
+                double fallThreshold = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
+                if (isOutsidePlayableFloor(active) || active.getY() < fallThreshold) {
                     eliminate(active);
                 }
             }
