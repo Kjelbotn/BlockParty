@@ -182,9 +182,11 @@ public final class SchematicArenaGenerator {
                     x + innerZ * schematic.width + y * schematic.width * schematic.length]);
             BlockState outer = schematic.palette.get(schematic.indices[
                     x + outerZ * schematic.width + y * schematic.width * schematic.length]);
+            BlockPos innerPos = origin.offset(x, y, innerZ);
+            BlockPos outerPos = origin.offset(x, y, outerZ);
             if (!inner.isAir() && !outer.isAir()
-                    && inner.getBlock() == outer.getBlock()
-                    && inner.getBlock().defaultBlockState().isSolid()) {
+                    && inner.isFaceSturdy(level, innerPos, Direction.UP)
+                    && outer.isFaceSturdy(level, outerPos, Direction.UP)) {
                 matchingColumns++;
             }
         }
@@ -196,8 +198,12 @@ public final class SchematicArenaGenerator {
                     x + innerZ * schematic.width + y * schematic.width * schematic.length]);
             BlockState outer = schematic.palette.get(schematic.indices[
                     x + outerZ * schematic.width + y * schematic.width * schematic.length]);
-            if (!inner.isAir() && inner.getBlock() == outer.getBlock()) {
-                level.setBlock(origin.offset(x, y, outerZ), Blocks.AIR.defaultBlockState(), 3);
+            BlockPos innerPos = origin.offset(x, y, innerZ);
+            BlockPos outerPos = origin.offset(x, y, outerZ);
+            if (!inner.isAir() && !outer.isAir()
+                    && inner.isFaceSturdy(level, innerPos, Direction.UP)
+                    && outer.isFaceSturdy(level, outerPos, Direction.UP)) {
+                level.setBlock(outerPos, Blocks.AIR.defaultBlockState(), 3);
             }
         }
     }
