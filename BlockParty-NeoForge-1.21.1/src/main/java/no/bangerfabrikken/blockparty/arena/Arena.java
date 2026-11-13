@@ -562,11 +562,17 @@ public final class Arena {
         }
 
         long memoryVotes = players.stream()
-                .filter(uuid -> preferredGameModes.getOrDefault(uuid, GameMode.CLASSIC) == GameMode.MEMORY)
+                .filter(uuid -> preferredGameModes.get(uuid) == GameMode.MEMORY)
                 .count();
-        gameMode = memoryVotes > players.size() / 2 ? GameMode.MEMORY : GameMode.CLASSIC;
-        broadcast(Component.literal("GAME MODE: " + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC"))
+        long classicVotes = players.stream()
+                .filter(uuid -> preferredGameModes.get(uuid) == GameMode.CLASSIC)
+                .count();
+        // Only explicit lobby votes count. Ties and no votes default to Classic.
+        gameMode = memoryVotes > classicVotes ? GameMode.MEMORY : GameMode.CLASSIC;
+        broadcast(Component.literal("AVSTEMNING: " + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC")
+                        + " vant! (Classic " + classicVotes + " – Memory " + memoryVotes + ")")
                 .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        preferredGameModes.clear(); // Reset the vote before this match begins.
 
         applyVisualUpgrade();
         clearWinnerPodiumAtDjBooth();
@@ -625,20 +631,6 @@ public final class Arena {
     }
 
     private void beginMatch(MinecraftServer server) {
-        // Count one lobby vote per registered player. A tie or no votes defaults to Classic.
-        int classicVotes = 0;
-        int memoryVotes = 0;
-        for (UUID uuid : players) {
-            GameMode vote = preferredGameModes.get(uuid);
-            if (vote == GameMode.MEMORY) memoryVotes++;
-            else if (vote == GameMode.CLASSIC) classicVotes++;
-        }
-        gameMode = memoryVotes > classicVotes ? GameMode.MEMORY : GameMode.CLASSIC;
-        broadcast(Component.literal("Avstemningen er avsluttet: "
-                + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC")
-                + " vant! (Classic " + classicVotes + " – Memory " + memoryVotes + ")")
-                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-        preferredGameModes.clear(); // Every match starts with a fresh lobby vote.
         matchStartTick = scoreboardTick;
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
@@ -1986,8 +1978,9 @@ public final class Arena {
         // being moved onto the floor during TELEPORT_COUNTDOWN. Neither phase may run
         // the out-of-bounds elimination check. Start enforcing the arena bounds only
         // once the first round is actually active.
-        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND
-                || phase == Phase.MEMORY_FINAL_COUNTDOWN || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_REVEAL
+                || phase == Phase.MEMORY_FIND || phase == Phase.MEMORY_FINAL_COUNTDOWN
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             // Leaving the playable floor is an elimination, not a vanilla fall death.
             // Check every active player independently of target-contact bookkeeping so
             // jumping deliberately over the edge cannot bypass the normal elimination flow.
@@ -2309,6 +2302,13 @@ public final class Arena {
     private void startMemoryReveal(MinecraftServer server) {
         phase = Phase.MEMORY_REVEAL;
         timerTicks = MEMORY_REVEAL_TICKS;
+        // Clear any target-name hologram left by a previous Classic match.
+        if (displayCenter != null) {
+            AABB targetArea = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
+                    displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, targetArea,
+                    entity -> entity.getTags().contains("bp_target_" + id))) old.discard();
+        }
         updateArenaWelcomeDisplay();
         broadcast(Component.literal("MEMORY MODE: Memorér hvor målfargen ligger. Alle farger skjules om 5 sekunder!")
                 .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
@@ -2499,7 +2499,10 @@ public final class Arena {
         String roundSpeed = phase == Phase.PREPARE
                 ? formatSeconds(Math.max(0, timerTicks)) + "s"
                 : phase == Phase.WAITING_FOR_COLOR ? "WAITING..."
-                : phase == Phase.MEMORY_REVEAL ? "MEMORY" : "--";
+                : phase == Phase.MEMORY_REVEAL ? "MEMORISE"
+                : phase == Phase.MEMORY_FIND ? "FIND: " + formatSeconds(Math.max(0, timerTicks)) + "s"
+                : phase == Phase.MEMORY_FINAL_COUNTDOWN ? "FALL: " + formatSeconds(Math.max(0, timerTicks)) + "s"
+                : "--";
         String[] ids = {
                 "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
                 "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10"
@@ -3359,7 +3362,8 @@ public final class Arena {
 
     private boolean isGameInProgress() {
         return phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
-                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.MEMORY_REVEAL || phase == Phase.FINISHING;
+                || phase == Phase.WAITING_FOR_COLOR || phase == Phase.MEMORY_REVEAL
+                || phase == Phase.MEMORY_FIND || phase == Phase.MEMORY_FINAL_COUNTDOWN || phase == Phase.FINISHING;
     }
 
     private static String formatSeconds(int ticks) {
