@@ -89,7 +89,7 @@ public final class Arena {
     // These transition phases pause the music, so they are deliberately not
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
-    private static final int WAITING_FOR_COLOR_TICKS = 40; // Two-second floor reveal between rounds
+    private static final int WAITING_FOR_COLOR_TICKS = 20; // One-second floor reveal between rounds
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
             120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
@@ -225,6 +225,7 @@ public final class Arena {
         this.displayCenter = displayCenter == null ? null : displayCenter.immutable();
         this.customDisplayPosition = displayCenter != null;
         this.targetDisplayYaw = 0.0F;
+        updateArenaWelcomeDisplay();
         refreshLobbyDisplays();
     }
     public void setTargetDisplay(BlockPos center, float yaw) {
@@ -990,6 +991,15 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
+
+        // Keep the arena branding visible above the changing target text on both maps.
+        BlockPartyText.spawnTextDisplay(level,
+                customDisplayPosition ? displayCenter.getX() + 1.15 : displayCenter.getX() + 0.5,
+                displayCenter.getY() + 2.2,
+                customDisplayPosition ? displayCenter.getZ() + 0.5 : displayCenter.getZ() + 1.15,
+                targetDisplayYaw,
+                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
+                5.0F, tag);
 
         if ("inni_hodet_ditt".equals(selectedMusicTrackId)) {
             int frame = Math.floorMod(specialScreenTicks, 140) / 20;
@@ -1899,12 +1909,13 @@ public final class Arena {
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
                 if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                    // Three descending, darker harp notes: 3s = 1.00, 2s = 0.79, 1s = 0.63.
                     float pitch = switch (timerTicks / 20) {
-                        case 3 -> 0.95F;
-                        case 2 -> 0.75F;
-                        default -> 0.55F;
+                        case 3 -> 1.00F;
+                        case 2 -> 0.79F;
+                        default -> 0.63F;
                     };
-                    playSound(SoundEvents.NOTE_BLOCK_BASEDRUM, SoundSource.PLAYERS, 0.9F, pitch);
+                    playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
                 if (timerTicks <= 0) {
                     rememberTargetContacts(server);
@@ -2051,7 +2062,7 @@ public final class Arena {
         if (firstRound) {
             startRoundCountdown(server);
         } else {
-            // The full floor comes back first. Hide the target and wait two seconds
+            // The full floor comes back first. Hide the target and wait one second
             // before starting this round's countdown.
             for (UUID uuid : alive) {
                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
@@ -2540,7 +2551,7 @@ public final class Arena {
         clearActivePowerUps(level.getServer());
         removeActiveBeacon();
 
-        // Restore the next floor right away, then show WAITING FOR COLOR for two seconds.
+        // Restore the next floor right away, then show WAITING FOR COLOR for one second.
         broadcastActionBar(Component.literal("RUNDE " + round + " FULLFØRT  •  " + alive.size() + " IGJEN")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         refreshLobbyDisplays();
@@ -2737,6 +2748,7 @@ public final class Arena {
         matchWinnerId = null;
         round = 0;
         targetColor = null;
+        updateArenaWelcomeDisplay();
         previousTargetColor = null;
         previousPattern = -1;
         lastPowerupRound = -10;
