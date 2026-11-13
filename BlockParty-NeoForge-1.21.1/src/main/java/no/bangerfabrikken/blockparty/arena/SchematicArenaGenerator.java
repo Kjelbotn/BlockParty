@@ -66,6 +66,7 @@ public final class SchematicArenaGenerator {
 
         FloorRegion floor = findDanceFloor(schematic);
         trimLobbySideBorder(level, origin, schematic, floor);
+        placeNonPlayableLobbyEdge(level, origin, floor);
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
@@ -78,7 +79,7 @@ public final class SchematicArenaGenerator {
         BlockPos lobbyScreen = origin.offset(10, 14, 95);
         placeHiddenLobbyLights(level, origin);
         BlockPos spawn = findLobbySpawn(level, origin);
-        return new Result(first, second, display, lobbyScreen, -90.0F, 0.0F,
+        return new Result(first, second, display, lobbyScreen, -90.0F, 180.0F,
                 spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
                 90.0F, 0.0F);
     }
@@ -123,6 +124,19 @@ public final class SchematicArenaGenerator {
                     if (floorTile || (!expected.isAir() && current.getBlock() == expected.getBlock())
                             || current.is(Blocks.LIGHT)) level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
                 }
+            }
+        }
+        // Remove the non-playable red/white lobby-edge decoration added at generation.
+        int edgeZ = floor.minZ + FLOOR_SIZE;
+        for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
+            BlockPos edge = origin.offset(x, floor.y, edgeZ);
+            BlockPos barrier = edge.above();
+            Block current = level.getBlockState(edge).getBlock();
+            if (current == Blocks.RED_CONCRETE || current == Blocks.WHITE_CONCRETE) {
+                level.setBlock(edge, Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (level.getBlockState(barrier).is(Blocks.BARRIER)) {
+                level.setBlock(barrier, Blocks.AIR.defaultBlockState(), 3);
             }
         }
         AABB bounds = new AABB(origin.getX() - 2, origin.getY() - 2, origin.getZ() - 2,
@@ -205,6 +219,22 @@ public final class SchematicArenaGenerator {
                     && outer.isFaceSturdy(level, outerPos, Direction.UP)) {
                 level.setBlock(outerPos, Blocks.AIR.defaultBlockState(), 3);
             }
+        }
+    }
+
+    /**
+     * Adds the missing candy-cane row on the lobby-facing edge. It sits OUTSIDE
+     * the 40x40 playable floor, and invisible barrier blocks above it prevent
+     * players from stepping onto the decorative concrete.
+     */
+    private static void placeNonPlayableLobbyEdge(ServerLevel level, BlockPos origin, FloorRegion floor) {
+        int z = floor.minZ + FLOOR_SIZE;
+        for (int x = 0; x < FLOOR_SIZE; x++) {
+            BlockState stripe = (x % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
+            BlockPos edge = origin.offset(floor.minX + x, floor.y, z);
+            BlockPos barrier = edge.above();
+            level.setBlock(edge, stripe, 3);
+            level.setBlock(barrier, Blocks.BARRIER.defaultBlockState(), 3);
         }
     }
 
