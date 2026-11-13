@@ -2813,11 +2813,52 @@ public final class Arena {
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
+
+        if ("xmas".equals(id)) {
+            // The Xmas schematic has its own enclosed spectator corridor, not the
+            // raised perimeter ring used by the generated Classic arena. Find a real,
+            // walkable spot on the surrounding built structure so eliminated dancers
+            // are placed on that corridor rather than outside/in the snow.
+            BlockPos best = null;
+            double bestScore = Double.MAX_VALUE;
+            int searchMinX = minX - 14, searchMaxX = maxX + 14;
+            int searchMinZ = minZ - 14, searchMaxZ = maxZ + 14;
+            int preferredY = pos1.getY() + 5;
+            for (int y = pos1.getY() + 1; y <= pos1.getY() + 20; y++) {
+                for (int z = searchMinZ; z <= searchMaxZ; z++) {
+                    for (int x = searchMinX; x <= searchMaxX; x++) {
+                        // Spectators must be outside the playable concrete rectangle.
+                        if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
+                        BlockPos feet = new BlockPos(x, y, z);
+                        BlockPos support = feet.below();
+                        if (!level.getBlockState(support).isFaceSturdy(level, support, Direction.UP)
+                                || !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                                || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) continue;
+                        double dx = (x + 0.5) - player.getX();
+                        double dz = (z + 0.5) - player.getZ();
+                        double dy = y - preferredY;
+                        double score = dx * dx + dz * dz + dy * dy * 2.5;
+                        if (score < bestScore) {
+                            bestScore = score;
+                            best = feet.immutable();
+                        }
+                    }
+                }
+            }
+            if (best != null) {
+                player.teleportTo(level, best.getX() + 0.5, best.getY(), best.getZ() + 0.5,
+                        player.getYRot(), 0.0F);
+                player.setDeltaMovement(0.0, 0.0, 0.0);
+                player.fallDistance = 0.0F;
+                return;
+            }
+        }
+
         int centerX = minX + (maxX - minX + 1) / 2;
         int centerZ = minZ + (maxZ - minZ + 1) / 2;
         int x;
         int z;
-        // Preserve the side/quadrant from which the player fell, then place them on the raised ring.
+        // Classic arena uses its purpose-built raised spectator ring.
         if (Math.abs(player.getX() - centerX) > Math.abs(player.getZ() - centerZ)) {
             x = player.getX() < centerX ? minX - 6 : maxX + 6;
             z = Math.max(minZ - 2, Math.min(maxZ + 2, player.blockPosition().getZ()));
@@ -2827,6 +2868,8 @@ public final class Arena {
         }
         int y = pos1.getY() + ArenaGenerator.SPECTATOR_HEIGHT + 1;
         player.teleportTo(level, x + 0.5, y, z + 0.5, player.getYRot(), 0.0F);
+        player.setDeltaMovement(0.0, 0.0, 0.0);
+        player.fallDistance = 0.0F;
     }
 
     private void restoreOriginalFloor() {
