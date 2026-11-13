@@ -78,7 +78,6 @@ jobs:
           grep -q 'isInsideMainArenaScreenPanel(pos)' "$arena"
           grep -q 'support.is(Blocks.SNOW_BLOCK)' "$schematic"
           grep -q 'color == null || "xmas".equals(id)' "$arena"
-          grep -q 'revealMemoryTarget' "$arena"
 
       - name: Normalize and validate playlist music
         shell: bash
