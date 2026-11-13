@@ -72,6 +72,8 @@ public final class MusicTrackManager {
         add("oingo_boingo_little_girls_pedobear", "Little Girls [PedoBear]", "Oingo Boingo", 0,
                 duration(durations, "oingo_boingo_little_girls_pedobear", 136.928),
                 ModSounds.MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR, "music_oingo_boingo_little_girls_pedobear");
+        add("inni_hodet_ditt", "Inni Hodet Ditt", "Truls", 0, duration(durations, "inni_hodet_ditt", 180.000),
+                ModSounds.MUSIC_INNI_HODET_DITT, "music_inni_hodet_ditt");
         BlockPartyMod.LOGGER.info("Loaded {} official BlockParty music track(s).", TRACKS.size());
     }
 

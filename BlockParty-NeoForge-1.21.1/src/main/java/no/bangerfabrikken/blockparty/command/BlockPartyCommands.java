@@ -35,7 +35,11 @@ public final class BlockPartyCommands {
                                 .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), ArenaGenerator.DEFAULT_SIZE))
                                 .then(Commands.argument("size", IntegerArgumentType.integer(ArenaGenerator.MIN_SIZE, ArenaGenerator.MAX_SIZE))
                                         .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
-                .then(Commands.literal("xmas").executes(context -> join(context.getSource(), "xmas")))
+                .then(Commands.literal("xmas").executes(context -> join(context.getSource(), "xmas"))
+                        .then(Commands.literal("generate").requires(source -> source.hasPermission(2))
+                                .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException()))))
+                .then(Commands.literal("generate-xmas").requires(source -> source.hasPermission(2))
+                        .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException())))
                 .then(Commands.literal("arenas")
                         .executes(context -> publicArenaList(context.getSource())))
                 .then(Commands.literal("create")
@@ -424,7 +428,7 @@ public final class BlockPartyCommands {
 
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen"), false);
+        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen | /bp xmas generate – bygg Xmas-arenaen (admin)"), false);
         source.sendSuccess(() -> Component.literal("/bp arenas – vis valgbare arenaer | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);

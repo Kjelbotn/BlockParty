@@ -60,6 +60,7 @@ jobs:
             luxus_leverpostei_195:luxus_leverpostei_195.ogg
             luxus_leverpostei_sur_mus:luxus_leverpostei_sur_mus.ogg
             oingo_boingo_little_girls_pedobear:oingo_boingo_little_girls_pedobear.ogg
+            inni_hodet_ditt:inni_hodet_ditt.ogg
           )
 
           printf "# Measured from the final, normalized OGG files by FFprobe.\n" > "$duration_file"
@@ -116,7 +117,7 @@ jobs:
               "kaptein_sabeltann_pinkys_sang",
               "luxus_leverpostei_195",
               "luxus_leverpostei_sur_mus",
-              "oingo_boingo_little_girls_pedobear"
+              "oingo_boingo_little_girls_pedobear", "inni_hodet_ditt"
           ]
           for track in tracks:
               file = music_dir / f"{track}.ogg"
@@ -146,7 +147,7 @@ jobs:
           grep -Fxq "assets/blockparty/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty_music/sounds.json" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           grep -Fxq "assets/blockparty/music_durations.properties" "$RUNNER_TEMP/blockparty-jar-contents.txt"
-          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best stianorway_damer_objekter stianorway_vi_maa_ikke_si_et_ord luxus_leverpostei_plastisk_kirurgi kaptein_sabeltann_pinkys_sang luxus_leverpostei_195 luxus_leverpostei_sur_mus oingo_boingo_little_girls_pedobear; do
+          for track in bangerfabrikken odin_moon stille_anders hjulene_pa_bussen_olli odin_terrorist exige_2014_launchpad_mix hau_hau_hau fest_hos_toby konfliktpartiet hms_er_best stianorway_damer_objekter stianorway_vi_maa_ikke_si_et_ord luxus_leverpostei_plastisk_kirurgi kaptein_sabeltann_pinkys_sang luxus_leverpostei_195 luxus_leverpostei_sur_mus oingo_boingo_little_girls_pedobear inni_hodet_ditt; do
             grep -Fxq "assets/blockparty/sounds/music/$track.ogg" "$RUNNER_TEMP/blockparty-jar-contents.txt"
           done
           echo "All seventeen built-in BlockParty tracks and the measured-duration manifest are packaged."
