@@ -1606,19 +1606,28 @@ public final class Arena {
 
     /** Upgrade old control labels in-place without duplicating items or breaking their matchers. */
     private void normalizeLobbyItemNames(ServerPlayer player) {
+        boolean changed = false;
         for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
             ItemStack stack = player.getInventory().getItem(slot);
+            Component desiredName = null;
             if (isJoinGameItem(stack)) {
-                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Join game", ChatFormatting.AQUA));
+                desiredName = simpleLobbyItemName("Join game", ChatFormatting.AQUA);
             } else if (isHubItem(stack)) {
-                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Menu", ChatFormatting.LIGHT_PURPLE));
+                desiredName = simpleLobbyItemName("Menu", ChatFormatting.LIGHT_PURPLE);
             } else if (isLeaveLobbyItem(stack)) {
-                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Leave lobby", ChatFormatting.RED));
+                desiredName = simpleLobbyItemName("Leave lobby", ChatFormatting.RED);
             } else if (isMusicVotingBook(stack)) {
-                stack.set(DataComponents.CUSTOM_NAME, simpleLobbyItemName("Vote", ChatFormatting.LIGHT_PURPLE));
+                desiredName = simpleLobbyItemName("Vote", ChatFormatting.LIGHT_PURPLE);
+            }
+            if (desiredName != null && !desiredName.equals(stack.get(DataComponents.CUSTOM_NAME))) {
+                stack.set(DataComponents.CUSTOM_NAME, desiredName);
+                changed = true;
             }
         }
-        player.inventoryMenu.broadcastChanges();
+        // ArenaManager calls ensureLobbyItems once per second. Do not resend the
+        // entire inventory when nothing changed: repeated full syncs make hotbar
+        // items visibly blink in time with the lobby countdown.
+        if (changed) player.inventoryMenu.broadcastChanges();
     }
 
     private void ensureLeaveLobbyItem(ServerPlayer player) {
