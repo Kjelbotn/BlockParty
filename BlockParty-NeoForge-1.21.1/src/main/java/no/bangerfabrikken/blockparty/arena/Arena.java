@@ -922,7 +922,7 @@ public final class Arena {
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
         BlockPartyText.spawnTextDisplay(level, leaderPoint[0], screenBaseY - 2.0, leaderPoint[1],
-                screenYaw, Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
+                screenYaw, (leader == null || leaderVotes == 0 ? Component.literal("INGEN STEMMER ENNÅ") : MusicTrackManager.displayNameComponent(leader.name()))
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.66F, tag);
         BlockPartyText.spawnTextDisplay(level, leaderPoint[0], screenBaseY - 3.25, leaderPoint[1],
                 screenYaw, Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
@@ -1921,7 +1921,7 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Du har allerede valgt denne sangen.")
                     .withStyle(ChatFormatting.YELLOW));
         } else if (previousVote != null) {
-            player.sendSystemMessage(Component.literal("Stemmen din er endret til " + track.name() + " — " + track.artist() + ".")
+            player.sendSystemMessage(Component.literal("Stemmen din er endret til " + track.name().replace("§", "§​") + " — " + track.artist() + ".")
                     .withStyle(ChatFormatting.GREEN));
         } else {
             player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
