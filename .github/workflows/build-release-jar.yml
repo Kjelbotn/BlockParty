@@ -44,7 +44,7 @@ jobs:
           grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
           grep -q 'Find: ' "$arena"
           grep -q 'stemte på' "$arena"
-          grep -q 'MEMORY_FINAL_COUNTDOWN' "$arena" && exit 1 || true
+          ! grep -q 'MEMORY_FINAL_COUNTDOWN' "$arena"
           grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
           grep -q 'eliminatedPlayers.add(uuid)' "$arena"
           grep -q 'GameType.ADVENTURE' "$arena"
