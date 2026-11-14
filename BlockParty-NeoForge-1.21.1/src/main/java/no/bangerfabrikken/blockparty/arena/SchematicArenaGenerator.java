@@ -86,7 +86,7 @@ public final class SchematicArenaGenerator {
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
-                floor.minZ + FLOOR_SIZE - 1);
+                floor.minZ + FLOOR_SIZE);
         int centerX = floor.minX + FLOOR_SIZE / 2;
         // Dedicated Xmas target-screen anchor: vertical centre of the large white panel.
         // The display is placed one block toward the dance floor (+Z) and faces south,
@@ -277,20 +277,22 @@ public final class SchematicArenaGenerator {
     }
 
     /**
-     * Adds the missing candy-cane row on the lobby-facing edge. It sits OUTSIDE
-     * the 40x40 playable floor, and two invisible barrier blocks above it prevent
-     * players from stepping onto or jumping over the decorative concrete.
+     * The former candy-cane trim is now an extra playable row on the lobby-facing
+     * edge. It is included in the configured arena bounds, so normal floor capture
+     * and round pattern generation recolour it just like every other dance-floor tile.
      */
     private static void placeNonPlayableLobbyEdge(ServerLevel level, BlockPos origin, FloorRegion floor) {
         int z = floor.minZ + FLOOR_SIZE;
         for (int x = 0; x < FLOOR_SIZE; x++) {
-            BlockState stripe = (x % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
+            BlockState tile = (x % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
             BlockPos edge = origin.offset(floor.minX + x, floor.y, z);
-            BlockPos barrier = edge.above();
-            BlockPos upperBarrier = edge.above(2);
-            level.setBlock(edge, stripe, 3);
-            level.setBlock(barrier, Blocks.BARRIER.defaultBlockState(), 3);
-            level.setBlock(upperBarrier, Blocks.BARRIER.defaultBlockState(), 3);
+            level.setBlock(edge, tile, 3);
+            if (level.getBlockState(edge.above()).is(Blocks.BARRIER)) {
+                level.setBlock(edge.above(), Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (level.getBlockState(edge.above(2)).is(Blocks.BARRIER)) {
+                level.setBlock(edge.above(2), Blocks.AIR.defaultBlockState(), 3);
+            }
         }
     }
 
