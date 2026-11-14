@@ -81,7 +81,6 @@ public final class SchematicArenaGenerator {
         // ground datum as the floor surface. Do not overwrite buildings or terrain:
         // only reposition existing snow blocks/layers into empty or snowy target cells.
         normalizeSnowApron(level, origin, schematic, floor);
-        trimLobbySideBorder(level, origin, schematic, floor);
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
