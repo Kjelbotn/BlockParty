@@ -1,0 +1,52 @@
+{
+  "tracks": [
+    {
+      "id": "andy_most_wonderful",
+      "name": "It's the Most Wonderful Time of the Year",
+      "artist": "Andy Williams",
+      "bpm": 0
+    },
+    {
+      "id": "mariah_all_i_want",
+      "name": "All I Want For Christmas Is You",
+      "artist": "Mariah Carey",
+      "bpm": 0
+    },
+    {
+      "id": "prebz_nissen_skarpe",
+      "name": "Nissen Må Skjerpe Seg",
+      "artist": "PrebzOgDennis ft. Vidar Villa",
+      "bpm": 0
+    },
+    {
+      "id": "prebz_la_det_sno",
+      "name": "La Det Snø",
+      "artist": "PrebzOgDennis",
+      "bpm": 0
+    },
+    {
+      "id": "wham_last_christmas",
+      "name": "Last Christmas",
+      "artist": "Wham!",
+      "bpm": 0
+    },
+    {
+      "id": "bobby_jingle_bell_rock",
+      "name": "Jingle Bell Rock",
+      "artist": "Bobby Helms",
+      "bpm": 0
+    },
+    {
+      "id": "travellin_spikk_a_bitte_little",
+      "name": "Spikk a Bitte Little",
+      "artist": "Travellin' Strawberries",
+      "bpm": 0
+    },
+    {
+      "id": "per_asplin_spikke_sage_lime_banke",
+      "name": "Spikke Sage Lime Banke",
+      "artist": "Per Asplin",
+      "bpm": 0
+    }
+  ]
+}
