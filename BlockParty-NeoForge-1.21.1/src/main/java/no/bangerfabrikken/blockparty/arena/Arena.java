@@ -1154,6 +1154,7 @@ public final class Arena {
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
+        int maxZ = Math.max(pos1.getZ(), pos2.getZ());
         int floorY = pos1.getY();
         double x = (minX + maxX + 1) / 2.0;
         // The white panel is north of the floor. Place the text several blocks south
