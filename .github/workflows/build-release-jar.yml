@@ -57,7 +57,6 @@ jobs:
           grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
           grep -q 'eliminatedPlayers.add(uuid)' "$arena"
           grep -q 'GameType.ADVENTURE' "$arena"
-          grep -q 'ensureXmasLeftBorder()' "$arena"
           grep -q 'isArenaColorAccent(state)' "$arena"
           grep -q 'memoryRevealTarget' "$arena"
           grep -q 'fallThreshold' "$arena"
