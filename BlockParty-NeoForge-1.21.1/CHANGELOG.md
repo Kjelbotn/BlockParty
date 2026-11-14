@@ -1,3 +1,7 @@
+# BlockParty 1.3.6 — Correct Xmas lobby music playlist order
+
+- Fixed the Xmas side-facing lobby screen so song 01 appears at the upper left and the playlist continues down the left column before continuing in the right column. Classic keeps its own corrected screen orientation.
+
 # BlockParty 1.3.5 — Correct lobby music playlist order
 
 - Fixed the main-lobby music voting display so song 01 starts at the upper-left position, with the list continuing down the left column and then down the right column. Applied to both arena maps.
