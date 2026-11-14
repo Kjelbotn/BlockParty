@@ -1181,8 +1181,6 @@ public final class Arena {
         // Text Display remains saved in the world.
         AABB area = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
                 maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
-        boolean displayAlreadyCorrect = false;
-        String expectedTextJson = Component.Serializer.toJson(displayText, level.registryAccess());
         // Keep a permanent BLOCKPARTY heading separate from the changing round target.
         String headingTag = "bp_target_" + id + "_heading";
         List<Display.TextDisplay> headings = level.getEntitiesOfClass(Display.TextDisplay.class, area,
@@ -1195,22 +1193,31 @@ public final class Arena {
             for (int i = 1; i < headings.size(); i++) headings.get(i).discard();
         }
 
+        // Reuse the existing target display. Comparing serialized component JSON is
+        // not stable across Minecraft saves/loads and caused this method to discard
+        // and respawn the same BLOCKPARTY entity on every refresh.
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
-        for (Display.TextDisplay old : existing) {
-            boolean correctlyPlaced = Math.abs(old.getX() - x) < 0.75
-                    && Math.abs(old.getY() - y) < 0.75
-                    && Math.abs(old.getZ() - z) < 0.75;
-            String savedText = old.saveWithoutId(new net.minecraft.nbt.CompoundTag()).getString("text");
-            boolean textMatches = expectedTextJson.equals(savedText);
-            if (correctlyPlaced && textMatches && !displayAlreadyCorrect) {
-                displayAlreadyCorrect = true;
+        Display.TextDisplay keeper = null;
+        for (Display.TextDisplay display : existing) {
+            boolean correctlyPlaced = Math.abs(display.getX() - x) < 0.75
+                    && Math.abs(display.getY() - y) < 0.75
+                    && Math.abs(display.getZ() - z) < 0.75;
+            if (correctlyPlaced && keeper == null) {
+                keeper = display;
             } else {
-                // Remove misplaced displays, stale text, and duplicates left by earlier versions.
-                old.discard();
+                // Remove misplaced displays and duplicates left by earlier versions.
+                display.discard();
             }
         }
-        if (displayAlreadyCorrect) return;
+
+        if (keeper != null) {
+            // Update only the text component when the round target changes.
+            // The Text Display entity itself remains in the world.
+            keeper.setText(displayText);
+            lastXmasScreenText = text;
+            return;
+        }
 
         // Yaw 0 faces south (+Z), toward players standing on the dance floor.
         Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
