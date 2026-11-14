@@ -1153,6 +1153,19 @@ public final class Arena {
      * in front of the panel, and face it toward the dancers. Recreate it if another
      * refresh or chunk/entity reload has removed the Text Display.
      */
+    private static Component createRainbowBlockPartyText() {
+        return Component.literal("B").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Component.literal("L").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(Component.literal("O").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                .append(Component.literal("C").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                .append(Component.literal("K").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD))
+                .append(Component.literal("P").withStyle(ChatFormatting.BLUE, ChatFormatting.BOLD))
+                .append(Component.literal("A").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD))
+                .append(Component.literal("R").withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                .append(Component.literal("T").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(Component.literal("Y").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+    }
+
     private void refreshXmasArenaScreen() {
         if (level == null || pos1 == null || pos2 == null || !"xmas".equals(id)) return;
 
@@ -1192,9 +1205,10 @@ public final class Arena {
             for (Display.TextDisplay heading : headings) heading.discard();
         } else if (headings.isEmpty()) {
             BlockPartyText.spawnTextDisplay(level, x, y + 1.65, z, 0.0F,
-                    Component.literal("BLOCKPARTY").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
-                    5.0F, headingTag);
+                    createRainbowBlockPartyText(), 16.0F, headingTag);
         } else {
+            Display.TextDisplay heading = headings.get(0);
+            BlockPartyText.updateTextDisplay(heading, level, createRainbowBlockPartyText(), 16.0F);
             for (int i = 1; i < headings.size(); i++) headings.get(i).discard();
         }
 
