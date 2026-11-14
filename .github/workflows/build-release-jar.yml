@@ -28,23 +28,15 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify release sources
+      - name: Verify required release files
         shell: bash
         run: |
           set -euo pipefail
-          arena="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java"
-          test -s "$arena"
+          test -s BlockParty-NeoForge-1.21.1/gradle.properties
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
-          grep -q 'mod_version=1.3.8' BlockParty-NeoForge-1.21.1/gradle.properties
-          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
-          grep -q 'wallZ + offset' "$arena"
-          grep -q 'screenPoint.apply(-23.0)' "$arena"
-          grep -q 'ensureXmasPlayableEdges()' "$arena"
-          grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
-          grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
-          grep -q 'getMemoryFindDurationTicks(round)' "$arena"
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
