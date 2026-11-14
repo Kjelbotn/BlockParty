@@ -2447,6 +2447,16 @@ public final class Arena {
             }
             case MEMORY_REVEAL -> {
                 timerTicks--;
+                if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                    // Match Classic's three-note 3-2-1 countdown during the Memory
+                    // reveal window; Memory used to show the countdown without audio.
+                    float pitch = switch (timerTicks / 20) {
+                        case 3 -> 1.00F;
+                        case 2 -> 0.79F;
+                        default -> 0.63F;
+                    };
+                    playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
+                }
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
                     broadcastActionBar(Component.literal("HUSK PLASSERINGEN!  " + (timerTicks / 20) + "  SEKUNDER")
                             .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
