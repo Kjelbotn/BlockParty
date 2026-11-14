@@ -1034,15 +1034,24 @@ public final class Arena {
         // Keep that persisted anchor: recomputing it from pos1/pos2 pushed the display
         // into the seam between the board and the next block row on the Xmas map.
         if (displayCenter == null) return;
-        String tag = "bp_target_" + id;
+        boolean xmasTargetScreen = "xmas".equals(id);
+        String tag = xmasTargetScreen ? "bp_target_title_" + id : "bp_target_" + id;
         AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag))) old.discard();
-        boolean xmasTargetScreen = "xmas".equals(id);
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.0, targetDisplayYaw,
-                Component.literal("BlockParty").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 5.0F, tag);
+        Component title = Component.literal("BLOCKPARTY")
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
+        Display.TextDisplay existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                entity -> entity.getTags().contains(tag)).stream().findFirst().orElse(null);
+        if (existing == null) {
+            BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
+                    displayCenter.getZ() + 1.0, targetDisplayYaw, title, 5.0F, tag);
+        } else {
+            existing.setText(title);
+        }
+        if (!xmasTargetScreen) {
+            for (Display.TextDisplay duplicate : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag) && entity != existing)) duplicate.discard();
+        }
     }
 
     private void updateColorDisplay() {
@@ -1061,11 +1070,17 @@ public final class Arena {
             }
         }
         if (displayCenter == null) return;
-        String tag = "bp_target_" + id;
+        boolean xmasTargetScreen = "xmas".equals(id);
+        String tag = xmasTargetScreen ? "bp_target_color_" + id : "bp_target_" + id;
         AABB area = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag))) old.discard();
+        Display.TextDisplay existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                entity -> entity.getTags().contains(tag)).stream().findFirst().orElse(null);
+        if (!xmasTargetScreen) {
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag))) old.discard();
+            existing = null;
+        }
 
         if ("inni_hodet_ditt".equals(selectedMusicTrackId)) {
             int frame = Math.floorMod(specialScreenTicks, 140) / 20;
@@ -1076,10 +1091,15 @@ public final class Arena {
                 default -> "";
             };
             if (!lyric.isEmpty()) {
-                BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                        displayCenter.getZ() + 1.0, targetDisplayYaw,
-                        Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
-                        12.0F, tag);
+                Component lyricText = Component.literal(lyric).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
+                if (existing == null) {
+                    BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+                            displayCenter.getZ() + 1.0, targetDisplayYaw, lyricText, 12.0F, tag);
+                } else {
+                    existing.setText(lyricText);
+                }
+            } else if (existing != null) {
+                existing.setText(Component.empty());
             }
             return;
         }
@@ -1096,9 +1116,14 @@ public final class Arena {
         };
         Component text = Component.literal(BlockPartyColors.displayName(targetColor))
                 .withStyle(textColor, ChatFormatting.BOLD);
-        // Keep the text well in front of the dark panel and vertically centred so it cannot be hidden by the wall.
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                displayCenter.getZ() + 1.0, targetDisplayYaw, text, 12.0F, tag);
+        // Reuse the same Xmas Text Display and only change its text. Recreating it every
+        // round causes avoidable entity churn and client-side frame-time spikes.
+        if (existing == null) {
+            BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
+                    displayCenter.getZ() + 1.0, targetDisplayYaw, text, 12.0F, tag);
+        } else {
+            existing.setText(text);
+        }
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
