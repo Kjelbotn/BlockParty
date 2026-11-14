@@ -125,7 +125,7 @@ final class MusicVotingMenu extends ChestMenu {
                 Component.literal("Klikk for å stemme på Classic").withStyle(ChatFormatting.GRAY))));
         songContainer.setItem(48, classic);
 
-        ItemStack memory = new ItemStack(Items.ENDER_EYE);
+        ItemStack memory = new ItemStack(Items.BOOK);
         memory.set(DataComponents.CUSTOM_NAME, Component.literal(
                 (hasModeVote && selectedMode == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE")
                 .withStyle(hasModeVote && selectedMode == Arena.GameMode.MEMORY ? ChatFormatting.GREEN : ChatFormatting.LIGHT_PURPLE));
