@@ -28,6 +28,29 @@ public final class BlockPartyText {
         return spawnTextDisplay(level, x, y, z, 0.0F, text, scale, tag, "center");
     }
 
+    /** Updates an existing display through its saved entity data without replacing the entity. */
+    public static void updateTextDisplay(Display.TextDisplay display, ServerLevel level,
+                                         Component text, float scale) {
+        CompoundTag data = new CompoundTag();
+        data.putString("text", Component.Serializer.toJson(text, level.registryAccess()));
+        data.putString("billboard", "fixed");
+        data.putString("alignment", "center");
+        data.putBoolean("shadow", true);
+        data.putBoolean("see_through", false);
+        data.putBoolean("default_background", false);
+        data.putInt("background", 0);
+        data.putInt("line_width", 1600);
+        data.putByte("text_opacity", (byte) 0xFF);
+
+        CompoundTag transform = new CompoundTag();
+        transform.put("translation", floats(0, 0, 0));
+        transform.put("left_rotation", floats(0, 0, 0, 1));
+        transform.put("right_rotation", floats(0, 0, 0, 1));
+        transform.put("scale", floats(scale, scale, scale));
+        data.put("transformation", transform);
+        display.load(data);
+    }
+
     private static Display.TextDisplay spawnTextDisplay(ServerLevel level, double x, double y, double z,
                                                          float yaw, Component text, float scale, String tag,
                                                          String billboardMode) {
