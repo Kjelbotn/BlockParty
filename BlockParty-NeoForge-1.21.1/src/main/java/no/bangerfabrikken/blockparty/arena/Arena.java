@@ -2438,7 +2438,7 @@ public final class Arena {
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
                     broadcastActionBar(Component.literal("Waiting...")
-                            .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+                            .withStyle(ChatFormatting.DARK_RED));
                 }
                 if (timerTicks <= 0) {
                     if (gameMode == GameMode.MEMORY) startMemoryReveal(server);
@@ -2459,7 +2459,7 @@ public final class Arena {
                 }
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
                     broadcastActionBar(Component.literal("HUSK PLASSERINGEN!  " + (timerTicks / 20) + "  SEKUNDER")
-                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                            .withStyle(ChatFormatting.GOLD));
                 }
                 if (timerTicks <= 0) {
                     // Hide every tile visually. The original colour map remains in floorSnapshot
@@ -2474,9 +2474,9 @@ public final class Arena {
                 rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("FINN RIKTIG BLOKK! GULVET FALLER OM "
+                    broadcastActionBar(Component.literal("GULVET FALLER OM "
                             + (timerTicks / 20) + " SEKUNDER")
-                            .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                            .withStyle(ChatFormatting.AQUA));
                 }
                 if (timerTicks <= 0) {
                     // The find timer is also the floor-fall timer: no extra warning phase.
@@ -2611,14 +2611,7 @@ public final class Arena {
         updateArenaWelcomeDisplay();
         updateColorDisplay();
         showMemoryTargetToPlayers(server);
-        Component targetName = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD);
-        broadcast(Component.literal("MEMORY MODE! MÅLFARGE: ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
-                .append(targetName)
-                .append(Component.literal(" — memorér hvor denne fargen ligger!").withStyle(ChatFormatting.GRAY)));
-        broadcastActionBar(Component.literal("MÅLFARGE: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)
-                .append(targetName)
-                .append(Component.literal("  •  5 SEKUNDER").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+
         if (musicPaused) resumeMusic();
         else if (activeMusicId == null && !musicFinished) playSelectedMusic();
         updateScoreboard(server);
@@ -2629,11 +2622,11 @@ public final class Arena {
         clearMemoryTargetItems(server);
         phase = Phase.MEMORY_FIND;
         timerTicks = getMemoryFindDurationTicks(round);
-        broadcast(Component.literal("Alle blokkene er grå! Finn og still deg på blokkene som hadde målfargen.")
-                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        broadcastActionBar(Component.literal("FINN RIKTIG BLOKK! GULVET FALLER OM "
+        broadcast(Component.literal("Gulvet forsvinner straks. Still deg på riktig farge nå!")
+                .withStyle(ChatFormatting.AQUA));
+        broadcastActionBar(Component.literal("GULVET FALLER OM "
                 + formatSeconds(timerTicks) + " SEKUNDER")
-                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                .withStyle(ChatFormatting.AQUA));
         updateScoreboard(server);
     }
 
@@ -3127,9 +3120,9 @@ public final class Arena {
             player.inventoryMenu.broadcastChanges();
             player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
             player.sendSystemMessage(Component.literal("HUSK DENNE FARGEN: ")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
+                    .withStyle(ChatFormatting.LIGHT_PURPLE)
                     .append(Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                            .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)));
+                            .withStyle(getTargetChatFormatting(targetColor))));
         }
     }
 
