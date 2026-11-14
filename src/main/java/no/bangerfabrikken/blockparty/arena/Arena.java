@@ -911,8 +911,10 @@ public final class Arena {
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
-        int pattern = random.nextInt(5);
-        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(4)) % 5;
+        boolean xmasArena = id.toLowerCase(Locale.ROOT).contains("xmas");
+        int patternCount = xmasArena ? 10 : 5;
+        int pattern = random.nextInt(patternCount);
+        if (pattern == previousPattern) pattern = (pattern + 1 + random.nextInt(patternCount - 1)) % patternCount;
         previousPattern = pattern;
         int offset = random.nextInt(colors.size());
         int bandWidth = 1 + random.nextInt(3);
@@ -931,6 +933,16 @@ public final class Arena {
                     color = patchColors.computeIfAbsent(patchKey, ignored -> colors.get(random.nextInt(colors.size())));
                 }
                 case 4 -> color = colors.get(Math.floorMod(x + z + (x / 3) * 2 + offset, colors.size())); // diagonal mosaic
+                case 5 -> color = colors.get(Math.floorMod(x + z + offset, colors.size())); // tight checkerboard
+                case 6 -> color = colors.get(Math.floorMod((x / 2) + z + offset, colors.size())); // narrow alternating stripes
+                case 7 -> {
+                    int centerX = Math.abs(pos2.getX() - pos1.getX()) / 2;
+                    int centerZ = Math.abs(pos2.getZ() - pos1.getZ()) / 2;
+                    int ring = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ));
+                    color = colors.get(Math.floorMod(ring / 2 + offset, colors.size())); // nested square rings
+                }
+                case 8 -> color = colors.get(Math.floorMod(x + z + (z / 2) + offset, colors.size())); // jagged diagonal bands
+                case 9 -> color = colors.get(Math.floorMod((x / 2) + (z / 2) + offset, colors.size())); // 2x2 checkerboard
                 default -> color = colors.get(random.nextInt(colors.size())); // scattered mosaic
             }
             BlockState newState = BlockPartyColors.getConcrete(color).defaultBlockState();
