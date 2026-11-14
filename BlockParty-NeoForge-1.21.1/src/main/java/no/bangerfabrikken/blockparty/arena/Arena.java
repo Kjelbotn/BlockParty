@@ -2741,8 +2741,12 @@ public final class Arena {
         int centerX = width / 2;
         int centerZ = depth / 2;
         // Early rounds use broad readable shapes; later rounds introduce finer, more fragmented layouts.
-        int minPattern = round <= 5 ? 0 : round <= 10 ? 4 : round <= 15 ? 8 : round <= 20 ? 12 : 16;
-        int maxPattern = round <= 5 ? 11 : round <= 10 ? 19 : round <= 15 ? 25 : round <= 20 ? 29 : 31;
+        int minPattern = "xmas".equals(id)
+                ? (round <= 5 ? 0 : round <= 10 ? 4 : round <= 15 ? 8 : round <= 20 ? 12 : 16)
+                : (round <= 5 ? 0 : round <= 10 ? 2 : round <= 15 ? 4 : round <= 20 ? 7 : 10);
+        int maxPattern = "xmas".equals(id)
+                ? (round <= 5 ? 11 : round <= 10 ? 19 : round <= 15 ? 25 : round <= 20 ? 29 : 31)
+                : (round <= 5 ? 5 : round <= 10 ? 9 : round <= 15 ? 12 : round <= 20 ? 14 : 15);
         int patternCount = maxPattern - minPattern + 1;
         int pattern = minPattern + random.nextInt(patternCount);
         int rerolls = 0;
