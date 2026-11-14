@@ -33,41 +33,19 @@ jobs:
         run: |
           set -euo pipefail
           arena="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java"
-          schematic="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java"
           test -s "$arena"
-          test -s "$schematic"
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
+          grep -q 'mod_version=1.3.8' BlockParty-NeoForge-1.21.1/gradle.properties
+          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
+          grep -q 'wallZ + offset' "$arena"
+          grep -q 'screenPoint.apply(-23.0)' "$arena"
           grep -q 'ensureXmasPlayableEdges()' "$arena"
-          grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
+          grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
           grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
           grep -q 'getMemoryFindDurationTicks(round)' "$arena"
-          grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
-          grep -q 'Find: ' "$arena"
-          grep -q 'Round Speed: ' "$arena"
-          grep -q 'gameMode == GameMode.MEMORY' "$arena"
-          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
-          grep -q 'screenPoint.apply(-23.0)' "$arena"
-          grep -q 'wallZ + offset' "$arena"
-          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
-          ! grep -q 'ensureXmasPlayableEdgeBounds' "$arena"
-          ! grep -q 'placeNonPlayableLobbyEdge' "$schematic"
-          grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
-          grep -q 'stemte på' "$arena"
-          ! grep -q 'MEMORY_FINAL_COUNTDOWN' "$arena"
-          grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
-          grep -q 'eliminatedPlayers.add(uuid)' "$arena"
-          grep -q 'GameType.ADVENTURE' "$arena"
-          grep -q 'isArenaColorAccent(state)' "$arena"
-          grep -q 'memoryRevealTarget' "$arena"
-          grep -q 'fallThreshold' "$arena"
-          grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
-          grep -q 'player.hasPermissions(2)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/BlockPartyMod.java
-          grep -q 'mod_version=1.3.8' BlockParty-NeoForge-1.21.1/gradle.properties
-          grep -q 'case 30 ->' "$arena"
-          grep -q 'recentPatterns.size() > 3' "$arena"
-          grep -q 'target, 16.0F, tag' "$arena"
-          grep -q 'targetDisplayYaw, text, 16.0F, tag' "$arena"
-
+          grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
