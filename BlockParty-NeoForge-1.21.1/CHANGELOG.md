@@ -1,3 +1,8 @@
+# BlockParty 1.3.8 — Music voting layout and exact Xmas floor bounds
+
+- Reordered both lobby music voting boards so tracks 01–05 render in the left column and 06–10 in the right column. Moved the most-voted track panel to the far-left side, clear of the song list.
+- Removed the extra striped edge row from the Xmas dance-floor schematic placement and stopped expanding the configured floor bounds. The playable dance floor is exactly 40×40 blocks (1,600 tiles); every tile in those bounds is captured and participates in normal round recolouring and safe-tile checks.
+
 # BlockParty 1.3.7 — Xmas floor edge and music board fixes
 
 - The extra concrete row on the +Z edge of the Xmas dance floor is now included in the live floor bounds even when corners come from legacy/manual configuration. It is captured with the rest of the floor and participates in normal colour patterns, target checks and safe-tile selection.
