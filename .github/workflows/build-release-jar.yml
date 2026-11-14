@@ -83,14 +83,14 @@ jobs:
                       raise SystemExit(f"Broken sound event mapping: {event_name}")
                   print(track_id)
           PY
-          printf "# Measured from normalized OGG files by FFprobe.\\n" > "$duration_file"
+          printf "# Measured from normalized OGG files by FFprobe.\n" > "$duration_file"
           while IFS= read -r track_id; do
             input="$music_dir/$track_id.ogg"
             output="$music_dir/$track_id.normalized.ogg"
             log="$RUNNER_TEMP/$track_id-decode.log"
-            ffmpeg -hide_banner -loglevel error -y -i "$input" \\
-              -map 0:a:0 -vn -map_metadata -1 \\
-              -af "loudnorm=I=-14:TP=-1.0:LRA=11" -ac 2 -ar 44100 \\
+            ffmpeg -hide_banner -loglevel error -y -i "$input" \
+              -map 0:a:0 -vn -map_metadata -1 \
+              -af "loudnorm=I=-14:TP=-1.0:LRA=11" -ac 2 -ar 44100 \
               -c:a libvorbis -q:a 5 "$output"
             test -s "$output"
             mv "$output" "$input"
@@ -101,7 +101,7 @@ jobs:
             [[ -n "$mean" && "$mean" != "-inf" ]] || { echo "No decodable audio signal in $track_id.ogg" >&2; cat "$log" >&2; exit 1; }
             duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$input")"
             awk -v d="$duration" 'BEGIN { exit !(d > 0 && d < 3600) }'
-            printf "%s=%s\\n" "$track_id" "$(awk -v d="$duration" 'BEGIN { printf "%.3f", d }')" >> "$duration_file"
+            printf "%s=%s\n" "$track_id" "$(awk -v d="$duration" 'BEGIN { printf "%.3f", d }')" >> "$duration_file"
             echo "Validated $track_id.ogg ($codec, $mean dB)"
           done < "$ids_file"
 
