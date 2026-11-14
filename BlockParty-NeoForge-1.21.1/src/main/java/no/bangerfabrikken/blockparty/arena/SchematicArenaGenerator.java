@@ -29,7 +29,7 @@ import java.util.Set;
 /** Imports the bundled Sponge v3 schematic used by the Xmas BlockParty map. */
 public final class SchematicArenaGenerator {
     private static final String RESOURCE = "/assets/blockparty/schematics/xmas.schem.b64";
-    private static final int FLOOR_SIZE = 40;
+    private static final int FLOOR_SIZE = 39;
     private static final Set<Block> CONCRETE_BLOCKS = Set.of(
             Blocks.WHITE_CONCRETE, Blocks.ORANGE_CONCRETE, Blocks.MAGENTA_CONCRETE,
             Blocks.LIGHT_BLUE_CONCRETE, Blocks.YELLOW_CONCRETE, Blocks.LIME_CONCRETE,
