@@ -934,7 +934,7 @@ public final class Arena {
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
             int column = i / 5;
             int row = i % 5;
-            double localX = sideFacingScreen ? -14.0 + column * 12.0 : 14.0 - column * 12.0;
+            double localX = 14.0 - column * 12.0;
             double y = screenBaseY - 0.9 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
@@ -1956,6 +1956,10 @@ public final class Arena {
 
     private void captureFloor() {
         if (!isConfigured()) throw new IllegalStateException("Arenaen mangler pos1, pos2 eller lobby.");
+        // The Xmas schematic's candy-cane edge is a real extra row at +Z.
+        // Expand legacy/manual corner configurations before snapshotting so this row
+        // is included in the floor palette, colour patterns, safe-tile checks and bounds.
+        ensureXmasPlayableEdgeBounds();
         if (pos1.getY() != pos2.getY()) throw new IllegalStateException("Pos1 og pos2 må være på samme høyde (samme Y-koordinat).");
         if (level == null) throw new IllegalStateException("Arenaens verden er ikke tilgjengelig.");
 
@@ -3749,14 +3753,15 @@ public final class Arena {
     public void setLoadedCorners(BlockPos first, BlockPos second) {
         this.pos1 = first;
         this.pos2 = second;
-        // Existing Xmas worlds store only the original 40x40 floor corners.
-        // Include the adjacent candy-cane trim row in the live playable bounds
-        // without requiring players to regenerate the map or edit its config.
-        if ("xmas".equals(id) && first != null && second != null
-                && Math.abs(first.getZ() - second.getZ()) == 39) {
-            if (first.getZ() > second.getZ()) this.pos1 = first.offset(0, 0, 1);
-            else this.pos2 = second.offset(0, 0, 1);
-        }
+        ensureXmasPlayableEdgeBounds();
+    }
+
+    private void ensureXmasPlayableEdgeBounds() {
+        if (!"xmas".equals(id) || pos1 == null || pos2 == null
+                || Math.abs(pos1.getZ() - pos2.getZ()) != 39) return;
+        // The imported extra concrete row is immediately beyond the +Z edge.
+        if (pos1.getZ() > pos2.getZ()) pos1 = pos1.offset(0, 0, 1);
+        else pos2 = pos2.offset(0, 0, 1);
     }
 
     public void setLoadedDisplayCenter(BlockPos displayCenter) {
