@@ -45,9 +45,8 @@ jobs:
           test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/GameModeMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/DailyChallengeMenu.java
-          grep -q 'trimLobbySideBorder' "$schematic"
-          grep -q 'placeNonPlayableLobbyEdge' "$schematic"
-          grep -q 'Blocks.BARRIER' "$schematic"
+          grep -q 'normalizeSnowApron' "$schematic"
+          grep -q 'ensureXmasPlayableEdges()' "$arena"
           grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
           grep -q 'getMemoryFindDurationTicks(round)' "$arena"
           grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
@@ -63,12 +62,12 @@ jobs:
           grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
           grep -q 'MEMORY_REVEAL' "$arena"
           grep -q 'tickColorScanners(server)' "$arena"
-          grep -q 'ensureXmasLeftBorder()' "$arena"
+
           grep -q 'case 30 ->' "$arena"
           grep -q 'recentPatterns.size() > 3' "$arena"
           grep -q 'target, 16.0F, tag' "$arena"
           grep -q 'targetDisplayYaw, text, 16.0F, tag' "$arena"
-          grep -q 'All four edges of the configured dance floor are playable' "$arena"
+          grep -q 'Every one of the 40x40 concrete tiles is playable' "$arena"
           grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
           grep -q 'eliminatedPlayers.add(uuid)' "$arena"
           grep -q 'GameType.ADVENTURE' "$arena"
