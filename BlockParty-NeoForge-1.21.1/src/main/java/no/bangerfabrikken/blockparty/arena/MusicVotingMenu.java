@@ -70,7 +70,7 @@ final class MusicVotingMenu extends ChestMenu {
     void refreshContents() {
         songContainer.clearContent();
         trackBySlot.clear();
-        List<MusicTrackManager.Track> tracks = MusicTrackManager.getTracks();
+        List<MusicTrackManager.Track> tracks = MusicTrackManager.getTracks(arena.getId());
         int count = Math.min(tracks.size(), MAX_VISIBLE_TRACKS);
         String selectedTrack = arena.getPlayerMusicVote(viewerId);
 
