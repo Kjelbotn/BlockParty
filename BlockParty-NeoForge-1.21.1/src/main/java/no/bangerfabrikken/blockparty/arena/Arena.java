@@ -635,7 +635,7 @@ public final class Arena {
         stopMusic();
         selectedMusicTrackId = selectWinningSong();
         specialScreenTicks = 0;
-        Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
         if (winningTrack != null) {
             broadcast(Component.literal("Vote ended. " + winningTrack.name() + " by " + winningTrack.artist() + " won.")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
@@ -921,7 +921,7 @@ public final class Arena {
         BlockPartyText.spawnTextDisplay(level, heading[0], screenBaseY + 0.25, heading[1],
                 screenYaw, Component.literal("MUSIKKAVSTEMNING").withStyle(ChatFormatting.YELLOW), 1.05F, tag);
 
-        List<Track> catalogue = MusicTrackManager.getTracks();
+        List<Track> catalogue = MusicTrackManager.getTracks(id);
         int visible = Math.min(catalogue.size(), 10);
         // Left: vote leader. Centre: tracks 01-05. Right: tracks 06-10.
         double[] leaderPoint = screenPoint.apply(-14.5);
@@ -969,7 +969,7 @@ public final class Arena {
     }
 
     private Track mostVotedTrack() {
-        List<Track> tracks = MusicTrackManager.getTracks();
+        List<Track> tracks = MusicTrackManager.getTracks(id);
         if (tracks.isEmpty() || musicVotes.isEmpty()) return null;
         return tracks.stream().max(java.util.Comparator.comparingLong(track ->
                 musicVotes.values().stream().filter(track.id()::equals).count())).orElse(null);
@@ -981,7 +981,7 @@ public final class Arena {
         if (musicTicksRemaining > 0 && --musicTicksRemaining == 0) {
             // The match always has 25 rounds. Restart short tracks instead of
             // allowing the remaining rounds to continue in silence.
-            Track track = MusicTrackManager.get(selectedMusicTrackId);
+            Track track = MusicTrackManager.get(id, selectedMusicTrackId);
             if (track == null) {
                 sendMusicControl(MusicControlPayload.STOP);
                 activeMusicId = null;
@@ -1471,7 +1471,7 @@ public final class Arena {
     }
 
     private String selectWinningSong() {
-        List<Track> tracks = MusicTrackManager.getTracks();
+        List<Track> tracks = MusicTrackManager.getTracks(id);
         if (tracks.isEmpty()) return null;
         Map<String, Integer> counts = new HashMap<>();
         Set<String> enabledIds = new HashSet<>();
@@ -1488,7 +1488,7 @@ public final class Arena {
 
     private void playSelectedMusic() {
         stopMusic();
-        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+        Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
         if (track == null) return;
         activeMusicId = track.soundId();
         musicTicksRemaining = track.durationTicks();
@@ -1935,7 +1935,7 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Avstemningen er stengt.").withStyle(ChatFormatting.RED));
             return false;
         }
-        Track track = MusicTrackManager.get(trackId);
+        Track track = MusicTrackManager.get(id, trackId);
         if (track == null) {
             player.sendSystemMessage(Component.literal("Fant ikke sangen " + trackId + ".").withStyle(ChatFormatting.RED));
             return false;
@@ -2289,7 +2289,7 @@ public final class Arena {
                             .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
                 }
                 if (timerTicks <= 0) {
-                    Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(selectedMusicTrackId);
+                    Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
                         broadcast(Component.literal("Now playing: " + nowPlaying.name() + " by " + nowPlaying.artist() + ". :)")
                                 .withStyle(ChatFormatting.AQUA));
