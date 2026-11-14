@@ -43,7 +43,7 @@ final class GameModeMenu extends ChestMenu {
                 "Valget til flertallet bestemmer neste match.");
         add(11, Items.NETHER_STAR, (current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
                 "Vanlig BlockParty: se målfargen og finn riktig concrete.");
-        add(15, Items.ENDER_EYE, (current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
+        add(15, Items.BOOK, (current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
                 "Se fargene i fem sekunder. Gulvet blir grått; husk hvor målfargen var!");
     }
 
