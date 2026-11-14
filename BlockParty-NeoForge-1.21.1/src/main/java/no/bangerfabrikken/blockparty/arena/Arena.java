@@ -934,7 +934,7 @@ public final class Arena {
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
             int column = i / 5;
             int row = i % 5;
-            double localX = 14.0 - column * 12.0;
+            double localX = sideFacingScreen ? -14.0 + column * 12.0 : 14.0 - column * 12.0;
             double y = screenBaseY - 0.9 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
