@@ -45,7 +45,9 @@ jobs:
           grep -q 'Find: ' "$arena"
           grep -q 'Round Speed: ' "$arena"
           grep -q 'gameMode == GameMode.MEMORY' "$arena"
-          grep -q 'floor.minZ + FLOOR_SIZE);' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
+          grep -q 'Math.abs(first.getZ() - second.getZ()) == 39' "$arena"
+          grep -q 'second.offset(0, 0, 1)' "$arena"
+          grep -q 'extra playable row' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
           grep -q 'stemte på' "$arena"
           ! grep -q 'MEMORY_FINAL_COUNTDOWN' "$arena"
           grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
