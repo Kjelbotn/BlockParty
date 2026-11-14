@@ -1181,11 +1181,16 @@ public final class Arena {
         // Text Display remains saved in the world.
         AABB area = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
                 maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
-        // Keep a permanent BLOCKPARTY heading separate from the changing round target.
+        // Show the fixed BLOCKPARTY heading only while the arena is idle or the
+        // lobby countdown is running. Hide it as soon as beginMatch enters
+        // TELEPORT_COUNTDOWN, and restore it after endGame returns to WAITING.
         String headingTag = "bp_target_" + id + "_heading";
+        boolean showHeading = phase == Phase.WAITING || phase == Phase.COUNTDOWN;
         List<Display.TextDisplay> headings = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(headingTag));
-        if (headings.isEmpty()) {
+        if (!showHeading) {
+            for (Display.TextDisplay heading : headings) heading.discard();
+        } else if (headings.isEmpty()) {
             BlockPartyText.spawnTextDisplay(level, x, y + 1.65, z, 0.0F,
                     Component.literal("BLOCKPARTY").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
                     5.0F, headingTag);
