@@ -1,3 +1,7 @@
+# BlockParty 1.4.8
+
+- Fixed the Xmas arena screen creating a new Text Display every refresh. Existing tagged displays are now reused and updated in place, while misplaced and duplicate displays are removed. This prevents unbounded entity buildup and the resulting client/server performance degradation.
+
 # BlockParty 1.4.7
 
 - Fixed the Xmas arena screen entity lookup so persisted displays are found across the full world height instead of being respawned every 20 ticks.
