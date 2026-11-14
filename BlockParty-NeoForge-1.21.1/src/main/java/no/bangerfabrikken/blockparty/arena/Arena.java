@@ -1172,12 +1172,9 @@ public final class Arena {
         boolean showTarget = targetColor != null
                 && ((gameMode == GameMode.CLASSIC && (phase == Phase.WAITING_FOR_COLOR || phase == Phase.PREPARE || phase == Phase.FALL))
                 || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
-        String text = showTarget
-                ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
-                : (gameMode == GameMode.MEMORY && isGameInProgress() ? "MEMORY MODE" : "BLOCKPARTY");
-        Component displayText = Component.literal(text).withStyle(
-                showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
-                ChatFormatting.BOLD);
+        String text = BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT);
+        Component displayText = Component.literal(text)
+                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD);
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
@@ -1207,9 +1204,19 @@ public final class Arena {
             BlockPartyText.spawnTextDisplay(level, x, y + 1.65, z, 0.0F,
                     createRainbowBlockPartyText(), 16.0F, headingTag);
         } else {
-            Display.TextDisplay heading = headings.get(0);
-            BlockPartyText.updateTextDisplay(heading, level, createRainbowBlockPartyText(), 16.0F);
+            // Keep the existing heading entity untouched between refreshes. Reloading
+            // its saved entity data every tick resets the client-side text interpolation
+            // and can make the title visibly blink.
             for (int i = 1; i < headings.size(); i++) headings.get(i).discard();
+        }
+
+        // The rainbow heading is the only idle/ lobby title. Do not create the
+        // legacy pink BLOCKPARTY / MEMORY MODE fallback underneath it.
+        if (!showTarget) {
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag))) old.discard();
+            lastXmasScreenText = null;
+            return;
         }
 
         // Reuse the existing target display. Comparing serialized component JSON is
