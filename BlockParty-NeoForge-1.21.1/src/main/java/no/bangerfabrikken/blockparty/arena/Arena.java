@@ -934,7 +934,7 @@ public final class Arena {
             long votes = musicVotes.values().stream().filter(track.id()::equals).count();
             int column = i / 5;
             int row = i % 5;
-            double localX = 14.0 - column * 12.0;
+            double localX = -10.0 + column * 20.0;
             double y = screenBaseY - 0.9 - row * 1.1;
             Component title = Component.literal(String.format(Locale.ROOT, "%02d  ", i + 1))
                     .withStyle(ChatFormatting.GOLD).append(Component.literal(track.name()).withStyle(ChatFormatting.WHITE));
@@ -952,21 +952,21 @@ public final class Arena {
         }
         Track leader = mostVotedTrack();
         long leaderVotes = leader == null ? 0 : musicVotes.values().stream().filter(leader.id()::equals).count();
-        double[] leaderHeading = screenPoint.apply(11.0);
+        double[] leaderHeading = screenPoint.apply(-23.0);
         BlockPartyText.spawnTextDisplay(level, leaderHeading[0], screenBaseY, leaderHeading[1], screenYaw,
                 Component.literal("MEST STEMTE LÅT").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), 1.2F, tag);
-        double[] leaderName = screenPoint.apply(11.0);
+        double[] leaderName = screenPoint.apply(-23.0);
         BlockPartyText.spawnTextDisplay(level, leaderName[0], screenBaseY - 2.3, leaderName[1], screenYaw,
                 Component.literal(leader == null || leaderVotes == 0 ? "INGEN STEMMER ENNÅ" : leader.name())
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 1.0F, tag);
-        double[] leaderDetails = screenPoint.apply(11.0);
+        double[] leaderDetails = screenPoint.apply(-23.0);
         BlockPartyText.spawnTextDisplay(level, leaderDetails[0], screenBaseY - 3.8, leaderDetails[1], screenYaw,
                 Component.literal(leader == null || leaderVotes == 0 ? "STEM PÅ EN LÅT I HUB"
                         : leader.artist() + "  •  " + leaderVotes + " STEMMER").withStyle(ChatFormatting.YELLOW), 0.72F, tag);
-        double[] votePrompt = screenPoint.apply(11.0);
+        double[] votePrompt = screenPoint.apply(-23.0);
         BlockPartyText.spawnTextDisplay(level, votePrompt[0], screenBaseY - 5.2, votePrompt[1], screenYaw,
                 Component.literal("ÅPNE BOKA FOR Å STEMME").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), 0.85F, tag);
-        double[] hubPrompt = screenPoint.apply(11.0);
+        double[] hubPrompt = screenPoint.apply(-23.0);
         BlockPartyText.spawnTextDisplay(level, hubPrompt[0], screenBaseY - 6.4, hubPrompt[1], screenYaw,
                 Component.literal("HØYREKLIKK KOMPASSET FOR HUB").withStyle(ChatFormatting.AQUA), 0.65F, tag);
     }
@@ -1956,10 +1956,6 @@ public final class Arena {
 
     private void captureFloor() {
         if (!isConfigured()) throw new IllegalStateException("Arenaen mangler pos1, pos2 eller lobby.");
-        // The Xmas schematic's candy-cane edge is a real extra row at +Z.
-        // Expand legacy/manual corner configurations before snapshotting so this row
-        // is included in the floor palette, colour patterns, safe-tile checks and bounds.
-        ensureXmasPlayableEdgeBounds();
         if (pos1.getY() != pos2.getY()) throw new IllegalStateException("Pos1 og pos2 må være på samme høyde (samme Y-koordinat).");
         if (level == null) throw new IllegalStateException("Arenaens verden er ikke tilgjengelig.");
 
@@ -3753,15 +3749,6 @@ public final class Arena {
     public void setLoadedCorners(BlockPos first, BlockPos second) {
         this.pos1 = first;
         this.pos2 = second;
-        ensureXmasPlayableEdgeBounds();
-    }
-
-    private void ensureXmasPlayableEdgeBounds() {
-        if (!"xmas".equals(id) || pos1 == null || pos2 == null
-                || Math.abs(pos1.getZ() - pos2.getZ()) != 39) return;
-        // The imported extra concrete row is immediately beyond the +Z edge.
-        if (pos1.getZ() > pos2.getZ()) pos1 = pos1.offset(0, 0, 1);
-        else pos2 = pos2.offset(0, 0, 1);
     }
 
     public void setLoadedDisplayCenter(BlockPos displayCenter) {
