@@ -1,3 +1,7 @@
+# BlockParty 1.3.5 — Correct lobby music playlist order
+
+- Fixed the main-lobby music voting display so song 01 starts at the upper-left position, with the list continuing down the left column and then down the right column. Applied to both arena maps.
+
 # BlockParty 1.3.4 — Xmas podium removal and faster Memory Mode
 
 - Removed the winner podium presentation from the Xmas variant only. Classic keeps its existing podium, winner teleport, freeze and fireworks.
