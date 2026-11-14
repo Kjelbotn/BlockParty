@@ -46,7 +46,7 @@ final class GameModeMenu extends ChestMenu {
                 "Flest stemmer vinner. Stemmer nullstilles etter hver match.");
         add(11, Items.NETHER_STAR, (hasVoted && current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
                 "Vanlig BlockParty. Stemmer: " + classicVotes + ".");
-        add(15, Items.ENDER_EYE, (hasVoted && current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
+        add(15, Items.BOOK, (hasVoted && current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
                 "5s memorering, 7s grått gulv + 2s varsel. Stemmer: " + memoryVotes + ".");
     }
 
