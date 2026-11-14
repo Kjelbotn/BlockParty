@@ -1876,6 +1876,7 @@ public final class Arena {
                 + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
                 .withStyle(ChatFormatting.GRAY));
         refreshOpenMusicVotingMenus();
+        tryStartWhenTwoPlayersHaveCompletedBothVotes(player.serverLevel().getServer());
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -1950,19 +1951,35 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
                     .withStyle(ChatFormatting.GREEN));
         }
+        broadcast(Component.literal(player.getGameProfile().getName() + " stemte på sangen "
+                + track.name() + " — " + track.artist() + ".")
+                .withStyle(ChatFormatting.GRAY));
+        if (phase == Phase.COUNTDOWN) {
+            selectedMusicTrackId = selectWinningSong();
+        }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
-        int requiredVotes = Math.max(2, (players.size() * 2 + 2) / 3);
-        long validVotes = musicVotes.keySet().stream().filter(players::contains).count();
-        if (phase == Phase.WAITING && players.size() >= MIN_PLAYERS && validVotes >= requiredVotes) {
-            try {
-                start(player.serverLevel().getServer());
-                broadcast(Component.literal("Flertallet har stemt! BlockParty starter om 10 sekunder.").withStyle(ChatFormatting.GREEN));
-            } catch (IllegalStateException exception) {
-                broadcast(Component.literal("Kunne ikke starte BlockParty: " + exception.getMessage()).withStyle(ChatFormatting.RED));
-            }
-        }
+        tryStartWhenTwoPlayersHaveCompletedBothVotes(player.serverLevel().getServer());
         return true;
+    }
+
+    /**
+     * Starts the ten-second lobby countdown only after at least two distinct
+     * participants have submitted both a song vote and a game-mode vote.
+     */
+    private void tryStartWhenTwoPlayersHaveCompletedBothVotes(MinecraftServer server) {
+        if (phase != Phase.WAITING || players.size() < MIN_PLAYERS) return;
+        long completeVoters = players.stream()
+                .filter(preferredGameModes::containsKey)
+                .filter(musicVotes::containsKey)
+                .count();
+        if (completeVoters < MIN_PLAYERS) return;
+        try {
+            start(server);
+        } catch (IllegalStateException exception) {
+            broadcast(Component.literal("Kunne ikke starte BlockParty: " + exception.getMessage())
+                    .withStyle(ChatFormatting.RED));
+        }
     }
 
     private void captureFloor() {
