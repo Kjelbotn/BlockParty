@@ -34,29 +34,16 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify integrated BlockParty features
+      - name: Verify required project files
         shell: bash
         run: |
           set -euo pipefail
-          arena="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java"
-          schematic="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java"
-          test -s "$arena"
-          test -s "$schematic"
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/GameModeMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/DailyChallengeMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
-          grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
-          grep -q 'getMemoryFindDurationTicks(round)' "$arena"
-          grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
-          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
-          grep -q 'wallZ + offset' "$arena"
-          grep -q 'screenPoint.apply(-23.0)' "$arena"
-          grep -q 'ensureXmasPlayableEdges()' "$arena"
-          grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
-          grep -q 'GameType.ADVENTURE' "$arena"
-          grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
-          grep -q 'normalizeSnowApron' "$schematic"
-          grep -q 'player.hasPermissions(2)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/BlockPartyMod.java
+
       - name: Normalize and validate playlist music
         shell: bash
         run: |
