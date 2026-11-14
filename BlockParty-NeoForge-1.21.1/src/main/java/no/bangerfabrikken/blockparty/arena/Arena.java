@@ -2524,9 +2524,15 @@ public final class Arena {
         int depth = Math.abs(pos2.getZ() - pos1.getZ()) + 1;
         int centerX = width / 2;
         int centerZ = depth / 2;
-        // Early rounds use broad readable shapes; later rounds introduce finer, more fragmented layouts.
-        int minPattern = round <= 5 ? 0 : round <= 10 ? 2 : round <= 15 ? 4 : round <= 20 ? 7 : 10;
-        int maxPattern = round <= 5 ? 5 : round <= 10 ? 9 : round <= 15 ? 12 : round <= 20 ? 14 : 15;
+        // Xmas uses a wider, more demanding pattern pool from the beginning.
+        // Later rounds increasingly favour dense, fragmented layouts on both maps.
+        boolean xmasArena = "xmas".equals(id);
+        int minPattern = xmasArena
+                ? (round <= 5 ? 1 : round <= 10 ? 4 : round <= 15 ? 7 : round <= 20 ? 10 : 13)
+                : (round <= 5 ? 0 : round <= 10 ? 2 : round <= 15 ? 4 : round <= 20 ? 7 : 10);
+        int maxPattern = xmasArena
+                ? (round <= 5 ? 9 : round <= 10 ? 13 : round <= 15 ? 15 : round <= 20 ? 16 : 17)
+                : (round <= 5 ? 5 : round <= 10 ? 9 : round <= 15 ? 12 : round <= 20 ? 14 : 15);
         int patternCount = maxPattern - minPattern + 1;
         int pattern = minPattern + random.nextInt(patternCount);
         if (pattern == previousPattern) pattern = minPattern + ((pattern - minPattern + 1 + random.nextInt(patternCount - 1)) % patternCount);
@@ -2562,11 +2568,13 @@ public final class Arena {
                 case 12 -> index = x + 2 * z + twist; // tight diagonal stripes
                 case 13 -> index = (x ^ z ^ twist); // one-tile checker pattern
                 case 14 -> index = x * 3 + z * 5 + (x * z) % 7 + twist; // fractured mosaic
-                default -> {
+                case 15 -> {
                     int roundLimit = getMatchRoundLimit();
                     int cell = round >= roundLimit ? 1 : round >= (int) Math.ceil(roundLimit * 0.8) ? 2 : 3;
                     index = (x / cell) + (z / cell) * 2 + ((x % cell == 0 || z % cell == 0) ? twist : 0);
                 } // tight interlocking micro-grid
+                case 16 -> index = (int) Math.floorMod((x * x + z * 3 + x * z + twist), colors.size()); // fractured diagonal interference
+                default -> index = Math.floorMod((ring * 2 + ((x + z) % 3) * 3 + (ax * az) / 5 + twist), colors.size()); // jagged nested rings
             }
             DyeColor color = colors.get(Math.floorMod(index + offset, colors.size()));
             BlockState newState = BlockPartyColors.getConcrete(color).defaultBlockState();
