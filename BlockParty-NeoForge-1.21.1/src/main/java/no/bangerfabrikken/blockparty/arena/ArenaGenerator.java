@@ -24,7 +24,7 @@ import java.util.Random;
 public final class ArenaGenerator {
     public static final int MIN_SIZE = 24;
     public static final int MAX_SIZE = 50;
-    public static final int DEFAULT_SIZE = 39;
+    public static final int DEFAULT_SIZE = 40;
     public static final int SPECTATOR_HEIGHT = 4;
 
     private static final int PIT_DEPTH = 14;
@@ -42,8 +42,6 @@ public final class ArenaGenerator {
                          float lobbyYaw, float lobbyPitch) { }
 
     public static Result generate(ServerLevel level, BlockPos playerPosition, int size) {
-        // Both BlockParty maps use one fixed playable footprint.
-        size = DEFAULT_SIZE;
         if (size < MIN_SIZE || size > MAX_SIZE) {
             throw new IllegalArgumentException("Gulvstørrelsen må være mellom " + MIN_SIZE + " og " + MAX_SIZE + " blokker.");
         }
