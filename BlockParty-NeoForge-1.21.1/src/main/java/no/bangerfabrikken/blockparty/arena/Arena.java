@@ -3745,6 +3745,14 @@ public final class Arena {
     public void setLoadedCorners(BlockPos first, BlockPos second) {
         this.pos1 = first;
         this.pos2 = second;
+        // Existing Xmas worlds store only the original 40x40 floor corners.
+        // Include the adjacent candy-cane trim row in the live playable bounds
+        // without requiring players to regenerate the map or edit its config.
+        if ("xmas".equals(id) && first != null && second != null
+                && Math.abs(first.getZ() - second.getZ()) == 39) {
+            if (first.getZ() > second.getZ()) this.pos1 = first.offset(0, 0, 1);
+            else this.pos2 = second.offset(0, 0, 1);
+        }
     }
 
     public void setLoadedDisplayCenter(BlockPos displayCenter) {
