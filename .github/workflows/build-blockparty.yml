@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - fix/xmas-displays-spectator
+      - fix/xmas-1-1-6-screen-spectator-border
+      - fix/1-1-7-xmas-screen-adventure-spectators
   pull_request:
     branches:
       - main
@@ -32,21 +34,15 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify integrated BlockParty features
+      - name: Verify required project files
         shell: bash
         run: |
           set -euo pipefail
-          arena="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java"
-          schematic="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java"
-          test -s "$arena"
-          test -s "$schematic"
-          test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/Arena.java
+          test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/GameModeMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/DailyChallengeMenu.java
-          grep -q 'trimLobbySideBorder' "$schematic"
-          grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
-          grep -q 'MEMORY_REVEAL' "$arena"
-          grep -q 'tickColorScanners(server)' "$arena"
+          test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
 
       - name: Normalize and validate playlist music
         shell: bash

@@ -258,5 +258,95 @@
         "volume": 1
       }
     ]
+  },
+  "ambient_christmas": {
+    "subtitle": "subtitles.blockparty.ambient_christmas",
+    "sounds": [
+      {
+        "name": "blockparty:music/ambient_christmas",
+        "stream": true,
+        "volume": 0.42
+      }
+    ]
+  },
+  "music_andy_most_wonderful": {
+    "subtitle": "subtitles.blockparty.music_andy_most_wonderful",
+    "sounds": [
+      {
+        "name": "blockparty:music/andy_most_wonderful",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_mariah_all_i_want": {
+    "subtitle": "subtitles.blockparty.music_mariah_all_i_want",
+    "sounds": [
+      {
+        "name": "blockparty:music/mariah_all_i_want",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_prebz_nissen_skarpe": {
+    "subtitle": "subtitles.blockparty.music_prebz_nissen_skarpe",
+    "sounds": [
+      {
+        "name": "blockparty:music/prebz_nissen_skarpe",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_prebz_la_det_sno": {
+    "subtitle": "subtitles.blockparty.music_prebz_la_det_sno",
+    "sounds": [
+      {
+        "name": "blockparty:music/prebz_la_det_sno",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_wham_last_christmas": {
+    "subtitle": "subtitles.blockparty.music_wham_last_christmas",
+    "sounds": [
+      {
+        "name": "blockparty:music/wham_last_christmas",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_bobby_jingle_bell_rock": {
+    "subtitle": "subtitles.blockparty.music_bobby_jingle_bell_rock",
+    "sounds": [
+      {
+        "name": "blockparty:music/bobby_jingle_bell_rock",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_travellin_spikk_a_bitte_little": {
+    "subtitle": "subtitles.blockparty.music_travellin_spikk_a_bitte_little",
+    "sounds": [
+      {
+        "name": "blockparty:music/travellin_spikk_a_bitte_little",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_per_asplin_spikke_sage_lime_banke": {
+    "subtitle": "subtitles.blockparty.music_per_asplin_spikke_sage_lime_banke",
+    "sounds": [
+      {
+        "name": "blockparty:music/per_asplin_spikke_sage_lime_banke",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }

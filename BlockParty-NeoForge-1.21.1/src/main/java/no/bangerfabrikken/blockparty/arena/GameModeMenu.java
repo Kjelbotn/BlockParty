@@ -39,12 +39,15 @@ final class GameModeMenu extends ChestMenu {
         }
 
         Arena.GameMode current = arena.getPreferredGameMode(viewer.getUUID());
-        add(4, Items.COMPASS, "CHOOSE GAME MODE",
-                "Valget til flertallet bestemmer neste match.");
-        add(11, Items.NETHER_STAR, (current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
-                "Vanlig BlockParty: se målfargen og finn riktig concrete.");
-        add(15, Items.ENDER_EYE, (current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
-                "Se fargene i fem sekunder. Gulvet blir grått; husk hvor målfargen var!");
+        boolean hasVoted = arena.hasGameModeVote(viewer.getUUID());
+        int classicVotes = arena.getGameModeVoteCount(Arena.GameMode.CLASSIC);
+        int memoryVotes = arena.getGameModeVoteCount(Arena.GameMode.MEMORY);
+        add(4, Items.COMPASS, "VOTE: GAME MODE",
+                "Flest stemmer vinner. Stemmer nullstilles etter hver match.");
+        add(11, Items.NETHER_STAR, (hasVoted && current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
+                "Vanlig BlockParty. Stemmer: " + classicVotes + ".");
+        add(15, Items.BOOK, (hasVoted && current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
+                "5s memorering, 7s grått gulv + 2s varsel. Stemmer: " + memoryVotes + ".");
     }
 
     private ItemStack pane(net.minecraft.world.item.Item item) {

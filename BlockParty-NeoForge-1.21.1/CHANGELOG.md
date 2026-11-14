@@ -1,3 +1,63 @@
+# BlockParty 1.4.5 — Public voting and combined vote countdown
+
+- Announced each player's selected song and game mode in the lobby chat, including when a vote is changed.
+- The 10-second lobby countdown now starts only after at least two distinct players have each voted for both a song and a game mode.
+- Song and game-mode voting remain open during the countdown; the latest votes determine the selected song and winning mode.
+
+# BlockParty 1.4.4 — Xmas lobby ambience and Memory Mode icon
+
+- Added client-controlled looping ambient music when a player enters the Xmas lobby with `/bp xmas`; it stops when they leave, is replaced by match music during a game, and resumes when the match returns players to the lobby.
+- Registered the `blockparty_music:ambient_christmas` sound event at a gentle volume. The ambient OGG asset will be added when supplied.
+- Changed the Memory Mode voting icon from an Ender Eye to a Book.
+
+# BlockParty 1.4.3 — Preserve custom arena decorations
+
+- Prevented `/bp generate <id>` and `/bp xmas generate` from rebuilding an already registered arena, protecting custom lobby and arena decorations from accidental overwrites.
+- Clarified that ordinary JAR updates do not require arena regeneration; `/bp demolish <id>` remains the explicit destructive operation and removes custom builds in that footprint.
+
+# BlockParty 1.4.2 — Festive Xmas floor patterns
+
+- Added six dedicated Xmas pixel-art floor patterns: Christmas tree, candy-cane stripes, five-point star, snowflake, presents, and wreath.
+- Festive motifs use concrete colours and preserve the exact 40×40 playable floor; regular geometric patterns remain in rotation between festive rounds.
+
+# BlockParty 1.4.1 — Xmas right-edge playability and stable lobby items
+
+- Corrected the X/Z coordinate order when detecting the red/white border around the Xmas floor, preventing the 40×40 playfield from being shifted away from the final playable row beside the right wall.
+- Removed recurring lobby-item name normalization from the once-per-second lobby check to avoid unnecessary inventory updates during countdown.
+
+# BlockParty 1.4.0 — Exact Xmas floor boundary alignment
+
+- Anchored the Xmas 40×40 playable area to the red/white candy-cane border outside the floor, preventing the left and bottom dead border from being included while preserving the final playable row beside the right wall.
+
+# BlockParty 1.3.9 — Xmas spectator-edge tiles and stable lobby inventory
+
+- Kept the full 40×40 Xmas floor playable, including the edge tiles beside the spectator houses; removed the schematic-generation trimming that could exclude those blocks.
+- Prevented unnecessary full inventory synchronization during the once-per-second lobby item check, which caused lobby items to blink.
+
+# BlockParty 1.3.8 — Music voting layout and exact Xmas floor bounds
+
+- Reordered both lobby music voting boards so tracks 01–05 render in the left column and 06–10 in the right column. Moved the most-voted track panel to the far-left side, clear of the song list.
+- Removed the extra striped edge row from the Xmas dance-floor schematic placement and stopped expanding the configured floor bounds. The playable dance floor is exactly 40×40 blocks (1,600 tiles); every tile in those bounds is captured and participates in normal round recolouring and safe-tile checks.
+
+# BlockParty 1.3.7 — Xmas floor edge and music board fixes
+
+- The extra concrete row on the +Z edge of the Xmas dance floor is now included in the live floor bounds even when corners come from legacy/manual configuration. It is captured with the rest of the floor and participates in normal colour patterns, target checks and safe-tile selection.
+- Corrected the horizontal placement of the Xmas side-facing lobby music-voting layout so the playlist, song columns and most-voted panel read in the intended left-to-right order. Classic layout remains unchanged.
+
+# BlockParty 1.3.6 — Correct Xmas lobby music playlist order
+
+- Fixed the Xmas side-facing lobby screen so song 01 appears at the upper left and the playlist continues down the left column before continuing in the right column. Classic keeps its own corrected screen orientation.
+
+# BlockParty 1.3.5 — Correct lobby music playlist order
+
+- Fixed the main-lobby music voting display so song 01 starts at the upper-left position, with the list continuing down the left column and then down the right column. Applied to both arena maps.
+
+# BlockParty 1.3.4 — Xmas podium removal and faster Memory Mode
+
+- Removed the winner podium presentation from the Xmas variant only. Classic keeps its existing podium, winner teleport, freeze and fireworks.
+- Memory Mode's gray-floor find phase starts at 8 seconds and decreases by 0.5 seconds every two rounds, down to the existing 2-second minimum.
+- The Memory Mode memorization/reveal duration is unchanged.
+
 # BlockParty 1.1.0 — Memory Mode, Daily Challenges and polish
 
 - Added Memory Mode as an alternative to Classic. The floor colours are shown for five seconds, then hidden as gray concrete; players must remember where the announced target colour was. The server retains the original floor pattern for fair validation.

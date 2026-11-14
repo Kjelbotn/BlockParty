@@ -43,6 +43,15 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_SUR_MUS = musicSound("music_luxus_leverpostei_sur_mus");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR = musicSound("music_oingo_boingo_little_girls_pedobear");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_INNI_HODET_DITT = musicSound("music_inni_hodet_ditt");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_AMBIENT = musicSound("ambient_christmas");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_ANDY_MOST_WONDERFUL = musicSound("music_andy_most_wonderful");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_MARIAH_ALL_I_WANT = musicSound("music_mariah_all_i_want");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_PREBZ_NISSEN = musicSound("music_prebz_nissen_skarpe");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_PREBZ_LA_DET_SNO = musicSound("music_prebz_la_det_sno");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_WHAM_LAST_CHRISTMAS = musicSound("music_wham_last_christmas");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_BOBBY_JINGLE_BELL = musicSound("music_bobby_jingle_bell_rock");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_TRAVELLIN_SPIKK = musicSound("music_travellin_spikk_a_bitte_little");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_PER_ASPLIN_SPIKKE = musicSound("music_per_asplin_spikke_sage_lime_banke");
 
     /** Eight pre-registered extension slots. Add tracks through music_playlist.json without touching Java. */
     public static final java.util.List<DeferredHolder<SoundEvent, SoundEvent>> CUSTOM_MUSIC_SOUNDS =

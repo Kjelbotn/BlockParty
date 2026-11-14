@@ -116,7 +116,9 @@ public final class BlockPartyMod {
         String raw = event.getParseResults().getReader().getString().trim();
         String normalized = raw.startsWith("/") ? raw.substring(1).trim() : raw;
         String root = normalized.split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
-        boolean allowed = root.equals("bp");
+        boolean isOperator = player.hasPermissions(2);
+        boolean isGameModeCommand = root.equals("gamemode") || root.equals("minecraft:gamemode");
+        boolean allowed = root.equals("bp") || (isOperator && isGameModeCommand);
         if (!allowed) {
             event.setCanceled(true);
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(

@@ -1,3 +1,8 @@
+# BlockParty 1.4.7
+
+- Fixed the Xmas arena screen entity lookup so persisted displays are found across the full world height instead of being respawned every 20 ticks.
+- Retained the separate eight-track Xmas playlist and its own voting catalogue.
+
 # BlockParty 0.5.0-alpha
 
 - Classic Mode remains the only available game mode; Hardcore Mode is intentionally deferred.
