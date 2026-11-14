@@ -1166,23 +1166,24 @@ public final class Arena {
         // Text Display remains saved in the world.
         AABB area = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
                 maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
-        Display.TextDisplay keeper = null;
+        boolean displayAlreadyCorrect = false;
+        String expectedTextJson = Component.Serializer.toJson(displayText, level.registryAccess());
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
         for (Display.TextDisplay old : existing) {
             boolean correctlyPlaced = Math.abs(old.getX() - x) < 0.75
                     && Math.abs(old.getY() - y) < 0.75
                     && Math.abs(old.getZ() - z) < 0.75;
-            if (correctlyPlaced && keeper == null) {
-                keeper = old;
-                // Update the existing entity in-place when the target text changes.
-                keeper.setText(displayText);
+            String savedText = old.saveWithoutId(new net.minecraft.nbt.CompoundTag()).getString("text");
+            boolean textMatches = expectedTextJson.equals(savedText);
+            if (correctlyPlaced && textMatches && !displayAlreadyCorrect) {
+                displayAlreadyCorrect = true;
             } else {
-                // Remove misplaced displays and any duplicates left by earlier versions.
+                // Remove misplaced displays, stale text, and duplicates left by earlier versions.
                 old.discard();
             }
         }
-        if (keeper != null) return;
+        if (displayAlreadyCorrect) return;
 
         // Yaw 0 faces south (+Z), toward players standing on the dance floor.
         Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
