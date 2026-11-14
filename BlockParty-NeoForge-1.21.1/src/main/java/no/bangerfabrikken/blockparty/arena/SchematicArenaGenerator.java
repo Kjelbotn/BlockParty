@@ -65,6 +65,19 @@ public final class SchematicArenaGenerator {
         }
 
         FloorRegion floor = findDanceFloor(schematic);
+        // The source Xmas schematic contains a 40x40 concrete patch. The playable
+        // footprint is exactly 39x39, so remove the extra far X/Z edge tiles instead
+        // of leaving a stray concrete strip outside the registered arena bounds.
+        int extraX = floor.minX + FLOOR_SIZE;
+        int extraZ = floor.minZ + FLOOR_SIZE;
+        for (int offset = 0; offset < FLOOR_SIZE; offset++) {
+            BlockPos extraAlongX = origin.offset(extraX, floor.y, floor.minZ + offset);
+            BlockPos extraAlongZ = origin.offset(floor.minX + offset, floor.y, extraZ);
+            if (CONCRETE_BLOCKS.contains(level.getBlockState(extraAlongX).getBlock()))
+                level.setBlock(extraAlongX, Blocks.AIR.defaultBlockState(), 3);
+            if (CONCRETE_BLOCKS.contains(level.getBlockState(extraAlongZ).getBlock()))
+                level.setBlock(extraAlongZ, Blocks.AIR.defaultBlockState(), 3);
+        }
         // The dance floor must be a true fall-through platform when its concrete is
         // removed. Clear only snow directly beneath the 40x40 playable tiles; preserve
         // all natural terrain and non-snow supports below the map.
@@ -194,8 +207,8 @@ public final class SchematicArenaGenerator {
             }
         }
         if (best == null || bestConcrete != FLOOR_SIZE * FLOOR_SIZE || bestColors < 4) {
-            throw new IOException("Fant ikke et komplett 40x40 dansegulv av farget concrete i Xmas-schematicen ("
-                    + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
+            throw new IOException("Fant ikke et komplett 39x39 dansegulv av farget concrete i Xmas-schematicen ("
+                    + bestConcrete + "/1521 blokker, " + bestColors + " farger).");
         }
         return best;
     }
@@ -280,7 +293,7 @@ public final class SchematicArenaGenerator {
         BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15);
         int maxX = floor.minX + FLOOR_SIZE - 1;
         int maxZ = floor.minZ + FLOOR_SIZE - 1;
-        // Even light coverage over all 1600 playable concrete tiles.
+        // Even light coverage over all 1521 playable concrete tiles.
         for (int x = floor.minX + 2; x <= maxX - 1; x += 4) {
             for (int z = floor.minZ + 2; z <= maxZ - 1; z += 4) {
                 for (int yOffset : new int[]{5, 9}) {
