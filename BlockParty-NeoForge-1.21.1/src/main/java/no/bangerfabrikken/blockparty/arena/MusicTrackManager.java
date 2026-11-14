@@ -71,6 +71,14 @@ public final class MusicTrackManager {
                     BlockPartyMod.LOGGER.warn("Skipping duplicate {} music track '{}'.", playlistId, id);
                     continue;
                 }
+                // A registered SoundEvent is not enough: Minecraft also needs the
+                // referenced OGG under assets/blockparty/sounds/music. Missing OGGs
+                // previously remained selectable and then played as silence.
+                if (!hasBundledAudio(id)) {
+                    BlockPartyMod.LOGGER.warn("Skipping {} track '{}' because its audio file is missing: assets/blockparty/sounds/music/{}.ogg",
+                            playlistId, id, id);
+                    continue;
+                }
                 ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath(
                         ModSounds.MUSIC_NAMESPACE, "music_" + id);
                 if (BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isEmpty()) {
@@ -84,6 +92,16 @@ public final class MusicTrackManager {
             }
         } catch (Exception exception) {
             BlockPartyMod.LOGGER.error("Could not load BlockParty {} playlist.", playlistId, exception);
+        }
+    }
+
+    private static boolean hasBundledAudio(String id) {
+        String resource = "/assets/blockparty/sounds/music/" + id + ".ogg";
+        try (InputStream input = MusicTrackManager.class.getResourceAsStream(resource)) {
+            return input != null;
+        } catch (Exception exception) {
+            BlockPartyMod.LOGGER.warn("Could not verify BlockParty audio resource {}.", resource, exception);
+            return false;
         }
     }
 
