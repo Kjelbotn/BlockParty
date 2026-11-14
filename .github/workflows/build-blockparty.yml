@@ -79,31 +79,31 @@ jobs:
               if len(tracks) > 27:
                   raise SystemExit(f"{playlist_path.name} has {len(tracks)} tracks; the voting menu supports 27")
               for entry in tracks:
-              if not isinstance(entry, dict):
-                  raise SystemExit("Every playlist track must be a JSON object")
-              track_id = entry.get("id", "")
-              if not isinstance(track_id, str) or not re.fullmatch(r"[a-z0-9_]{1,48}", track_id):
-                  raise SystemExit(f"Invalid track id: {track_id!r}")
-              if track_id in seen:
-                  raise SystemExit(f"Duplicate track id across playlists: {track_id}")
-              seen.add(track_id)
-              for field in ("name", "artist"):
-                  if not isinstance(entry.get(field), str) or not entry[field].strip():
-                      raise SystemExit(f"Track {track_id} needs a non-empty {field}")
-              bpm = entry.get("bpm", 0)
-              if not isinstance(bpm, int) or bpm < 0 or bpm > 400:
-                  raise SystemExit(f"Track {track_id} has an invalid bpm value: {bpm!r}")
-              audio_file = music_dir / f"{track_id}.ogg"
-              if not audio_file.is_file() or audio_file.stat().st_size == 0:
-                  raise SystemExit(f"Missing or empty playlist audio file: {audio_file}")
-              event_name = f"music_{track_id}"
-              event = sound_events.get(event_name)
-              if event is None:
-                  raise SystemExit(f"Missing registered sound definition: {event_name}")
-              names = [sound.get("name") for sound in event.get("sounds", []) if isinstance(sound, dict)]
-              if f"blockparty:music/{track_id}" not in names:
-                  raise SystemExit(f"{event_name} must map to blockparty:music/{track_id}")
-              print(track_id)
+                  if not isinstance(entry, dict):
+                      raise SystemExit("Every playlist track must be a JSON object")
+                  track_id = entry.get("id", "")
+                  if not isinstance(track_id, str) or not re.fullmatch(r"[a-z0-9_]{1,48}", track_id):
+                      raise SystemExit(f"Invalid track id: {track_id!r}")
+                  if track_id in seen:
+                      raise SystemExit(f"Duplicate track id across playlists: {track_id}")
+                  seen.add(track_id)
+                  for field in ("name", "artist"):
+                      if not isinstance(entry.get(field), str) or not entry[field].strip():
+                          raise SystemExit(f"Track {track_id} needs a non-empty {field}")
+                  bpm = entry.get("bpm", 0)
+                  if not isinstance(bpm, int) or bpm < 0 or bpm > 400:
+                      raise SystemExit(f"Track {track_id} has an invalid bpm value: {bpm!r}")
+                  audio_file = music_dir / f"{track_id}.ogg"
+                  if not audio_file.is_file() or audio_file.stat().st_size == 0:
+                      raise SystemExit(f"Missing or empty playlist audio file: {audio_file}")
+                  event_name = f"music_{track_id}"
+                  event = sound_events.get(event_name)
+                  if event is None:
+                      raise SystemExit(f"Missing registered sound definition: {event_name}")
+                  names = [sound.get("name") for sound in event.get("sounds", []) if isinstance(sound, dict)]
+                  if f"blockparty:music/{track_id}" not in names:
+                      raise SystemExit(f"{event_name} must map to blockparty:music/{track_id}")
+                  print(track_id)
 
           # All eight custom slots are pre-wired and ready to use. Only slots listed
           # in music_playlist.json become selectable songs.
