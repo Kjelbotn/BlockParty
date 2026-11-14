@@ -1598,7 +1598,8 @@ public final class Arena {
         }
         if (!isHubItem(player.getInventory().getItem(6))) player.getInventory().setItem(6, createHubItem());
         ensureLeaveLobbyItem(player);
-        normalizeLobbyItemNames(player);
+        // Keep lobby controls stable during countdown; do not re-normalize and resend
+        // their inventory every second. Newly created controls already use current labels.
         if (hasLobbyItem(player, Arena::isJoinGameItem)) {
             fullLobbyInventoryNotices.remove(player.getUUID());
         }
