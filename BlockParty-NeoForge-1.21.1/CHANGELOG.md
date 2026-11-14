@@ -1,3 +1,8 @@
+# BlockParty 1.4.1 — Xmas right-edge playability and stable lobby items
+
+- Corrected the X/Z coordinate order when detecting the red/white border around the Xmas floor, preventing the 40×40 playfield from being shifted away from the final playable row beside the right wall.
+- Removed recurring lobby-item name normalization from the once-per-second lobby check to avoid unnecessary inventory updates during countdown.
+
 # BlockParty 1.4.0 — Exact Xmas floor boundary alignment
 
 - Anchored the Xmas 40×40 playable area to the red/white candy-cane border outside the floor, preventing the left and bottom dead border from being included while preserving the final playable row beside the right wall.
