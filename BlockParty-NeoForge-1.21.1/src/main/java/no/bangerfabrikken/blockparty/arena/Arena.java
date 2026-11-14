@@ -1216,13 +1216,11 @@ public final class Arena {
         // The rainbow heading is the only idle/ lobby title. Do not create the
         // legacy pink BLOCKPARTY / MEMORY MODE fallback underneath it.
         if (!showTarget) {
-            // Clear the previous target once when the target phase ends. The
-            // fixed rainbow heading remains untouched while the board is idle.
-            if (lastXmasScreenText != null) {
-                for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                        entity -> entity.getTags().contains(tag))) old.discard();
-                lastXmasScreenText = null;
-            }
+            // Remove any previous-version or pre-restart target display. This
+            // path runs only on an arena state event, never from a timer.
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag))) old.discard();
+            lastXmasScreenText = null;
             return;
         }
 
