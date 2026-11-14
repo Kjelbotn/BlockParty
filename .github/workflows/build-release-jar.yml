@@ -8,6 +8,7 @@ on:
     branches:
       - feature/xmas-arena
       - fix/1-1-7-xmas-screen-adventure-spectators
+      - fix/xmas-display-entity-fps-1-4-8
 
 permissions:
   contents: read
