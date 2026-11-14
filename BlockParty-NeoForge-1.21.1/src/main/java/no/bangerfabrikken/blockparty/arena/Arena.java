@@ -1183,6 +1183,18 @@ public final class Arena {
                 maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
         boolean displayAlreadyCorrect = false;
         String expectedTextJson = Component.Serializer.toJson(displayText, level.registryAccess());
+        // Keep a permanent BLOCKPARTY heading separate from the changing round target.
+        String headingTag = "bp_target_" + id + "_heading";
+        List<Display.TextDisplay> headings = level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                entity -> entity.getTags().contains(headingTag));
+        if (headings.isEmpty()) {
+            BlockPartyText.spawnTextDisplay(level, x, y + 1.65, z, 0.0F,
+                    Component.literal("BLOCKPARTY").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
+                    5.0F, headingTag);
+        } else {
+            for (int i = 1; i < headings.size(); i++) headings.get(i).discard();
+        }
+
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
         for (Display.TextDisplay old : existing) {
