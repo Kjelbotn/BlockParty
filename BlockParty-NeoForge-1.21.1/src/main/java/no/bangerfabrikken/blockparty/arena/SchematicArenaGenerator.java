@@ -86,7 +86,7 @@ public final class SchematicArenaGenerator {
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
-                floor.minZ + FLOOR_SIZE);
+                floor.minZ + FLOOR_SIZE - 1);
         int centerX = floor.minX + FLOOR_SIZE / 2;
         // Dedicated Xmas target-screen anchor: vertical centre of the large white panel.
         // The display is placed one block toward the dance floor (+Z) and faces south,
