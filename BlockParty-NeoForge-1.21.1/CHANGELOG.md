@@ -1,3 +1,8 @@
+# BlockParty 1.3.7 — Xmas floor edge and music board fixes
+
+- The extra concrete row on the +Z edge of the Xmas dance floor is now included in the live floor bounds even when corners come from legacy/manual configuration. It is captured with the rest of the floor and participates in normal colour patterns, target checks and safe-tile selection.
+- Corrected the horizontal placement of the Xmas side-facing lobby music-voting layout so the playlist, song columns and most-voted panel read in the intended left-to-right order. Classic layout remains unchanged.
+
 # BlockParty 1.3.6 — Correct Xmas lobby music playlist order
 
 - Fixed the Xmas side-facing lobby screen so song 01 appears at the upper left and the playlist continues down the left column before continuing in the right column. Classic keeps its own corrected screen orientation.
