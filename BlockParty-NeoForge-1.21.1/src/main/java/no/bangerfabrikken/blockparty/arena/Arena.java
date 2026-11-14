@@ -84,6 +84,8 @@ public final class Arena {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN
     }
 
+    private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
+
     public static final int MAX_ROUNDS = 25;
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 10;
@@ -448,6 +450,9 @@ public final class Arena {
         applyVisualUpgrade();
         teleportToLobby(player);
         ensureLobbyItems(player);
+        if (firstLobbyEntry && "xmas".equals(id)) {
+            sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
+        }
         player.sendSystemMessage(Component.literal("Velkommen til BlockParty! Trykk Nether Star når du vil melde deg på.")
                 .withStyle(ChatFormatting.GREEN));
         if (firstLobbyEntry) announceLobbyJoin(player);
@@ -519,6 +524,9 @@ public final class Arena {
         if (wasMember && activeMusicId != null) {
             PacketDistributor.sendToPlayer(player,
                     new MusicControlPayload(activeMusicId, MusicControlPayload.STOP));
+        }
+        if (wasMember && "xmas".equals(id)) {
+            sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.STOP);
         }
         players.remove(uuid);
         preferredGameModes.remove(uuid);
@@ -1510,6 +1518,11 @@ public final class Arena {
         activeMusicId = null;
         musicTicksRemaining = 0;
         musicPaused = false;
+    }
+
+    private void sendMusicControl(ServerPlayer player, ResourceLocation soundId, int action) {
+        if (player == null) return;
+        PacketDistributor.sendToPlayer(player, new MusicControlPayload(soundId, action));
     }
 
     private void sendMusicControl(int action) {
@@ -3419,6 +3432,9 @@ public final class Arena {
             player.getInventory().setItem(0, createJoinGameItem());
             player.getInventory().setItem(6, createHubItem());
             teleportToLobby(player);
+            if ("xmas".equals(id)) {
+                sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
+            }
             int podiumRank = lastPodiumPlayers.indexOf(uuid);
             if (matchWinnerId != null && podiumRank >= 0 && !"xmas".equals(id)) teleportPlayerToPodium(player, podiumRank);
             // Non-podium participants can leave immediately. Podium finishers receive
