@@ -1,3 +1,7 @@
+# BlockParty 1.4.0 — Exact Xmas floor boundary alignment
+
+- Anchored the Xmas 40×40 playable area to the red/white candy-cane border outside the floor, preventing the left and bottom dead border from being included while preserving the final playable row beside the right wall.
+
 # BlockParty 1.3.9 — Xmas spectator-edge tiles and stable lobby inventory
 
 - Kept the full 40×40 Xmas floor playable, including the edge tiles beside the spectator houses; removed the schematic-generation trimming that could exclude those blocks.
