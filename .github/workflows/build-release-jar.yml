@@ -39,7 +39,12 @@ jobs:
           test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
           grep -q 'trimLobbySideBorder' "$schematic"
           grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
-          grep -q 'MEMORY_REVEAL_TICKS' "$arena"
+          grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
+          grep -q 'getMemoryFindDurationTicks(round)' "$arena"
+          grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
+          grep -q 'Find: ' "$arena"
+          grep -q 'stemte på' "$arena"
+          grep -q 'MEMORY_FINAL_COUNTDOWN' "$arena" && exit 1 || true
           grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
           grep -q 'eliminatedPlayers.add(uuid)' "$arena"
           grep -q 'GameType.ADVENTURE' "$arena"
@@ -48,7 +53,8 @@ jobs:
           grep -q 'memoryRevealTarget' "$arena"
           grep -q 'fallThreshold' "$arena"
           grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
-          grep -q 'mod_version=1.3.0' BlockParty-NeoForge-1.21.1/gradle.properties
+          grep -q 'player.hasPermissions(2)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/BlockPartyMod.java
+          grep -q 'mod_version=1.3.1' BlockParty-NeoForge-1.21.1/gradle.properties
 
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
@@ -78,6 +84,6 @@ jobs:
       - name: Upload release JAR
         uses: actions/upload-artifact@v4
         with:
-          name: BlockParty-1.3.0-JAR
+          name: BlockParty-1.3.1-JAR
           path: BlockParty-NeoForge-1.21.1/build/libs/*.jar
           if-no-files-found: error
