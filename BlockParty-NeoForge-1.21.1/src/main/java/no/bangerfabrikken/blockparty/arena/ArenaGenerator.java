@@ -42,6 +42,8 @@ public final class ArenaGenerator {
                          float lobbyYaw, float lobbyPitch) { }
 
     public static Result generate(ServerLevel level, BlockPos playerPosition, int size) {
+        // Both BlockParty maps use one fixed playable footprint.
+        size = DEFAULT_SIZE;
         if (size < MIN_SIZE || size > MAX_SIZE) {
             throw new IllegalArgumentException("Gulvstørrelsen må være mellom " + MIN_SIZE + " og " + MAX_SIZE + " blokker.");
         }
