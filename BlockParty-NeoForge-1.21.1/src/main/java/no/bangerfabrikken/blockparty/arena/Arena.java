@@ -1214,7 +1214,7 @@ public final class Arena {
         if (keeper != null) {
             // Update only the text component when the round target changes.
             // The Text Display entity itself remains in the world.
-            keeper.setText(displayText);
+            BlockPartyText.updateTextDisplay(keeper, level, displayText, 16.0F);
             lastXmasScreenText = text;
             return;
         }
