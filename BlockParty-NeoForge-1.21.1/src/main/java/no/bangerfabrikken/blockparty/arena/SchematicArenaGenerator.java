@@ -192,8 +192,8 @@ public final class SchematicArenaGenerator {
                     // drops the playable row beside the right-hand wall. Anchor the
                     // actual playfield by looking for the candy-cane trim immediately
                     // OUTSIDE two adjoining sides of the candidate square.
-                    int left = countCandyBorder(schematic, x - 1, z, y, false);
-                    int right = countCandyBorder(schematic, x + FLOOR_SIZE, z, y, false);
+                    int left = countCandyBorder(schematic, z, x - 1, y, false);
+                    int right = countCandyBorder(schematic, z, x + FLOOR_SIZE, y, false);
                     int near = countCandyBorder(schematic, x, z - 1, y, true);
                     int far = countCandyBorder(schematic, x, z + FLOOR_SIZE, y, true);
                     int borderScore = Math.max(Math.max(left + near, left + far),
