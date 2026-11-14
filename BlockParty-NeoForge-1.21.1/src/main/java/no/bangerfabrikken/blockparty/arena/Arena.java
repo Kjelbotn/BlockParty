@@ -144,6 +144,7 @@ public final class Arena {
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
     private String lastXmasScreenText;
+    private String lastXmasDjScreenSignature;
     private BlockPos lobbyScreenCenter;
     private float lobbyScreenYaw = 180.0F;
     private double lobbyX;
@@ -887,13 +888,22 @@ public final class Arena {
     private void refreshDjScreen() {
         if (level == null || !lobbySet) return;
         String tag = "bp_dj_" + id;
-        if ("xmas".equals(id)) {
+        boolean xmasScreen = "xmas".equals(id);
+        if (xmasScreen) {
+            // The lobby screen refreshes frequently. Rebuilding every TextDisplay on
+            // every refresh creates entity churn and causes avoidable client FPS drops.
+            // Only redraw when the phase, playlist, or vote state actually changes.
+            String signature = phase.name() + "|" + MusicTrackManager.getTracks(id) + "|" + musicVotes;
+            if (signature.equals(lastXmasDjScreenSignature)) return;
             AABB fullMap = new AABB(lobbyX - 75, lobbyY - 30, lobbyZ - 125,
                     lobbyX + 75, lobbyY + 45, lobbyZ + 45);
-            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, fullMap,
-                    entity -> entity.getTags().contains(tag)
-                            || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
-            if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
+            if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+                for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, fullMap,
+                        entity -> entity.getTags().contains(tag)
+                                || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
+                lastXmasDjScreenSignature = signature;
+                return;
+            }
         }
         boolean customScreen = lobbyScreenCenter != null;
         int centerX = customScreen ? lobbyScreenCenter.getX() : (int) Math.floor(lobbyX);
@@ -913,9 +923,11 @@ public final class Arena {
         // The complete display is constrained to a 38-wide by 9-high black panel.
         AABB area = new AABB(centerX - 22, screenBaseY - 10, wallZ - 22,
                 centerX + 22, screenBaseY + 4, wallZ + 22);
-        for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag)
-                        || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
+        if (!xmasScreen) {
+            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                    entity -> entity.getTags().contains(tag)
+                            || entity.getTags().stream().anyMatch(t -> t.startsWith("bp_dj_" + id)))) old.discard();
+        }
 
         double[] heading = screenPoint.apply(0.0);
         BlockPartyText.spawnTextDisplay(level, heading[0], screenBaseY + 0.25, heading[1],
@@ -965,6 +977,9 @@ public final class Arena {
             double[] more = screenPoint.apply(14.5);
             BlockPartyText.spawnTextDisplay(level, more[0], screenBaseY - 7.1, more[1], screenYaw,
                     Component.literal("+" + (catalogue.size() - visible) + " FLERE I HUB").withStyle(ChatFormatting.GRAY), 0.42F, tag);
+        }
+        if (xmasScreen) {
+            lastXmasDjScreenSignature = phase.name() + "|" + MusicTrackManager.getTracks(id) + "|" + musicVotes;
         }
     }
 
