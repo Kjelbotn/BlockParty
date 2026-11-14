@@ -1,3 +1,8 @@
+# BlockParty 1.4.3 — Preserve custom arena decorations
+
+- Prevented `/bp generate <id>` and `/bp xmas generate` from rebuilding an already registered arena, protecting custom lobby and arena decorations from accidental overwrites.
+- Clarified that ordinary JAR updates do not require arena regeneration; `/bp demolish <id>` remains the explicit destructive operation and removes custom builds in that footprint.
+
 # BlockParty 1.4.2 — Festive Xmas floor patterns
 
 - Added six dedicated Xmas pixel-art floor patterns: Christmas tree, candy-cane stripes, five-point star, snowflake, presents, and wreath.
