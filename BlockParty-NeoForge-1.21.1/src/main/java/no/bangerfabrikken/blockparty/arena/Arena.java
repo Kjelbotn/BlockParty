@@ -75,7 +75,7 @@ import java.util.UUID;
 
 public final class Arena {
     public enum Phase {
-        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, MEMORY_FIND, MEMORY_FINAL_COUNTDOWN, FINISHING
+        WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, MEMORY_FIND, FINISHING
     }
 
     public enum GameMode { CLASSIC, MEMORY }
@@ -95,9 +95,16 @@ public final class Arena {
     // included in the song-time budget. They remain fixed gameplay transitions.
     private static final int FALL_TICKS = 35;
     private static final int WAITING_FOR_COLOR_TICKS = 20; // One-second floor reveal between rounds
-    private static final int MEMORY_REVEAL_TICKS = 100; // 5 seconds to memorize the coloured floor
-    private static final int MEMORY_FIND_TICKS = 140; // 7 seconds to find the remembered colour
-    private static final int MEMORY_FINAL_COUNTDOWN_TICKS = 40; // 2-second warning before the floor disappears
+    private static final int MEMORY_REVEAL_TICKS = 100; // Starts at 5 seconds; shortens as the match progresses
+    private static final int MEMORY_FIND_START_TICKS = 160; // First round: 8 seconds to find the colour before the floor falls
+
+    private int getMemoryRevealDurationTicks(int roundNumber) {
+        return Math.max(40, MEMORY_REVEAL_TICKS - Math.max(0, roundNumber - 1) * 2);
+    }
+
+    private int getMemoryFindDurationTicks(int roundNumber) {
+        return Math.max(40, MEMORY_FIND_START_TICKS - Math.max(0, roundNumber - 1) * 5);
+    }
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
             120, 110, 110, 100, 100, 90, 90, 80, 80, 70,
@@ -1849,7 +1856,7 @@ public final class Arena {
             long classic = players.stream().filter(uuid -> preferredGameModes.get(uuid) == GameMode.CLASSIC).count();
             gameMode = memory > classic ? GameMode.MEMORY : GameMode.CLASSIC;
         }
-        broadcast(Component.literal(player.getGameProfile().getName() + " har valgt "
+        broadcast(Component.literal(player.getGameProfile().getName() + " stemte på "
                 + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
                 .withStyle(ChatFormatting.GRAY));
         refreshOpenMusicVotingMenus();
@@ -2337,24 +2344,12 @@ public final class Arena {
                 rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("FINN RIKTIG BLOKK!  " + (timerTicks / 20) + "  SEKUNDER")
+                    broadcastActionBar(Component.literal("FINN RIKTIG BLOKK! GULVET FALLER OM "
+                            + (timerTicks / 20) + " SEKUNDER")
                             .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
                 }
                 if (timerTicks <= 0) {
-                    phase = Phase.MEMORY_FINAL_COUNTDOWN;
-                    timerTicks = MEMORY_FINAL_COUNTDOWN_TICKS;
-                    broadcastActionBar(Component.literal("GULVET FORSVINNER OM 2 SEKUNDER!")
-                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-                }
-            }
-            case MEMORY_FINAL_COUNTDOWN -> {
-                rememberTargetContacts(server);
-                timerTicks--;
-                if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("GULVET FORSVINNER OM " + (timerTicks / 20) + "!")
-                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-                }
-                if (timerTicks <= 0) {
+                    // The find timer is also the floor-fall timer: no extra warning phase.
                     rememberTargetContacts(server);
                     resolveRound();
                 }
@@ -2474,7 +2469,7 @@ public final class Arena {
     /** Show the full, coloured floor for five seconds; the target stays server-side only. */
     private void startMemoryReveal(MinecraftServer server) {
         phase = Phase.MEMORY_REVEAL;
-        timerTicks = MEMORY_REVEAL_TICKS;
+        timerTicks = getMemoryRevealDurationTicks(round);
         // Clear any target-name hologram left by a previous Classic match.
         if (displayCenter != null) {
             AABB targetArea = new AABB(displayCenter.getX() - 64, displayCenter.getY() - 16, displayCenter.getZ() - 8,
@@ -2503,10 +2498,11 @@ public final class Arena {
     private void startMemoryFind(MinecraftServer server) {
         clearMemoryTargetItems(server);
         phase = Phase.MEMORY_FIND;
-        timerTicks = MEMORY_FIND_TICKS;
+        timerTicks = getMemoryFindDurationTicks(round);
         broadcast(Component.literal("Alle blokkene er grå! Finn og still deg på blokkene som hadde målfargen.")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        broadcastActionBar(Component.literal("FINN RIKTIG BLOKK!  7 SEKUNDER")
+        broadcastActionBar(Component.literal("FINN RIKTIG BLOKK! GULVET FALLER OM "
+                + formatSeconds(timerTicks) + " SEKUNDER")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         updateScoreboard(server);
     }
@@ -2680,23 +2676,14 @@ public final class Arena {
         // During a match, show points earned in this session rather than lifetime progression.
         int matchPoints = profilePlayer == null ? 0 : points.getOrDefault(profilePlayer.getUUID(), 0);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
-        String roundSpeed = phase == Phase.PREPARE
-                ? formatSeconds(Math.max(0, timerTicks)) + "s"
-                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..."
-                : phase == Phase.MEMORY_REVEAL ? "MEMORISE: " + formatSeconds(Math.max(0, timerTicks)) + "s"
-                : phase == Phase.MEMORY_FIND ? "FIND: " + formatSeconds(Math.max(0, timerTicks)) + "s"
-                : phase == Phase.MEMORY_FINAL_COUNTDOWN ? "FALL: " + formatSeconds(Math.max(0, timerTicks)) + "s"
-                : "--";
+        Component findLine = Component.literal("Find: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(targetColor == null ? "—"
+                        : BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                        .withStyle(targetColor == null ? ChatFormatting.WHITE : getTargetChatFormatting(targetColor)));
         String[] ids = {
                 "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
-                "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10"
+                "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9"
         };
-        Component roundLine = Component.literal("Round: ").withStyle(ChatFormatting.GRAY)
-                .append(Component.literal(Integer.toString(round)).withStyle(ChatFormatting.WHITE))
-                .append(Component.literal(" / ").withStyle(ChatFormatting.GRAY))
-                .append(Component.literal(Integer.toString(getMatchRoundLimit())).withStyle(ChatFormatting.GRAY));
-        Component speedLine = Component.literal("Round Speed: ").withStyle(ChatFormatting.GRAY)
-                .append(Component.literal(roundSpeed).withStyle(ChatFormatting.WHITE));
         Component pointsLine = Component.literal("Points: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(Integer.toString(matchPoints)).withStyle(ChatFormatting.WHITE));
         Component powerupsLine = Component.literal("Powerups: ").withStyle(ChatFormatting.GRAY)
@@ -2707,8 +2694,7 @@ public final class Arena {
                 Component.literal(alive.size() + " Dancers").withStyle(ChatFormatting.GRAY),
                 Component.literal(" "),
                 Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
-                roundLine,
-                speedLine,
+                findLine,
                 Component.literal(" "),
                 Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
                 pointsLine,
@@ -2721,6 +2707,7 @@ public final class Arena {
             score.numberFormatOverride(BlankFormat.INSTANCE);
         }
         // Remove old rows from the previous scoreboard layouts.
+        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_10"), sidebarObjective);
         scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_11"), sidebarObjective);
         scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_12"), sidebarObjective);
         scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_13"), sidebarObjective);
