@@ -2163,7 +2163,7 @@ public final class Arena {
         // the out-of-bounds elimination check. Start enforcing the arena bounds only
         // once the first round is actually active.
         if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_REVEAL
-                || phase == Phase.MEMORY_FIND || phase == Phase.MEMORY_FINAL_COUNTDOWN
+                || phase == Phase.MEMORY_FIND
                 || phase == Phase.WAITING_FOR_COLOR || phase == Phase.FINISHING) {
             // Leaving the playable floor is an elimination, not a vanilla fall death.
             // Check every active player independently of target-contact bookkeeping so
@@ -2177,8 +2177,7 @@ public final class Arena {
                 }
             }
         }
-        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND
-                || phase == Phase.MEMORY_FINAL_COUNTDOWN) recordTargetContacts(server);
+        if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
         if ("xmas".equals(id) && scoreboardTick % 20 == 0) refreshXmasArenaScreen();
         tickMusicEffects();
@@ -3603,7 +3602,7 @@ public final class Arena {
     private boolean isGameInProgress() {
         return phase == Phase.COUNTDOWN || phase == Phase.TELEPORT_COUNTDOWN || phase == Phase.PREPARE || phase == Phase.FALL
                 || phase == Phase.WAITING_FOR_COLOR || phase == Phase.MEMORY_REVEAL
-                || phase == Phase.MEMORY_FIND || phase == Phase.MEMORY_FINAL_COUNTDOWN || phase == Phase.FINISHING;
+                || phase == Phase.MEMORY_FIND || phase == Phase.FINISHING;
     }
 
     private static String formatSeconds(int ticks) {
