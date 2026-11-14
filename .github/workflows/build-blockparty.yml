@@ -48,8 +48,11 @@ jobs:
           grep -q 'trimLobbySideBorder' "$schematic"
           grep -q 'placeNonPlayableLobbyEdge' "$schematic"
           grep -q 'Blocks.BARRIER' "$schematic"
-          grep -q 'MEMORY_FIND_TICKS = 140' "$arena"
-          grep -q 'MEMORY_FINAL_COUNTDOWN_TICKS = 40' "$arena"
+          grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
+          grep -q 'getMemoryFindDurationTicks(round)' "$arena"
+          grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
+          grep -q 'Find: ' "$arena"
+          grep -q 'stemte på' "$arena"
           grep -q 'preferredGameModes.clear()' "$arena"
           grep -q 'showMemoryTargetToPlayers(server)' "$arena"
           grep -q 'HUSK DENNE FARGEN:' "$arena"
@@ -78,6 +81,7 @@ jobs:
           grep -q 'isInsideMainArenaScreenPanel(pos)' "$arena"
           grep -q 'support.is(Blocks.SNOW_BLOCK)' "$schematic"
           grep -q 'color == null || "xmas".equals(id)' "$arena"
+          grep -q 'player.hasPermissions(2)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/BlockPartyMod.java
 
       - name: Normalize and validate playlist music
         shell: bash
