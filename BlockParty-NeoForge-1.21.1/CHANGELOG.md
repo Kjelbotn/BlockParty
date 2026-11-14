@@ -1,3 +1,8 @@
+# BlockParty 1.4.2 — Festive Xmas floor patterns
+
+- Added six dedicated Xmas pixel-art floor patterns: Christmas tree, candy-cane stripes, five-point star, snowflake, presents, and wreath.
+- Festive motifs use concrete colours and preserve the exact 40×40 playable floor; regular geometric patterns remain in rotation between festive rounds.
+
 # BlockParty 1.4.1 — Xmas right-edge playability and stable lobby items
 
 - Corrected the X/Z coordinate order when detecting the red/white border around the Xmas floor, preventing the 40×40 playfield from being shifted away from the final playable row beside the right wall.
