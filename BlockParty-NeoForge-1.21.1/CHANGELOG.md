@@ -1,3 +1,9 @@
+# BlockParty 1.3.4 — Xmas podium removal and faster Memory Mode
+
+- Removed the winner podium presentation from the Xmas variant only. Classic keeps its existing podium, winner teleport, freeze and fireworks.
+- Memory Mode's gray-floor find phase starts at 8 seconds and decreases by 0.5 seconds every two rounds, down to the existing 2-second minimum.
+- The Memory Mode memorization/reveal duration is unchanged.
+
 # BlockParty 1.1.0 — Memory Mode, Daily Challenges and polish
 
 - Added Memory Mode as an alternative to Classic. The floor colours are shown for five seconds, then hidden as gray concrete; players must remember where the announced target colour was. The server retains the original floor pattern for fair validation.
