@@ -172,7 +172,7 @@ public final class SchematicArenaGenerator {
     /** Find the actual 40x40 concrete dance floor, not the indoor wooden lobby floor. */
     private static FloorRegion findDanceFloor(Schematic schematic) throws IOException {
         FloorRegion best = null;
-        int bestConcrete = -1, bestColors = -1;
+        int bestConcrete = -1, bestColors = -1, bestBorderScore = -1;
         for (int y = 0; y < schematic.height; y++) {
             for (int z = 0; z <= schematic.length - FLOOR_SIZE; z++) {
                 for (int x = 0; x <= schematic.width - FLOOR_SIZE; x++) {
@@ -186,8 +186,26 @@ public final class SchematicArenaGenerator {
                             if (CONCRETE_BLOCKS.contains(block)) { concrete++; colors.add(block); }
                         }
                     }
-                    if (concrete > bestConcrete || (concrete == bestConcrete && colors.size() > bestColors)) {
-                        bestConcrete = concrete; bestColors = colors.size(); best = new FloorRegion(x, z, y);
+                    // The Xmas schematic contains adjacent red/white concrete trim.
+                    // A simple first-match scan can therefore select a shifted 40x40
+                    // window: it accidentally absorbs the dead left/bottom border and
+                    // drops the playable row beside the right-hand wall. Anchor the
+                    // actual playfield by looking for the candy-cane trim immediately
+                    // OUTSIDE two adjoining sides of the candidate square.
+                    int left = countCandyBorder(schematic, x - 1, z, y, false);
+                    int right = countCandyBorder(schematic, x + FLOOR_SIZE, z, y, false);
+                    int near = countCandyBorder(schematic, x, z - 1, y, true);
+                    int far = countCandyBorder(schematic, x, z + FLOOR_SIZE, y, true);
+                    int borderScore = Math.max(Math.max(left + near, left + far),
+                            Math.max(right + near, right + far));
+                    if (concrete > bestConcrete
+                            || (concrete == bestConcrete && colors.size() > bestColors)
+                            || (concrete == bestConcrete && colors.size() == bestColors
+                            && borderScore > bestBorderScore)) {
+                        bestConcrete = concrete;
+                        bestColors = colors.size();
+                        bestBorderScore = borderScore;
+                        best = new FloorRegion(x, z, y);
                     }
                 }
             }
@@ -197,6 +215,20 @@ public final class SchematicArenaGenerator {
                     + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
         }
         return best;
+    }
+
+    /** Counts red/white concrete trim immediately outside one candidate edge. */
+    private static int countCandyBorder(Schematic schematic, int start, int fixed, int y, boolean horizontal) {
+        int count = 0;
+        for (int offset = 0; offset < FLOOR_SIZE; offset++) {
+            int x = horizontal ? start + offset : fixed;
+            int z = horizontal ? fixed : start + offset;
+            if (x < 0 || x >= schematic.width || z < 0 || z >= schematic.length) continue;
+            int index = schematic.indices[x + z * schematic.width + y * schematic.width * schematic.length];
+            Block block = schematic.palette.get(index).getBlock();
+            if (block == Blocks.RED_CONCRETE || block == Blocks.WHITE_CONCRETE) count++;
+        }
+        return count;
     }
 
     /**
