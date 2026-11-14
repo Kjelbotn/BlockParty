@@ -1147,49 +1147,52 @@ public final class Arena {
         String text = showTarget
                 ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
                 : (gameMode == GameMode.MEMORY && isGameInProgress() ? "MEMORY MODE" : "BLOCKPARTY");
+        Component displayText = Component.literal(text).withStyle(
+                showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
+                ChatFormatting.BOLD);
 
-        // Do NOT trust the old saved displayCenter. It came from earlier schematic
-        // offsets and was repeatedly putting the entity behind/above the physical panel.
-        // Recalculate directly from the live 40x40 dance-floor bounds every refresh.
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
         int floorY = pos1.getY();
         double x = (minX + maxX + 1) / 2.0;
-        // The white panel is north of the floor. Place the text several blocks south
-        // of the panel, visibly in the arena airspace, at the panel's vertical centre.
         double y = floorY + 14.5;
         double z = minZ - 1.5;
         String tag = "bp_target_" + id;
-        // Search the full vertical world range around the Xmas arena. The previous
-        // floor-relative Y bounds could miss a persisted Text Display after schematic
-        // reloads, causing a new display to be spawned every 20 ticks.
+
+        // Find the display by its persistent entity tag and position. Do not depend
+        // on lastXmasScreenText: Arena instances can be reconstructed while the
+        // Text Display remains saved in the world.
         AABB area = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
                 maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
+        Display.TextDisplay keeper = null;
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
         for (Display.TextDisplay old : existing) {
             boolean correctlyPlaced = Math.abs(old.getX() - x) < 0.75
                     && Math.abs(old.getY() - y) < 0.75
                     && Math.abs(old.getZ() - z) < 0.75;
-            if (text.equals(lastXmasScreenText) && correctlyPlaced) return;
-            old.discard();
+            if (correctlyPlaced && keeper == null) {
+                keeper = old;
+                // Update the existing entity in-place when the target text changes.
+                keeper.setText(displayText);
+            } else {
+                // Remove misplaced displays and any duplicates left by earlier versions.
+                old.discard();
+            }
         }
+        if (keeper != null) return;
 
         // Yaw 0 faces south (+Z), toward players standing on the dance floor.
-        // This is deliberately in the open arena volume, not embedded in the white board.
         Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
-                Component.literal(text).withStyle(
-                        showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
-                        ChatFormatting.BOLD),
-                showTarget ? 16.0F : 16.0F, tag);
-        if (created != null) {
+                displayText, 16.0F, tag);
+        if (created != null && created.isAddedToLevel()) {
             lastXmasScreenText = text;
-            BlockPartyMod.LOGGER.info("Xmas arena screen '{}' spawned at ({}, {}, {}) facing south.",
+            BlockPartyMod.LOGGER.info("Xmas arena screen '{}' created at ({}, {}, {}) facing south.",
                     text, x, y, z);
         } else {
-            BlockPartyMod.LOGGER.error("Could not create Xmas arena Text Display at ({}, {}, {}).", x, y, z);
+            BlockPartyMod.LOGGER.error("Could not add Xmas arena Text Display at ({}, {}, {}).", x, y, z);
         }
     }
 
