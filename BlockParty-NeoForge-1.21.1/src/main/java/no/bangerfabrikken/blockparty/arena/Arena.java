@@ -144,6 +144,9 @@ public final class Arena {
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
     private String lastXmasScreenText;
+    /** Cached persistent Xmas target display; never respawn it during normal refreshes. */
+    private Display.TextDisplay xmasScreenDisplay;
+    private boolean xmasScreenInitialized;
     private BlockPos lobbyScreenCenter;
     private float lobbyScreenYaw = 180.0F;
     private double lobbyX;
@@ -1134,9 +1137,9 @@ public final class Arena {
     }
 
     /**
-     * Xmas-only renderer: centre the text on the white panel, put it one block
-     * in front of the panel, and face it toward the dancers. Recreate it if another
-     * refresh or chunk/entity reload has removed the Text Display.
+     * Keeps exactly one persistent Text Display on the Xmas target board.
+     * The entity is discovered once when the arena is loaded, then its text is
+     * changed in place as rounds advance. Normal ticks never discard or respawn it.
      */
     private void refreshXmasArenaScreen() {
         if (level == null || pos1 == null || pos2 == null || !"xmas".equals(id)) return;
@@ -1146,51 +1149,68 @@ public final class Arena {
                 || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
         String text = showTarget
                 ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
-                : (gameMode == GameMode.MEMORY && isGameInProgress() ? "MEMORY MODE" : "BLOCKPARTY");
+                : "BLOCKPARTY";
+        Component component = Component.literal(text).withStyle(
+                showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
+                ChatFormatting.BOLD);
 
-        // Do NOT trust the old saved displayCenter. It came from earlier schematic
-        // offsets and was repeatedly putting the entity behind/above the physical panel.
-        // Recalculate directly from the live 40x40 dance-floor bounds every refresh.
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
         int floorY = pos1.getY();
         double x = (minX + maxX + 1) / 2.0;
-        // The white panel is north of the floor. Place the text several blocks south
-        // of the panel, visibly in the arena airspace, at the panel's vertical centre.
         double y = floorY + 14.5;
         double z = minZ - 1.5;
+        BlockPos screenPos = BlockPos.containing(x, y, z);
+        if (!level.hasChunkAt(screenPos)) return;
+
         String tag = "bp_target_" + id;
-        // Search the full vertical world range around the Xmas arena. The previous
-        // floor-relative Y bounds could miss a persisted Text Display after schematic
-        // reloads, causing a new display to be spawned every 20 ticks.
-        AABB area = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
-                maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
-        List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                entity -> entity.getTags().contains(tag));
-        for (Display.TextDisplay old : existing) {
-            boolean correctlyPlaced = Math.abs(old.getX() - x) < 0.75
-                    && Math.abs(old.getY() - y) < 0.75
-                    && Math.abs(old.getZ() - z) < 0.75;
-            if (text.equals(lastXmasScreenText) && correctlyPlaced) return;
-            old.discard();
+        if (xmasScreenDisplay == null || xmasScreenDisplay.isRemoved()) {
+            xmasScreenDisplay = null;
+            AABB searchArea;
+            if (!xmasScreenInitialized) {
+                // One-time recovery scan after arena load: catch legacy duplicates anywhere
+                // in the arena's vertical column, then retain just one display.
+                searchArea = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
+                        maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
+                xmasScreenInitialized = true;
+            } else {
+                // If the cached entity was externally removed, only search locally.
+                searchArea = new AABB(x - 3, y - 3, z - 3, x + 3, y + 3, z + 3);
+            }
+            List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, searchArea,
+                    entity -> entity.getTags().contains(tag));
+            for (Display.TextDisplay candidate : existing) {
+                if (xmasScreenDisplay == null) {
+                    xmasScreenDisplay = candidate;
+                } else {
+                    candidate.discard();
+                }
+            }
         }
 
-        // Yaw 0 faces south (+Z), toward players standing on the dance floor.
-        // This is deliberately in the open arena volume, not embedded in the white board.
-        Display.TextDisplay created = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
-                Component.literal(text).withStyle(
-                        showTarget ? getTargetChatFormatting(targetColor) : ChatFormatting.LIGHT_PURPLE,
-                        ChatFormatting.BOLD),
-                showTarget ? 16.0F : 16.0F, tag);
-        if (created != null) {
-            lastXmasScreenText = text;
-            BlockPartyMod.LOGGER.info("Xmas arena screen '{}' spawned at ({}, {}, {}) facing south.",
-                    text, x, y, z);
+        if (xmasScreenDisplay == null) {
+            // Yaw 0 faces south (+Z), toward players standing on the dance floor.
+            xmasScreenDisplay = BlockPartyText.spawnTextDisplay(level, x, y, z, 0.0F,
+                    component, 16.0F, tag);
+            if (xmasScreenDisplay != null) {
+                BlockPartyMod.LOGGER.info("Created persistent Xmas arena screen at ({}, {}, {}).", x, y, z);
+            } else {
+                BlockPartyMod.LOGGER.error("Could not create Xmas arena Text Display at ({}, {}, {}).", x, y, z);
+            }
         } else {
-            BlockPartyMod.LOGGER.error("Could not create Xmas arena Text Display at ({}, {}, {}).", x, y, z);
+            // Keep the existing entity and update only its text when the target changes.
+            if (Math.abs(xmasScreenDisplay.getX() - x) > 0.25
+                    || Math.abs(xmasScreenDisplay.getY() - y) > 0.25
+                    || Math.abs(xmasScreenDisplay.getZ() - z) > 0.25) {
+                xmasScreenDisplay.setPos(x, y, z);
+            }
+            if (!component.equals(xmasScreenDisplay.getText())) {
+                xmasScreenDisplay.setText(component);
+            }
         }
+        lastXmasScreenText = text;
     }
 
     private void updateColorDisplay() {
