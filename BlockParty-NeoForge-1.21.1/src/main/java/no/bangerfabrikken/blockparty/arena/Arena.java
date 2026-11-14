@@ -1963,7 +1963,13 @@ public final class Arena {
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
-        long area = (long) (maxX - minX + 1) * (maxZ - minZ + 1);
+        int floorWidth = maxX - minX + 1;
+        int floorDepth = maxZ - minZ + 1;
+        long area = (long) floorWidth * floorDepth;
+        if ("xmas".equals(id) && (floorWidth != 40 || floorDepth != 40)) {
+            throw new IllegalStateException("Xmas-dansegulvet må være nøyaktig 40x40 blokker. Fant "
+                    + floorWidth + "x" + floorDepth + ".");
+        }
         if (area > MAX_FLOOR_BLOCKS) {
             throw new IllegalStateException("Gulvet er for stort. Maks størrelse er " + MAX_FLOOR_BLOCKS + " blokker.");
         }
