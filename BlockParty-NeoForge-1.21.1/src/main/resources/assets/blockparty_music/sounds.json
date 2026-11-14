@@ -258,5 +258,15 @@
         "volume": 1
       }
     ]
+  },
+  "ambient_christmas": {
+    "subtitle": "subtitles.blockparty.ambient_christmas",
+    "sounds": [
+      {
+        "name": "blockparty:music/ambient_christmas",
+        "stream": true,
+        "volume": 0.42
+      }
+    ]
   }
 }
