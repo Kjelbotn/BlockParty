@@ -1172,9 +1172,12 @@ public final class Arena {
         boolean showTarget = targetColor != null
                 && ((gameMode == GameMode.CLASSIC && (phase == Phase.WAITING_FOR_COLOR || phase == Phase.PREPARE || phase == Phase.FALL))
                 || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
-        String text = BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT);
-        Component displayText = Component.literal(text)
-                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD);
+        String text = showTarget
+                ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
+                : null;
+        Component displayText = showTarget
+                ? Component.literal(text).withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)
+                : null;
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
@@ -1213,9 +1216,13 @@ public final class Arena {
         // The rainbow heading is the only idle/ lobby title. Do not create the
         // legacy pink BLOCKPARTY / MEMORY MODE fallback underneath it.
         if (!showTarget) {
-            for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
-                    entity -> entity.getTags().contains(tag))) old.discard();
-            lastXmasScreenText = null;
+            // Clear the previous target once when the target phase ends. The
+            // fixed rainbow heading remains untouched while the board is idle.
+            if (lastXmasScreenText != null) {
+                for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
+                        entity -> entity.getTags().contains(tag))) old.discard();
+                lastXmasScreenText = null;
+            }
             return;
         }
 
@@ -1238,10 +1245,13 @@ public final class Arena {
         }
 
         if (keeper != null) {
-            // Update only the text component when the round target changes.
-            // The Text Display entity itself remains in the world.
-            BlockPartyText.updateTextDisplay(keeper, level, displayText, 16.0F);
-            lastXmasScreenText = text;
+            // Do absolutely nothing while the announced colour is unchanged.
+            // Updating the entity data repeatedly makes the client redraw the text
+            // and was the source of the periodic blinking.
+            if (!text.equals(lastXmasScreenText)) {
+                BlockPartyText.updateTextDisplay(keeper, level, displayText, 16.0F);
+                lastXmasScreenText = text;
+            }
             return;
         }
 
@@ -2292,7 +2302,7 @@ public final class Arena {
         }
         if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
-        if ("xmas".equals(id) && scoreboardTick % 20 == 0) refreshXmasArenaScreen();
+        // Xmas arena text is event-driven only; never poll/refresh it on a timer.
         tickMusicEffects();
         tickSpecialSongScreen();
         tickColorScanners(server);
