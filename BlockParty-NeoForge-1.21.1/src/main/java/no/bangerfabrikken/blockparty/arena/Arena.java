@@ -1161,8 +1161,11 @@ public final class Arena {
         double y = floorY + 14.5;
         double z = minZ - 1.5;
         String tag = "bp_target_" + id;
-        AABB area = new AABB(minX - 32, floorY + 2, minZ - 32,
-                maxX + 32, floorY + 32, minZ + 16);
+        // Search the full vertical world range around the Xmas arena. The previous
+        // floor-relative Y bounds could miss a persisted Text Display after schematic
+        // reloads, causing a new display to be spawned every 20 ticks.
+        AABB area = new AABB(minX - 32, level.getMinBuildHeight(), minZ - 32,
+                maxX + 32, level.getMaxBuildHeight(), maxZ + 32);
         List<Display.TextDisplay> existing = level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag));
         for (Display.TextDisplay old : existing) {
