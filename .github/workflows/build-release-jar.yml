@@ -84,7 +84,8 @@ jobs:
                   print(track_id)
           PY
           printf "# Measured from normalized OGG files by FFprobe.\n" > "$duration_file"
-          while IFS= read -r track_id; do
+          mapfile -t track_ids < "$ids_file"
+          for track_id in "${track_ids[@]}"; do
             input="$music_dir/$track_id.ogg"
             output="$music_dir/$track_id.normalized.ogg"
             log="$RUNNER_TEMP/$track_id-decode.log"
@@ -103,7 +104,7 @@ jobs:
             awk -v d="$duration" 'BEGIN { exit !(d > 0 && d < 3600) }'
             printf "%s=%s\n" "$track_id" "$(awk -v d="$duration" 'BEGIN { printf "%.3f", d }')" >> "$duration_file"
             echo "Validated $track_id.ogg ($codec, $mean dB)"
-          done < "$ids_file"
+          done
 
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
