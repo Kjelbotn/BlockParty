@@ -2784,10 +2784,18 @@ public final class Arena {
                 ? (round <= 5 ? 11 : round <= 10 ? 19 : round <= 15 ? 25 : round <= 20 ? 29 : 31)
                 : (round <= 5 ? 5 : round <= 10 ? 9 : round <= 15 ? 12 : round <= 20 ? 14 : 15);
         int patternCount = maxPattern - minPattern + 1;
-        int pattern = minPattern + random.nextInt(patternCount);
-        int rerolls = 0;
-        while (recentPatterns.contains(pattern) && rerolls++ < patternCount * 2) {
+        int pattern;
+        // Xmas occasionally gets a dedicated festive pixel-art motif instead of
+        // the normal geometric pattern. Keep the regular patterns in rotation too.
+        if ("xmas".equals(id) && random.nextInt(3) == 0) {
+            pattern = 32 + random.nextInt(6);
+        } else {
             pattern = minPattern + random.nextInt(patternCount);
+        }
+        int rerolls = 0;
+        while (recentPatterns.contains(pattern) && rerolls++ < 18) {
+            if ("xmas".equals(id) && random.nextInt(3) == 0) pattern = 32 + random.nextInt(6);
+            else pattern = minPattern + random.nextInt(patternCount);
         }
         previousPattern = pattern;
         recentPatterns.add(pattern);
@@ -2907,13 +2915,80 @@ public final class Arena {
                     index = gx * 17 + gz * 23 + gx * gz * 3 + ((gx ^ gz) % 5) * 7 + twist;
                 } // dense interlocking micro-grid
             }
-            DyeColor color = colors.get(Math.floorMod(index + offset, colors.size()));
+            DyeColor festiveColor = "xmas".equals(id) && pattern >= 32
+                    ? getChristmasPatternColor(pattern, x, z, dx, dz) : null;
+            DyeColor color = festiveColor != null
+                    ? festiveColor : colors.get(Math.floorMod(index + offset, colors.size()));
             BlockState newState = BlockPartyColors.getConcrete(color).defaultBlockState();
             level.setBlock(pos, newState, 3);
             floorSnapshot.put(pos, newState);
             used.add(color);
         }
         return used;
+    }
+
+    /**
+     * Six deterministic 40x40 Christmas pixel-art motifs. They use only concrete
+     * colours already present in the Xmas palette, so every patterned tile remains
+     * a normal playable BlockParty tile.
+     */
+    private DyeColor getChristmasPatternColor(int pattern, int x, int z, int dx, int dz) {
+        int ax = Math.abs(dx), az = Math.abs(dz);
+        return switch (pattern) {
+            case 32 -> { // Christmas tree, star, baubles and trunk
+                if (az <= 2 && dz >= 13 && ax <= 2) yield DyeColor.BROWN;
+                if (dz <= -16 && ax <= 2) yield DyeColor.YELLOW;
+                int halfWidth = Math.max(1, (16 - dz) / 2);
+                if (dz >= -14 && dz <= 13 && ax <= halfWidth) {
+                    if ((ax == 0 && dz == -13) || (ax == 1 && dz == -12)
+                            || (ax == 0 && dz == -5) || (ax == 2 && dz == 2)
+                            || (ax == 1 && dz == 9)) yield DyeColor.YELLOW;
+                    if ((x * 7 + z * 11) % 17 == 0) yield DyeColor.RED;
+                    if ((x * 5 + z * 3) % 23 == 0) yield DyeColor.WHITE;
+                    yield DyeColor.GREEN;
+                }
+                yield DyeColor.WHITE;
+            }
+            case 33 -> { // Candy-cane diagonal stripes with green edging
+                if (ax >= 17 || az >= 17) yield DyeColor.GREEN;
+                yield Math.floorMod(x + z, 6) < 3 ? DyeColor.RED : DyeColor.WHITE;
+            }
+            case 34 -> { // Large five-point star
+                double angle = Math.atan2(dz, dx);
+                double radius = Math.hypot(dx, dz);
+                double boundary = 15.0 * (0.38 + 0.62 * Math.pow(
+                        (1.0 + Math.cos(angle * 5.0)) / 2.0, 1.15));
+                if (radius <= boundary) yield DyeColor.YELLOW;
+                if (radius <= boundary + 2.0) yield DyeColor.WHITE;
+                yield DyeColor.BLUE;
+            }
+            case 35 -> { // Snowflake with six arms and branching details
+                boolean arm = ax <= 1 || az <= 1 || ax == az;
+                boolean branch = (ax >= 4 && ax <= 12 && (ax + az) % 6 == 0
+                        && (ax == az + 3 || az == ax + 3));
+                if (arm || branch) yield DyeColor.WHITE;
+                if (Math.max(ax, az) <= 15) yield DyeColor.LIGHT_BLUE;
+                yield DyeColor.BLUE;
+            }
+            case 36 -> { // Repeating present boxes with ribbons and bows
+                int lx = Math.floorMod(x, 10), lz = Math.floorMod(z, 10);
+                if (lx == 0 || lx == 5 || lz == 0 || lz == 5) yield DyeColor.WHITE;
+                if (lx == 4 || lz == 4 || (lx == 3 && lz == 3)) yield DyeColor.YELLOW;
+                yield ((x / 10 + z / 10) % 2 == 0) ? DyeColor.RED : DyeColor.GREEN;
+            }
+            case 37 -> { // Wreath ring, berries and a golden bow
+                double radius = Math.hypot(dx, dz);
+                if (radius >= 10 && radius <= 15) {
+                    if ((ax == 10 && az % 5 <= 1) || (az == 10 && ax % 5 <= 1))
+                        yield DyeColor.RED;
+                    yield DyeColor.GREEN;
+                }
+                if (az >= 13 && az <= 17 && ax <= (az - 12) / 2) yield DyeColor.YELLOW;
+                if (radius < 8) yield DyeColor.WHITE;
+                yield DyeColor.BLUE;
+            }
+            default -> null;
+        };
     }
 
     /**
