@@ -1,3 +1,8 @@
+# BlockParty 1.3.9 — Xmas spectator-edge tiles and stable lobby inventory
+
+- Kept the full 40×40 Xmas floor playable, including the edge tiles beside the spectator houses; removed the schematic-generation trimming that could exclude those blocks.
+- Prevented unnecessary full inventory synchronization during the once-per-second lobby item check, which caused lobby items to blink.
+
 # BlockParty 1.3.8 — Music voting layout and exact Xmas floor bounds
 
 - Reordered both lobby music voting boards so tracks 01–05 render in the left column and 06–10 in the right column. Moved the most-voted track panel to the far-left side, clear of the song list.
