@@ -1,3 +1,9 @@
+# BlockParty 1.4.4 — Xmas lobby ambience and Memory Mode icon
+
+- Added client-controlled looping ambient music when a player enters the Xmas lobby with `/bp xmas`; it stops when they leave, is replaced by match music during a game, and resumes when the match returns players to the lobby.
+- Registered the `blockparty_music:ambient_christmas` sound event at a gentle volume. The ambient OGG asset will be added when supplied.
+- Changed the Memory Mode voting icon from an Ender Eye to a Book.
+
 # BlockParty 1.4.3 — Preserve custom arena decorations
 
 - Prevented `/bp generate <id>` and `/bp xmas generate` from rebuilding an already registered arena, protecting custom lobby and arena decorations from accidental overwrites.
