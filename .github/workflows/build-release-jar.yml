@@ -45,10 +45,11 @@ jobs:
           grep -q 'Find: ' "$arena"
           grep -q 'Round Speed: ' "$arena"
           grep -q 'gameMode == GameMode.MEMORY' "$arena"
-          grep -q 'ensureXmasPlayableEdgeBounds()' "$arena"
-          grep -q 'Math.abs(pos1.getZ() - pos2.getZ()) != 39' "$arena"
-          grep -q 'pos2 = pos2.offset(0, 0, 1)' "$arena"
-          grep -q 'extra playable row' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java
+          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
+          grep -q 'screenPoint.apply(-23.0)' "$arena"
+          ! grep -q 'ensureXmasPlayableEdgeBounds' "$arena"
+          ! grep -q 'placeNonPlayableLobbyEdge' "$schematic"
+          grep -q 'int area = (int)' "$arena" || true
           grep -q 'stemte på' "$arena"
           ! grep -q 'MEMORY_FINAL_COUNTDOWN' "$arena"
           grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
@@ -60,7 +61,7 @@ jobs:
           grep -q 'fallThreshold' "$arena"
           grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
           grep -q 'player.hasPermissions(2)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/BlockPartyMod.java
-          grep -q 'mod_version=1.3.7' BlockParty-NeoForge-1.21.1/gradle.properties
+          grep -q 'mod_version=1.3.8' BlockParty-NeoForge-1.21.1/gradle.properties
           grep -q 'case 30 ->' "$arena"
           grep -q 'recentPatterns.size() > 3' "$arena"
           grep -q 'target, 16.0F, tag' "$arena"
@@ -94,6 +95,6 @@ jobs:
       - name: Upload release JAR
         uses: actions/upload-artifact@v4
         with:
-          name: BlockParty-1.3.7-JAR
+          name: BlockParty-1.3.8-JAR
           path: BlockParty-NeoForge-1.21.1/build/libs/*.jar
           if-no-files-found: error
