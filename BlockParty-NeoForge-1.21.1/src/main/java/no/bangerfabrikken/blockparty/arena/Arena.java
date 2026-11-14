@@ -2666,7 +2666,6 @@ public final class Arena {
     private void updateScoreboard(MinecraftServer server) {
         if (sidebarObjective == null) return;
         Scoreboard scoreboard = server.getScoreboard();
-        // Also suppress the sidebar for players who join after the match has started.
         hideSidebarFromNonParticipants(server);
 
         ServerPlayer profilePlayer = null;
@@ -2674,44 +2673,68 @@ public final class Arena {
             profilePlayer = server.getPlayerList().getPlayer(uuid);
             if (profilePlayer != null) break;
         }
-        // During a match, show points earned in this session rather than lifetime progression.
         int matchPoints = profilePlayer == null ? 0 : points.getOrDefault(profilePlayer.getUUID(), 0);
         int personalPowerups = profilePlayer == null ? 0 : powerupsCollected.getOrDefault(profilePlayer.getUUID(), 0);
+        String roundSpeed = phase == Phase.PREPARE
+                ? formatSeconds(Math.max(0, timerTicks)) + "s"
+                : phase == Phase.WAITING_FOR_COLOR ? "WAITING..."
+                : phase == Phase.MEMORY_REVEAL ? "MEMORY" : "--";
+
+        String[] ids = {
+                "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
+                "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9", "bp_line_10"
+        };
+        Component roundLine = Component.literal("Round: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(Integer.toString(round)).withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(" / ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(Integer.toString(getMatchRoundLimit())).withStyle(ChatFormatting.GRAY));
+        Component speedLine = Component.literal("Round Speed: ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(roundSpeed).withStyle(ChatFormatting.WHITE));
         Component findLine = Component.literal("Find: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(targetColor == null ? "—"
                         : BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
                         .withStyle(targetColor == null ? ChatFormatting.WHITE : getTargetChatFormatting(targetColor)));
-        String[] ids = {
-                "bp_line_0", "bp_line_1", "bp_line_2", "bp_line_3", "bp_line_4",
-                "bp_line_5", "bp_line_6", "bp_line_7", "bp_line_8", "bp_line_9"
-        };
         Component pointsLine = Component.literal("Points: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(Integer.toString(matchPoints)).withStyle(ChatFormatting.WHITE));
         Component powerupsLine = Component.literal("Powerups: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(Integer.toString(personalPowerups)).withStyle(ChatFormatting.WHITE));
-        Component[] lines = {
-                Component.literal(" "),
-                Component.literal("Dancers Left").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
-                Component.literal(alive.size() + " Dancers").withStyle(ChatFormatting.GRAY),
-                Component.literal(" "),
-                Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
-                findLine,
-                Component.literal(" "),
-                Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-                pointsLine,
-                powerupsLine
-        };
-        for (int i = 0; i < ids.length; i++) {
+
+        Component[] lines = gameMode == GameMode.MEMORY
+                ? new Component[] {
+                    Component.literal(" "),
+                    Component.literal("Dancers Left").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+                    Component.literal(alive.size() + " Dancers").withStyle(ChatFormatting.GRAY),
+                    Component.literal(" "),
+                    Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
+                    findLine,
+                    Component.literal(" "),
+                    Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
+                    pointsLine,
+                    powerupsLine
+                }
+                : new Component[] {
+                    Component.literal(" "),
+                    Component.literal("Dancers Left").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+                    Component.literal(alive.size() + " Dancers").withStyle(ChatFormatting.GRAY),
+                    Component.literal(" "),
+                    Component.literal("Game Info").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD),
+                    roundLine,
+                    speedLine,
+                    Component.literal(" "),
+                    Component.literal("Your Stats").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
+                    pointsLine,
+                    powerupsLine
+                };
+        for (int i = 0; i < lines.length; i++) {
             ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(ids[i]), sidebarObjective);
-            score.set(ids.length - i);
+            score.set(lines.length - i);
             score.display(lines[i]);
             score.numberFormatOverride(BlankFormat.INSTANCE);
         }
-        // Remove old rows from the previous scoreboard layouts.
-        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_10"), sidebarObjective);
-        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_11"), sidebarObjective);
-        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_12"), sidebarObjective);
-        scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly("bp_line_13"), sidebarObjective);
+        // Remove rows not used by the shorter Memory Mode layout.
+        for (int i = lines.length; i < ids.length; i++) {
+            scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly(ids[i]), sidebarObjective);
+        }
     }
 
     private void hideScoreboard(MinecraftServer server) {
