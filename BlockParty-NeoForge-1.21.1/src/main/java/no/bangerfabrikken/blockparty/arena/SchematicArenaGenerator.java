@@ -82,7 +82,6 @@ public final class SchematicArenaGenerator {
         // only reposition existing snow blocks/layers into empty or snowy target cells.
         normalizeSnowApron(level, origin, schematic, floor);
         trimLobbySideBorder(level, origin, schematic, floor);
-        placeNonPlayableLobbyEdge(level, origin, floor);
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
@@ -272,26 +271,6 @@ public final class SchematicArenaGenerator {
                     && inner.isFaceSturdy(level, innerPos, Direction.UP)
                     && outer.isFaceSturdy(level, outerPos, Direction.UP)) {
                 level.setBlock(outerPos, Blocks.AIR.defaultBlockState(), 3);
-            }
-        }
-    }
-
-    /**
-     * The former candy-cane trim is now an extra playable row on the lobby-facing
-     * edge. It is included in the configured arena bounds, so normal floor capture
-     * and round pattern generation recolour it just like every other dance-floor tile.
-     */
-    private static void placeNonPlayableLobbyEdge(ServerLevel level, BlockPos origin, FloorRegion floor) {
-        int z = floor.minZ + FLOOR_SIZE;
-        for (int x = 0; x < FLOOR_SIZE; x++) {
-            BlockState tile = (x % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE).defaultBlockState();
-            BlockPos edge = origin.offset(floor.minX + x, floor.y, z);
-            level.setBlock(edge, tile, 3);
-            if (level.getBlockState(edge.above()).is(Blocks.BARRIER)) {
-                level.setBlock(edge.above(), Blocks.AIR.defaultBlockState(), 3);
-            }
-            if (level.getBlockState(edge.above(2)).is(Blocks.BARRIER)) {
-                level.setBlock(edge.above(2), Blocks.AIR.defaultBlockState(), 3);
             }
         }
     }
