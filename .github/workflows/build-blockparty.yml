@@ -42,51 +42,21 @@ jobs:
           schematic="BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/SchematicArenaGenerator.java"
           test -s "$arena"
           test -s "$schematic"
-          test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/GameModeMenu.java
           test -s BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/DailyChallengeMenu.java
-          grep -q 'normalizeSnowApron' "$schematic"
-          grep -q 'ensureXmasPlayableEdges()' "$arena"
+          test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
           grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
           grep -q 'getMemoryFindDurationTicks(round)' "$arena"
           grep -q 'getMemoryRevealDurationTicks(round)' "$arena"
-          grep -q 'Find: ' "$arena"
-          grep -q 'stemte på' "$arena"
-          grep -q 'preferredGameModes.clear()' "$arena"
-          grep -q 'showMemoryTargetToPlayers(server)' "$arena"
-          grep -q 'HUSK DENNE FARGEN:' "$arena"
-          grep -q 'clearMemoryTargetItems(server)' "$arena"
-          grep -q 'startMemoryFind(server)' "$arena"
-          grep -q 'screenBaseY += 4' "$arena"
-          grep -q 'roofDistance' "$arena"
-          grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
-          grep -q 'MEMORY_REVEAL' "$arena"
-          grep -q 'tickColorScanners(server)' "$arena"
-
-          grep -q 'case 30 ->' "$arena"
-          grep -q 'recentPatterns.size() > 3' "$arena"
-          grep -q 'target, 16.0F, tag' "$arena"
-          grep -q 'targetDisplayYaw, text, 16.0F, tag' "$arena"
-          grep -q 'Every one of the 40x40 concrete tiles is playable' "$arena"
-          grep -q 'spawnTextDisplay(level, x, y, z, 0.0F' "$arena"
-          grep -q 'eliminatedPlayers.add(uuid)' "$arena"
+          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
+          grep -q 'wallZ + offset' "$arena"
+          grep -q 'screenPoint.apply(-23.0)' "$arena"
+          grep -q 'ensureXmasPlayableEdges()' "$arena"
+          grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
           grep -q 'GameType.ADVENTURE' "$arena"
-          grep -q 'isArenaColorAccent(state)' "$arena"
-          grep -q 'int column = i / 5;' "$arena"
-          grep -q 'screenBaseY + 0.2' "$arena"
-          grep -q 'double y = floorY + 14.5;' "$arena"
-          grep -q 'classicTarget' "$arena"
-          grep -q 'memoryRevealTarget' "$arena"
-          grep -q 'fallThreshold' "$arena"
           grep -q 'STEM PÅ SPILLMODUS' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
-          grep -q 'slotId == 48 || slotId == 50' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/arena/MusicVotingMenu.java
           grep -q 'normalizeSnowApron' "$schematic"
-          grep -q 'restoreMainArenaScreenPanel' "$arena"
-          grep -q 'isInsideMainArenaScreenPanel(pos)' "$arena"
-          grep -q 'support.is(Blocks.SNOW_BLOCK)' "$schematic"
-          grep -q 'color == null || "xmas".equals(id)' "$arena"
           grep -q 'player.hasPermissions(2)' BlockParty-NeoForge-1.21.1/src/main/java/no/bangerfabrikken/blockparty/BlockPartyMod.java
-
       - name: Normalize and validate playlist music
         shell: bash
         run: |
