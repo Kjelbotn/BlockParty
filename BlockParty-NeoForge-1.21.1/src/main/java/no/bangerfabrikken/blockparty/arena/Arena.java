@@ -103,7 +103,9 @@ public final class Arena {
     }
 
     private int getMemoryFindDurationTicks(int roundNumber) {
-        return Math.max(40, MEMORY_FIND_START_TICKS - Math.max(0, roundNumber - 1) * 5);
+        // Keep each duration for two rounds, then subtract half a second.
+        int reductions = Math.max(0, roundNumber - 1) / 2;
+        return Math.max(40, MEMORY_FIND_START_TICKS - reductions * 10);
     }
     // Fixed 25-round countdown schedule. Six seconds is the hard maximum.
     private static final int[] ROUND_DURATIONS_TICKS = {
@@ -727,6 +729,8 @@ public final class Arena {
 
     private void refreshWinnerPodium() {
         if (level == null || !lobbySet) return;
+        // Xmas has no winner podium. Also clean up any podium left by an older build.
+        if ("xmas".equals(id)) clearWinnerPodiumAtDjBooth();
         // Podium is hidden during waiting and gameplay; it is built at the DJ booth after a match.
         int centerX = (int) Math.floor(lobbyX);
         int floorY = (int) Math.floor(lobbyY) - 1;
@@ -752,7 +756,7 @@ public final class Arena {
     }
 
     private void buildWinnerPodiumAtDjBooth() {
-        if (level == null || !lobbySet || lastPodium.isEmpty()) return;
+        if (level == null || !lobbySet || lastPodium.isEmpty() || "xmas".equals(id)) return;
         podiumDisplayTicks = 0;
         int centerX = (int) Math.floor(lobbyX);
         int floorY = (int) Math.floor(lobbyY) - 1;
@@ -821,7 +825,7 @@ public final class Arena {
 
     /** Places each of the top three players on the matching physical podium block. */
     private void teleportPlayerToPodium(ServerPlayer player, int rank) {
-        if (player == null || level == null || !lobbySet || rank < 0 || rank >= 3) return;
+        if (player == null || level == null || !lobbySet || rank < 0 || rank >= 3 || "xmas".equals(id)) return;
         int[] podiumOffsets = {0, -2, 2};
         int[] podiumHeights = {2, 1, 1};
         int centerX = (int) Math.floor(lobbyX);
@@ -3312,7 +3316,7 @@ public final class Arena {
         restoreOriginalArenaAccents();
 
         // The match is fully over: move the podium from the lobby corner to the DJ booth.
-        if (matchWinnerId != null) buildWinnerPodiumAtDjBooth();
+        if (matchWinnerId != null && !"xmas".equals(id)) buildWinnerPodiumAtDjBooth();
 
         // The match is fully over: return every participant, including the winner and
         // eliminated spectators, to the BlockParty lobby. They remain in the session
@@ -3332,7 +3336,7 @@ public final class Arena {
             player.getInventory().setItem(6, createHubItem());
             teleportToLobby(player);
             int podiumRank = lastPodiumPlayers.indexOf(uuid);
-            if (matchWinnerId != null && podiumRank >= 0) teleportPlayerToPodium(player, podiumRank);
+            if (matchWinnerId != null && podiumRank >= 0 && !"xmas".equals(id)) teleportPlayerToPodium(player, podiumRank);
             // Non-podium participants can leave immediately. Podium finishers receive
             // Redstone Dust from tickWinnerPodiumFreeze after their five-second lock ends.
             if (!podiumFreezeTicks.containsKey(uuid)) {
@@ -3344,8 +3348,8 @@ public final class Arena {
         }
 
         // Start the 20-second podium display window only after all participants have returned.
-        podiumDisplayTicks = matchWinnerId != null && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
-        podiumFireworksTicks = matchWinnerId != null && !podiumFreezePositions.isEmpty() ? 100 : 0;
+        podiumDisplayTicks = matchWinnerId != null && !"xmas".equals(id) && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
+        podiumFireworksTicks = matchWinnerId != null && !"xmas".equals(id) && !podiumFreezePositions.isEmpty() ? 100 : 0;
 
         alive.clear();
         eliminatedPlayers.clear();
