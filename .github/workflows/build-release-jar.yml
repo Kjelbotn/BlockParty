@@ -37,7 +37,7 @@ jobs:
           test -s "$arena"
           test -s "$schematic"
           test -s BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/schematics/xmas.schem.b64
-          grep -q 'trimLobbySideBorder' "$schematic"
+          grep -q 'ensureXmasPlayableEdges()' "$arena"
           grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
           grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
           grep -q 'getMemoryFindDurationTicks(round)' "$arena"
@@ -47,6 +47,8 @@ jobs:
           grep -q 'gameMode == GameMode.MEMORY' "$arena"
           grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
           grep -q 'screenPoint.apply(-23.0)' "$arena"
+          grep -q 'wallZ + offset' "$arena"
+          grep -q 'double localX = -10.0 + column * 20.0;' "$arena"
           ! grep -q 'ensureXmasPlayableEdgeBounds' "$arena"
           ! grep -q 'placeNonPlayableLobbyEdge' "$schematic"
           grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
