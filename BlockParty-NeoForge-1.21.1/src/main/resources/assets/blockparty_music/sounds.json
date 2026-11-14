@@ -348,5 +348,15 @@
         "volume": 1
       }
     ]
+  },
+  "music_odin_jul": {
+    "subtitle": "subtitles.blockparty.music_odin_jul",
+    "sounds": [
+      {
+        "name": "blockparty:music/odin_jul",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }
