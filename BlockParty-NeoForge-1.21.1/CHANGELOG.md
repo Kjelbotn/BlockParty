@@ -1,3 +1,9 @@
+# BlockParty 1.4.5 — Public voting and combined vote countdown
+
+- Announced each player's selected song and game mode in the lobby chat, including when a vote is changed.
+- The 10-second lobby countdown now starts only after at least two distinct players have each voted for both a song and a game mode.
+- Song and game-mode voting remain open during the countdown; the latest votes determine the selected song and winning mode.
+
 # BlockParty 1.4.4 — Xmas lobby ambience and Memory Mode icon
 
 - Added client-controlled looping ambient music when a player enters the Xmas lobby with `/bp xmas`; it stops when they leave, is replaced by match music during a game, and resumes when the match returns players to the lobby.
