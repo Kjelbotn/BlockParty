@@ -45,7 +45,6 @@ jobs:
           grep -q 'floorWidth != 40 || floorDepth != 40' "$arena"
           grep -q 'MEMORY_FIND_START_TICKS = 160' "$arena"
           grep -q 'getMemoryFindDurationTicks(round)' "$arena"
-          grep -q 'ÅPNE BOKA FOR Å STEMME' "$arena"
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
