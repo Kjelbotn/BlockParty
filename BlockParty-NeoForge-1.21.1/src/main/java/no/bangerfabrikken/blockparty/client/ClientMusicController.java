@@ -46,11 +46,22 @@ public final class ClientMusicController {
         switch (payload.action()) {
             case MusicControlPayload.PLAY -> play(payload.soundId(), false);
             case MusicControlPayload.LOOP -> play(payload.soundId(), true);
+            case MusicControlPayload.PRELOAD -> preload(payload.soundId());
             case MusicControlPayload.PAUSE -> pause();
             case MusicControlPayload.RESUME -> resume();
             case MusicControlPayload.STOP -> stop();
             default -> BlockPartyMod.LOGGER.warn("Unknown BlockParty music action: {}", payload.action());
         }
+    }
+
+    private static void preload(ResourceLocation soundId) {
+        if (soundId == null || !"blockparty_music".equals(soundId.getNamespace())
+                || !soundId.getPath().startsWith("music_")) return;
+        String trackId = soundId.getPath().substring("music_".length());
+        RemoteMusicCache.warmUp(trackId).whenComplete((path, error) -> {
+            if (error == null) BlockPartyMod.LOGGER.info("Preloaded BlockParty track {} before playback.", trackId);
+            else BlockPartyMod.LOGGER.warn("Could not preload BlockParty track {}; bundled playback will be used.", trackId, error);
+        });
     }
 
     private static void play(ResourceLocation soundId, boolean looping) {

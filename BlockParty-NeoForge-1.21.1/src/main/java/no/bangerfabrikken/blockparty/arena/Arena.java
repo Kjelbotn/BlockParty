@@ -638,6 +638,7 @@ public final class Arena {
         specialScreenTicks = 0;
         Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
         if (winningTrack != null) {
+            sendMusicControl(MusicControlPayload.PRELOAD);
             broadcast(Component.literal("Vote ended. " + winningTrack.name() + " by " + winningTrack.artist() + " won.")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
         }
@@ -2032,6 +2033,8 @@ public final class Arena {
                 .withStyle(ChatFormatting.GRAY));
         if (phase == Phase.COUNTDOWN) {
             selectedMusicTrackId = selectWinningSong();
+            Track selectedTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
+            if (selectedTrack != null) sendMusicControl(player, selectedTrack.soundId(), MusicControlPayload.PRELOAD);
         }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
