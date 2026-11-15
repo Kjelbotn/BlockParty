@@ -56,6 +56,12 @@ public final class ClientMusicController {
     private static void play(ResourceLocation soundId, boolean looping) {
         Minecraft minecraft = Minecraft.getInstance();
         stop();
+        // Begin warming the remote cache in the background. Bundled playback remains
+        // authoritative until the custom decoder/OpenAL engine has been validated.
+        if (soundId != null && "blockparty_music".equals(soundId.getNamespace())
+                && soundId.getPath().startsWith("music_")) {
+            RemoteMusicCache.warmUp(soundId.getPath().substring("music_".length()));
+        }
         if (BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isEmpty()) {
             BlockPartyMod.LOGGER.warn("BlockParty client is missing music sound event {}", soundId);
             return;
