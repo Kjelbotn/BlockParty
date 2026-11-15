@@ -1,3 +1,9 @@
+# BlockParty 1.4.23
+
+- Prevented song-vote chat spam: each successful song selection is announced only once; repeated clicks on the current song do not broadcast or consume a change.
+- Limited each player to three distinct song selections per voting session (initial vote plus two changes). After the third selection, a light-pink message says `Du kan ikke stemme flere ganger.. :-)` and further changes are blocked.
+- Reset vote-change counters when players leave the arena/BlockParty area and when a match ends.
+
 # BlockParty 1.4.22
 
 - After a player successfully votes for a song, immediately open the separate Classic / Memory Mode GUI so the mode vote cannot be overlooked.
