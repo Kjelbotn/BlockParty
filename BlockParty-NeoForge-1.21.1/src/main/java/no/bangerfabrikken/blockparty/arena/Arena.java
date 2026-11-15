@@ -498,6 +498,14 @@ public final class Arena {
             return;
         }
         players.add(uuid);
+        // A player may join during the lobby countdown after the winning track
+        // has already been selected. Preload it immediately for this participant.
+        if (phase == Phase.COUNTDOWN && selectedMusicTrackId != null) {
+            Track selectedTrack = MusicTrackManager.get(id, selectedMusicTrackId);
+            if (selectedTrack != null) {
+                sendMusicControl(player, selectedTrack.soundId(), MusicControlPayload.PRELOAD);
+            }
+        }
         unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
         PlayerStatsManager.sendPlayerRank(player);
