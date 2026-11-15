@@ -8,63 +8,106 @@ import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.client.sounds.SoundManager;
 import no.bangerfabrikken.blockparty.BlockPartyMod;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Experimental remote OGG player built on Minecraft's own JOrbis decoder and
- * OpenAL channel pool. It deliberately remains opt-in until verified in-game.
+ * Experimental remote OGG player built on Minecraft's native JOrbis decoder
+ * and streaming OpenAL channel pool. Kept opt-in until verified in-game.
  */
 public final class RemoteAudioEngine {
+    private static final AtomicLong PLAY_GENERATION = new AtomicLong();
     private static volatile ChannelAccess.ChannelHandle activeHandle;
     private static volatile boolean paused;
 
     private RemoteAudioEngine() { }
 
     public static CompletableFuture<Boolean> play(Path oggFile) {
+        long generation = PLAY_GENERATION.incrementAndGet();
+        releaseActiveHandle();
         if (oggFile == null || !Files.isRegularFile(oggFile)) {
             return CompletableFuture.completedFuture(false);
         }
-        stop();
+
+        final ChannelAccess access;
         try {
-            ChannelAccess access = getChannelAccess();
-            return access.createHandle(Library.Pool.STREAMING).thenApply(handle -> {
-                if (handle == null) return false;
-                try {
-                    handle.execute(channel -> {
-                        try {
-                            InputStream input = Files.newInputStream(oggFile);
-                            JOrbisAudioStream stream = new JOrbisAudioStream(input);
-                            channel.setRelative(true);
-                            channel.setVolume(1.0F);
-                            channel.setPitch(1.0F);
-                            channel.attachBufferStream(stream);
-                            channel.play();
-                            activeHandle = handle;
-                            paused = false;
-                            BlockPartyMod.LOGGER.info("Started experimental cached BlockParty OGG playback: {}", oggFile.getFileName());
-                        } catch (Exception exception) {
-                            BlockPartyMod.LOGGER.error("Could not decode cached BlockParty OGG {}.", oggFile, exception);
-                            handle.release();
-                        }
-                    });
-                    return true;
-                } catch (RuntimeException exception) {
-                    handle.release();
-                    BlockPartyMod.LOGGER.error("Could not attach remote BlockParty audio channel.", exception);
-                    return false;
-                }
-            }).exceptionally(error -> {
-                BlockPartyMod.LOGGER.error("Could not allocate a Minecraft streaming audio channel for BlockParty.", error);
-                return false;
-            });
+            access = getChannelAccess();
         } catch (ReflectiveOperationException | RuntimeException exception) {
             BlockPartyMod.LOGGER.error("Could not access Minecraft's native audio channel pool.", exception);
             return CompletableFuture.completedFuture(false);
         }
+
+        return access.createHandle(Library.Pool.STREAMING).thenCompose(handle -> {
+            if (handle == null) return CompletableFuture.completedFuture(false);
+            if (PLAY_GENERATION.get() != generation) {
+                handle.release();
+                return CompletableFuture.completedFuture(false);
+            }
+
+            final InputStream input;
+            final JOrbisAudioStream stream;
+            try {
+                input = Files.newInputStream(oggFile);
+                try {
+                    stream = new JOrbisAudioStream(input);
+                } catch (IOException | RuntimeException exception) {
+                    input.close();
+                    throw exception;
+                }
+            } catch (IOException | RuntimeException exception) {
+                handle.release();
+                BlockPartyMod.LOGGER.error("Could not open cached BlockParty OGG {}.", oggFile, exception);
+                return CompletableFuture.completedFuture(false);
+            }
+
+            CompletableFuture<Boolean> attached = new CompletableFuture<>();
+            AtomicBoolean streamAttached = new AtomicBoolean(false);
+            try {
+                // ChannelHandle.execute runs on Minecraft's audio executor. Complete
+                // only after the stream has actually been attached and playback started.
+                handle.execute(channel -> {
+                    if (PLAY_GENERATION.get() != generation || handle.isStopped()) {
+                        closeQuietly(stream);
+                        handle.release();
+                        attached.complete(false);
+                        return;
+                    }
+                    try {
+                        channel.setRelative(true);
+                        channel.setVolume(1.0F);
+                        channel.setPitch(1.0F);
+                        channel.attachBufferStream(stream);
+                        streamAttached.set(true);
+                        channel.play();
+                        activeHandle = handle;
+                        paused = false;
+                        BlockPartyMod.LOGGER.info("Started experimental cached BlockParty OGG playback: {}",
+                                oggFile.getFileName());
+                        attached.complete(true);
+                    } catch (RuntimeException exception) {
+                        if (!streamAttached.get()) closeQuietly(stream);
+                        handle.release();
+                        BlockPartyMod.LOGGER.error("Could not start cached BlockParty OGG {}.", oggFile, exception);
+                        attached.complete(false);
+                    }
+                });
+            } catch (RuntimeException exception) {
+                if (!streamAttached.get()) closeQuietly(stream);
+                handle.release();
+                BlockPartyMod.LOGGER.error("Could not schedule cached BlockParty audio on Minecraft's audio executor.", exception);
+                attached.complete(false);
+            }
+            return attached;
+        }).exceptionally(error -> {
+            BlockPartyMod.LOGGER.error("Could not allocate a Minecraft streaming audio channel for BlockParty.", error);
+            return false;
+        });
     }
 
     public static void pause() {
@@ -82,10 +125,23 @@ public final class RemoteAudioEngine {
     }
 
     public static void stop() {
+        PLAY_GENERATION.incrementAndGet();
+        releaseActiveHandle();
+    }
+
+    private static void releaseActiveHandle() {
         ChannelAccess.ChannelHandle handle = activeHandle;
         activeHandle = null;
         paused = false;
         if (handle != null && !handle.isStopped()) handle.release();
+    }
+
+    private static void closeQuietly(JOrbisAudioStream stream) {
+        try {
+            stream.close();
+        } catch (IOException exception) {
+            BlockPartyMod.LOGGER.warn("Could not close an unused BlockParty OGG stream.", exception);
+        }
     }
 
     private static ChannelAccess getChannelAccess() throws ReflectiveOperationException {
