@@ -16,6 +16,7 @@ import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.neoforged.neoforge.network.PacketDistributor;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
+import no.bangerfabrikken.blockparty.network.PowerUpVisualPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
@@ -82,7 +83,8 @@ public final class Arena {
     public enum GameMode { CLASSIC, MEMORY }
 
     private enum PowerUp {
-        SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER
+        SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
+        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -171,6 +173,12 @@ public final class Arena {
     private final Map<UUID, ReturnLocation> returnLocations = new HashMap<>();
     private record ReturnLocation(ServerLevel level, double x, double y, double z, float yaw, float pitch) { }
     private final Map<UUID, Set<Holder<MobEffect>>> roundPowerupEffects = new HashMap<>();
+    /** SPEED UPGRADE and SUPER JUMP expire after the end of the following round. */
+    private final Map<UUID, Map<Holder<MobEffect>, Integer>> extendedPowerupExpiryRounds = new HashMap<>();
+    /** Fake hotbar colours are local to one player and never alter the authoritative target. */
+    private final Map<UUID, DyeColor> fakeDisplayedColors = new HashMap<>();
+    private final Set<UUID> pumpkinVisionPlayers = new HashSet<>();
+    private final Set<UUID> panicModePlayers = new HashSet<>();
     private final Map<UUID, Integer> points = new HashMap<>();
     private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
     private final Map<UUID, Integer> matchStartPersonalBest = new HashMap<>();
@@ -368,10 +376,11 @@ public final class Arena {
                     ItemStack stack = player.getInventory().getItem(slot);
                     boolean activePlayer = alive.contains(uuid);
                     boolean keepTarget = activePlayer && slot == TARGET_BLOCK_SLOT && isTargetColorBlock(stack);
-                    // LEAP BOOST is the only permitted extra item for active players.
-                    // Eliminated players remain inventory-empty until the match ends.
+                    // LEAP BOOST and the temporary PUMPKIN VISION helmet are the only
+                    // permitted extra inventory items during an active match.
                     boolean keepLeapFeather = activePlayer && isLeapFeather(stack);
-                    if (!stack.isEmpty() && !keepTarget && !keepLeapFeather) {
+                    boolean keepPumpkinHelmet = activePlayer && slot == 39 && isPumpkinVisionHelmet(stack);
+                    if (!stack.isEmpty() && !keepTarget && !keepLeapFeather && !keepPumpkinHelmet) {
                         player.getInventory().setItem(slot, ItemStack.EMPTY);
                         changed = true;
                     }
@@ -531,7 +540,7 @@ public final class Arena {
         if (wasMember && "xmas".equals(id)) {
             sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.STOP);
         }
-        restoreCottonPickerView(player);
+        clearPlayerRoundPowerUps(player);
         players.remove(uuid);
         preferredGameModes.remove(uuid);
         alive.remove(uuid);
@@ -628,6 +637,10 @@ public final class Arena {
         points.clear();
         powerupsCollected.clear();
         leapFallProtection.clear();
+        extendedPowerupExpiryRounds.clear();
+        fakeDisplayedColors.clear();
+        pumpkinVisionPlayers.clear();
+        panicModePlayers.clear();
         for (UUID uuid : players) {
             points.put(uuid, 0);
             powerupsCollected.put(uuid, 0);
@@ -1340,16 +1353,20 @@ public final class Arena {
 
         BlockState restore = activeBeacons.remove(clickedPos);
         level.setBlock(clickedPos, restore == null ? Blocks.AIR.defaultBlockState() : restore, 3);
-        int powerRoll = random.nextInt(120);
-        PowerUp powerUp = powerRoll < 10 ? PowerUp.SLOWNESS
-                : powerRoll < 24 ? PowerUp.LEAP
-                : powerRoll < 38 ? PowerUp.COLOR_TELEPORTER
-                : powerRoll < 52 ? PowerUp.COLOR_SCANNER
-                : powerRoll < 64 ? PowerUp.LUCKY_LANDING
-                : powerRoll < 76 ? PowerUp.SPEED_UPGRADE
-                : powerRoll < 88 ? PowerUp.SUPER_JUMP
-                : powerRoll < 100 ? PowerUp.NIGHT_VISION
-                : powerRoll < 110 ? PowerUp.COTTON_PICKER : PowerUp.COLOR_RAIN;
+        int powerRoll = random.nextInt(100);
+        PowerUp powerUp = powerRoll < 6 ? PowerUp.SLOWNESS
+                : powerRoll < 16 ? PowerUp.LEAP
+                : powerRoll < 26 ? PowerUp.COLOR_TELEPORTER
+                : powerRoll < 36 ? PowerUp.COLOR_SCANNER
+                : powerRoll < 46 ? PowerUp.LUCKY_LANDING
+                : powerRoll < 56 ? PowerUp.SPEED_UPGRADE
+                : powerRoll < 66 ? PowerUp.SUPER_JUMP
+                : powerRoll < 74 ? PowerUp.NIGHT_VISION
+                : powerRoll < 80 ? PowerUp.COTTON_PICKER
+                : powerRoll < 88 ? PowerUp.COLOR_RAIN
+                : powerRoll < 91 ? PowerUp.BLACKOUT
+                : powerRoll < 94 ? PowerUp.FAKE_COLOR
+                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : PowerUp.PANIC_MODE;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1364,10 +1381,15 @@ public final class Arena {
             case LUCKY_LANDING -> label = "LUCKY LANDING";
             case COLOR_RAIN -> label = "COLOR RAIN";
             case COTTON_PICKER -> label = "COTTON PICKER";
+            case BLACKOUT -> { effect = MobEffects.DARKNESS; label = "BLACKOUT"; }
+            case FAKE_COLOR -> label = "FAKE COLOR";
+            case PUMPKIN_VISION -> label = "PUMPKIN VISION";
+            case PANIC_MODE -> label = "PANIC MODE";
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
         boolean activated = true;
+        UUID uuid = player.getUUID();
         if (powerUp == PowerUp.LEAP) {
             ItemStack feather = new ItemStack(Items.FEATHER);
             feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
@@ -1386,8 +1408,6 @@ public final class Arena {
                 player.sendSystemMessage(Component.literal("Ingen ledig inventoryplass til LEAP BOOST-fjæren.")
                         .withStyle(ChatFormatting.YELLOW));
             } else {
-                // Set the slot directly instead of Inventory.add(), so the item cannot
-                // be reported as failed after insertion or disappear during hotbar enforcement.
                 player.getInventory().setItem(freeSlot, feather);
                 player.getInventory().setChanged();
                 player.inventoryMenu.broadcastChanges();
@@ -1402,15 +1422,19 @@ public final class Arena {
                 if (!level.isEmptyBlock(tile.above()) || !level.isEmptyBlock(tile.above(2))) continue;
                 boolean occupied = false;
                 for (UUID otherId : alive) {
-                    if (otherId.equals(player.getUUID())) continue;
+                    if (otherId.equals(uuid)) continue;
                     ServerPlayer other = level.getServer().getPlayerList().getPlayer(otherId);
-                    if (other != null && other.blockPosition().closerThan(tile.above(), 1.5D)) { occupied = true; break; }
+                    if (other != null && other.blockPosition().closerThan(tile.above(), 1.5D)) {
+                        occupied = true;
+                        break;
+                    }
                 }
                 if (!occupied) safeTiles.add(tile);
             }
             if (safeTiles.isEmpty()) {
                 activated = false;
-                player.sendSystemMessage(Component.literal("COLOR TELEPORTER fant ingen ledig trygg blokk i målfargen.").withStyle(ChatFormatting.YELLOW));
+                player.sendSystemMessage(Component.literal("COLOR TELEPORTER fant ingen ledig trygg blokk i målfargen.")
+                        .withStyle(ChatFormatting.YELLOW));
             } else {
                 BlockPos destination = safeTiles.get(random.nextInt(safeTiles.size()));
                 player.teleportTo(level, destination.getX() + 0.5D, destination.getY() + 1.05D,
@@ -1420,30 +1444,64 @@ public final class Arena {
             // Picking it up only schedules the effect; the current floor remains untouched.
             colorRainNextRound = true;
             player.sendSystemMessage(Component.literal(
-                    "COLOR RAIN aktivert! Fargerike blokker regner ned på dansegulvet neste runde.")
+                    "COLOR RAIN aktivert! Fargede concrete-blokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COTTON_PICKER) {
-            cottonPickerPlayers.add(player.getUUID());
+            cottonPickerPlayers.add(uuid);
             applyCottonPickerView(player);
             player.sendSystemMessage(Component.literal("COTTON PICKER! Hele dansegulvet ser ut som hvit ull for deg denne runden!")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COLOR_SCANNER) {
-            scannerTicks.put(player.getUUID(), 60);
-            activated = true;
+            scannerTicks.put(uuid, 60);
         } else if (powerUp == PowerUp.LUCKY_LANDING) {
-            luckyLanding.add(player.getUUID());
+            luckyLanding.add(uuid);
+        } else if (powerUp == PowerUp.FAKE_COLOR) {
+            List<DyeColor> decoys = palette.stream().filter(color -> color != targetColor).toList();
+            if (decoys.isEmpty()) {
+                activated = false;
+                player.sendSystemMessage(Component.literal("FAKE COLOR kunne ikke finne en annen gulvfarge.")
+                        .withStyle(ChatFormatting.YELLOW));
+            } else {
+                DyeColor fakeColor = decoys.get(random.nextInt(decoys.size()));
+                fakeDisplayedColors.put(uuid, fakeColor);
+                setTargetColorItem(player, fakeColor);
+                player.sendSystemMessage(Component.literal("FAKE COLOR! Hotbar-blokken viser feil farge. Se på arenaens måltavle!")
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+            }
+        } else if (powerUp == PowerUp.PUMPKIN_VISION) {
+            ItemStack pumpkinHelmet = new ItemStack(Items.CARVED_PUMPKIN);
+            pumpkinHelmet.set(DataComponents.CUSTOM_NAME, Component.literal("PUMPKIN VISION")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            player.getInventory().armor.set(3, pumpkinHelmet);
+            player.getInventory().setChanged();
+            player.inventoryMenu.broadcastChanges();
+            pumpkinVisionPlayers.add(uuid);
+        } else if (powerUp == PowerUp.PANIC_MODE) {
+            panicModePlayers.add(uuid);
+            PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
+                    PowerUpVisualPayload.START_CAMERA_SHAKE, 80));
         } else if (player.hasEffect(effect)) {
             activated = false;
-            player.sendSystemMessage(Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.")
+                    .withStyle(ChatFormatting.YELLOW));
         } else {
-            // Removed at the end of this round; the long vanilla duration is only a safety net.
-            player.addEffect(new MobEffectInstance(effect, powerUp == PowerUp.NIGHT_VISION ? 20 * 10 : 20 * 60, amplifier, false, true, true));
-            roundPowerupEffects.computeIfAbsent(player.getUUID(), ignored -> new HashSet<>()).add(effect);
+            int durationTicks = powerUp == PowerUp.NIGHT_VISION ? 20 * 10
+                    : powerUp == PowerUp.BLACKOUT ? 20 * 5 : 20 * 60;
+            player.addEffect(new MobEffectInstance(effect, durationTicks, amplifier, false, true, true));
+            roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(effect);
+            if (powerUp == PowerUp.SPEED_UPGRADE || powerUp == PowerUp.SUPER_JUMP) {
+                extendedPowerupExpiryRounds.computeIfAbsent(uuid, ignored -> new HashMap<>())
+                        .put(effect, round + 1);
+            }
         }
+
         if (activated) {
-            powerupsCollected.merge(player.getUUID(), 1, Integer::sum);
+            powerupsCollected.merge(uuid, 1, Integer::sum);
             DailyChallengeManager.recordPowerup(level.getServer(), player);
-            boolean penalty = powerUp == PowerUp.SLOWNESS || powerUp == PowerUp.COTTON_PICKER;
+            boolean penalty = switch (powerUp) {
+                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE -> true;
+                default -> false;
+            };
             player.sendSystemMessage(Component.literal((penalty ? "PENALTY: " : "POWER-UP: ") + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE));
             broadcast(Component.literal(player.getName().getString() + (penalty ? " traff " : " plukket opp ") + label + "!")
@@ -1458,6 +1516,12 @@ public final class Arena {
         if (stack == null || stack.isEmpty() || !stack.is(Items.FEATHER)) return false;
         Component name = stack.get(DataComponents.CUSTOM_NAME);
         return name != null && "LEAP BOOST".equals(name.getString());
+    }
+
+    private static boolean isPumpkinVisionHelmet(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !stack.is(Items.CARVED_PUMPKIN)) return false;
+        Component name = stack.get(DataComponents.CUSTOM_NAME);
+        return name != null && "PUMPKIN VISION".equals(name.getString());
     }
 
     /** Right-click activation for the bankable LEAP BOOST item. */
@@ -1480,10 +1544,10 @@ public final class Arena {
     }
 
     private void spawnPowerUpBeacons(int requested) {
-        // Power-ups are a bonus, not a guaranteed part of every round. Leave at least
-        // one complete round without beacons between spawn waves.
-        if (level == null || floorSnapshot.isEmpty() || !activeBeacons.isEmpty() || round <= 5) return;
-        if (activeBeacons.size() >= 5 || round - lastPowerupRound < 2 || random.nextFloat() >= 0.35F) return;
+        // First beacon wave can appear in round 2. A two-round cooldown prevents
+        // back-to-back rounds; the 75% roll makes waves common without guaranteeing them.
+        if (level == null || floorSnapshot.isEmpty() || !activeBeacons.isEmpty() || round < 2) return;
+        if (activeBeacons.size() >= 5 || round - lastPowerupRound < 2 || random.nextFloat() >= 0.25F) return;
         List<BlockPos> candidates = new ArrayList<>(floorSnapshot.keySet());
         Collections.shuffle(candidates, random);
         List<BlockPos> chosenFloors = new ArrayList<>();
@@ -1543,21 +1607,103 @@ public final class Arena {
     }
 
     private void clearActivePowerUps(MinecraftServer server) {
-        // Restore each affected player's private block view before the next round starts.
+        // Restore each affected player's private Cotton Picker floor view.
         for (UUID uuid : new HashSet<>(cottonPickerPlayers)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) restoreCottonPickerView(player);
             else cottonPickerPlayers.remove(uuid);
         }
+
+        // Normal effects end with the round. SPEED UPGRADE and SUPER JUMP are
+        // deliberately retained until the end of the following round.
         for (Map.Entry<UUID, Set<Holder<MobEffect>>> entry : new HashMap<>(roundPowerupEffects).entrySet()) {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player != null) for (Holder<MobEffect> effect : entry.getValue()) {
-                if (!effect.equals(MobEffects.NIGHT_VISION)) player.removeEffect(effect);
+            if (player == null) continue;
+            Map<Holder<MobEffect>, Integer> expiry = extendedPowerupExpiryRounds.getOrDefault(
+                    entry.getKey(), Map.of());
+            for (Holder<MobEffect> effect : entry.getValue()) {
+                boolean keepForFollowingRound = expiry.containsKey(effect)
+                        && round < expiry.get(effect);
+                if (!keepForFollowingRound && !effect.equals(MobEffects.NIGHT_VISION)) {
+                    player.removeEffect(effect);
+                }
             }
         }
         roundPowerupEffects.clear();
-        // LEAP BOOST feathers are intentionally NOT cleared here: they are inventory items
-        // that players may save and use in a later round when they really need them.
+
+        // Remove carried effects once their promised extra round has finished.
+        for (Map.Entry<UUID, Map<Holder<MobEffect>, Integer>> entry
+                : new HashMap<>(extendedPowerupExpiryRounds).entrySet()) {
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            var iterator = entry.getValue().entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Holder<MobEffect>, Integer> carried = iterator.next();
+                if (round >= carried.getValue()) {
+                    if (player != null) player.removeEffect(carried.getKey());
+                    iterator.remove();
+                }
+            }
+            if (entry.getValue().isEmpty()) extendedPowerupExpiryRounds.remove(entry.getKey());
+        }
+
+        // Restore the real target-colour item after Fake Color has expired.
+        for (UUID uuid : new HashSet<>(fakeDisplayedColors.keySet())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null && alive.contains(uuid) && targetColor != null) {
+                setTargetColorItem(player, targetColor);
+            }
+        }
+        fakeDisplayedColors.clear();
+
+        // Remove the temporary pumpkin helmet and end client-side camera effects.
+        for (UUID uuid : new HashSet<>(pumpkinVisionPlayers)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null && isPumpkinVisionHelmet(player.getInventory().armor.get(3))) {
+                player.getInventory().armor.set(3, ItemStack.EMPTY);
+                player.getInventory().setChanged();
+                player.inventoryMenu.broadcastChanges();
+            }
+        }
+        pumpkinVisionPlayers.clear();
+        for (UUID uuid : new HashSet<>(panicModePlayers)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
+                        PowerUpVisualPayload.CLEAR_CAMERA_SHAKE, 0));
+            }
+        }
+        panicModePlayers.clear();
+
+        scannerTicks.clear();
+        luckyLanding.clear();
+        leapFallProtection.clear();
+        // LEAP BOOST feathers intentionally remain in inventory for a later round.
+    }
+
+    /** Clears every active or banked power-up when one player leaves or is eliminated. */
+    private void clearPlayerRoundPowerUps(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        restoreCottonPickerView(player);
+
+        Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
+        if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
+        Map<Holder<MobEffect>, Integer> carried = extendedPowerupExpiryRounds.remove(uuid);
+        if (carried != null) for (Holder<MobEffect> effect : carried.keySet()) player.removeEffect(effect);
+
+        fakeDisplayedColors.remove(uuid);
+        if (pumpkinVisionPlayers.remove(uuid)
+                && isPumpkinVisionHelmet(player.getInventory().armor.get(3))) {
+            player.getInventory().armor.set(3, ItemStack.EMPTY);
+            player.getInventory().setChanged();
+            player.inventoryMenu.broadcastChanges();
+        }
+        if (panicModePlayers.remove(uuid)) {
+            PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
+                    PowerUpVisualPayload.CLEAR_CAMERA_SHAKE, 0));
+        }
+        scannerTicks.remove(uuid);
+        luckyLanding.remove(uuid);
+        leapFallProtection.remove(uuid);
     }
 
     /** Remove any banked LEAP BOOST items only when the match is completely over. */
@@ -2576,9 +2722,10 @@ public final class Arena {
                         break;
                     }
                 }
-                if (recovered.isEmpty() && targetColor != null) {
-                    recovered = new ItemStack(BlockPartyColors.getConcrete(targetColor));
-                    recovered.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
+                DyeColor shownColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
+                if (recovered.isEmpty() && shownColor != null) {
+                    recovered = new ItemStack(BlockPartyColors.getConcrete(shownColor));
+                    recovered.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(shownColor))
                             .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
                 }
                 if (!recovered.isEmpty()) player.getInventory().setItem(TARGET_BLOCK_SLOT, recovered);
@@ -2724,8 +2871,8 @@ public final class Arena {
         int maxZ = Math.max(pos1.getZ(), pos2.getZ());
         int width = maxX - minX + 1;
         int depth = maxZ - minZ + 1;
-        int targetCount = Math.min(floorSnapshot.size(), Math.max(12,
-                (int) Math.ceil(floorSnapshot.size() * 0.08D)));
+        int targetCount = Math.min(floorSnapshot.size(),
+                Math.max(1, (int) Math.ceil(floorSnapshot.size() * 0.20D)));
         int columns = Math.min(width, Math.max(1,
                 (int) Math.ceil(Math.sqrt(targetCount * width / (double) depth))));
         int rows = Math.min(depth, Math.max(1, (int) Math.ceil(targetCount / (double) columns)));
@@ -2771,8 +2918,10 @@ public final class Arena {
             BlockPos tile = falling.getKey();
             BlockState state = falling.getValue();
             BlockParticleOption particle = new BlockParticleOption(ParticleTypes.FALLING_DUST, state);
-            level.sendParticles(particle, tile.getX() + 0.5D, tile.getY() + 2.2D, tile.getZ() + 0.5D,
-                    0, 0.0D, -0.35D, 0.0D, 1.0D);
+            // Falling-dust particles use the new concrete's texture and drop from
+            // roughly ten blocks above the exact tile they recolour.
+            level.sendParticles(particle, tile.getX() + 0.5D, tile.getY() + 10.0D, tile.getZ() + 0.5D,
+                    0, 0.0D, -0.55D, 0.0D, 1.0D);
             level.setBlock(tile, state, 3);
         }
     }
@@ -3260,20 +3409,26 @@ public final class Arena {
         };
     }
 
+    private void setTargetColorItem(ServerPlayer player, DyeColor displayedColor) {
+        if (displayedColor == null) return;
+        ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(displayedColor));
+        targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(displayedColor))
+                .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+        player.getInventory().selected = TARGET_BLOCK_SLOT;
+        player.getInventory().setItem(TARGET_BLOCK_SLOT, targetBlock);
+        player.getInventory().setChanged();
+        player.inventoryMenu.broadcastChanges();
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+    }
+
     private void updateTargetItems(MinecraftServer server) {
         if (targetColor == null) return;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             InventorySnapshot snapshot = originalHeldItems.get(uuid);
             if (player == null || snapshot == null) continue;
-
-            player.getInventory().selected = TARGET_BLOCK_SLOT;
-            ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(targetColor));
-            targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
-                    .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
-            player.getInventory().setItem(TARGET_BLOCK_SLOT, targetBlock);
-            player.inventoryMenu.broadcastChanges();
-            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+            DyeColor displayedColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
+            setTargetColorItem(player, displayedColor);
         }
     }
 
@@ -3292,13 +3447,8 @@ public final class Arena {
     /** Restore a tossed target block to its dedicated centre hotbar slot, never the first free slot. */
     public void restoreTossedTargetBlock(ServerPlayer player, ItemStack stack) {
         if (targetColor == null || !players.contains(player.getUUID())) return;
-        ItemStack restored = new ItemStack(BlockPartyColors.getConcrete(targetColor));
-        restored.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(targetColor))
-                .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
-        player.getInventory().setItem(TARGET_BLOCK_SLOT, restored);
-        player.getInventory().selected = TARGET_BLOCK_SLOT;
-        player.inventoryMenu.broadcastChanges();
-        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+        DyeColor displayedColor = fakeDisplayedColors.getOrDefault(player.getUUID(), targetColor);
+        setTargetColorItem(player, displayedColor);
     }
 
     /** Reads original tile colours in Memory Mode even after the visible floor turns gray. */
@@ -3416,7 +3566,9 @@ public final class Arena {
                 }
             }
         }
-        if (!alive.remove(uuid)) return;
+        if (!alive.contains(uuid)) return;
+        clearPlayerRoundPowerUps(player);
+        alive.remove(uuid);
         pendingEliminations.remove(uuid);
         // Cosmetic lightning strikes at the hole in the floor; visual-only prevents damage/fire to others.
         if (level != null) {
@@ -3622,8 +3774,7 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
 
-            Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
-            if (effects != null) for (Holder<MobEffect> effect : effects) player.removeEffect(effect);
+            clearPlayerRoundPowerUps(player);
             player.removeEffect(MobEffects.NIGHT_VISION);
             player.setGameMode(GameType.ADVENTURE);
             player.getInventory().clearContent();
@@ -3669,6 +3820,10 @@ public final class Arena {
         matchStartPersonalBest.clear();
         personalBestNotified.clear();
         scannerTicks.clear();
+        extendedPowerupExpiryRounds.clear();
+        fakeDisplayedColors.clear();
+        pumpkinVisionPlayers.clear();
+        panicModePlayers.clear();
         gameMode = GameMode.CLASSIC;
         matchStartTick = 0L;
         phase = Phase.WAITING;

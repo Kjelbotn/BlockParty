@@ -1,3 +1,11 @@
+# BlockParty 1.4.28 — Power-up system revamp
+
+- SPEED UPGRADE and SUPER JUMP now last for the rest of the pickup round and the entire following round.
+- COLOR RAIN now recolours roughly 20% of the floor, with falling-concrete visuals starting about ten blocks above the tiles.
+- Added BLACKOUT (5-second Darkness), FAKE COLOR (false hotbar concrete while the arena target display remains correct), PUMPKIN VISION (pumpkin overlay for the round), and PANIC MODE (light camera shake).
+- Power-up beacons can start appearing from round 2. Spawn chance increased to 75% on eligible rounds, with a two-round minimum gap so they never spawn in consecutive rounds.
+- Added per-player cleanup for temporary visual effects and ensured carried effects are removed at the end of their promised extra round.
+
 # BlockParty 1.4.26 — Nena added to Classic playlist
 
 - Added Nena — 99 Luftballons to the Classic/Main music voting playlist only. Xmas playlist remains unchanged.
