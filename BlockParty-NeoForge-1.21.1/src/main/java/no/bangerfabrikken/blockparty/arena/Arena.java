@@ -35,6 +35,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.projectile.Snowball;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -247,7 +248,7 @@ public final class Arena {
     private int specialScreenTicks;
     /** COLOR RAIN collected in one round is applied only to the next generated floor. */
     private boolean colorRainNextRound;
-    /** New floor colors waiting to land during the two-second reveal window. */
+    /** New floor colors waiting for their physical snowballs to be released. */
     private final List<Map.Entry<BlockPos, BlockState>> pendingColorRainBlocks = new ArrayList<>();
     private ResourceLocation activeMusicId;
     private long originalDayTime = Long.MIN_VALUE;
@@ -1544,10 +1545,14 @@ public final class Arena {
     }
 
     private void spawnPowerUpBeacons(int requested) {
-        // First beacon wave can appear in round 2. A two-round cooldown prevents
-        // back-to-back rounds; the 75% roll makes waves common without guaranteeing them.
+        // First wave is possible in round 2. Never spawn in consecutive rounds.
+        // Eligible rounds have a 75% chance; after three rounds without a spawn,
+        // the next eligible round is guaranteed rather than left to RNG.
         if (level == null || floorSnapshot.isEmpty() || !activeBeacons.isEmpty() || round < 2) return;
-        if (activeBeacons.size() >= 5 || round - lastPowerupRound < 2 || random.nextFloat() >= 0.25F) return;
+        int roundsSinceLastSpawn = round - lastPowerupRound;
+        if (activeBeacons.size() >= 5 || roundsSinceLastSpawn < 2) return;
+        boolean guaranteedSpawn = roundsSinceLastSpawn >= 3;
+        if (!guaranteedSpawn && random.nextFloat() >= 0.75F) return;
         List<BlockPos> candidates = new ArrayList<>(floorSnapshot.keySet());
         Collections.shuffle(candidates, random);
         List<BlockPos> chosenFloors = new ArrayList<>();
@@ -1561,8 +1566,12 @@ public final class Arena {
             }
             if (occupied) continue;
             boolean tooClose = false;
+            int minimumSpacing = guaranteedSpawn ? 8 : 15;
             for (BlockPos other : chosenFloors) {
-                if (other.distSqr(candidate) < 15.0 * 15.0) { tooClose = true; break; }
+                if (other.distSqr(candidate) < (double) minimumSpacing * minimumSpacing) {
+                    tooClose = true;
+                    break;
+                }
             }
             if (tooClose) continue;
             BlockPos beaconPos = candidate.above();
@@ -2908,7 +2917,7 @@ public final class Arena {
         }
     }
 
-    /** Releases the queued color rain gradually throughout the 40-tick floor reveal. */
+    /** Releases actual vanilla snowball entities from above the floor, recolouring each tile as it rains. */
     private void tickColorRain() {
         if (level == null || pendingColorRainBlocks.isEmpty()) return;
         int ticksLeft = Math.max(1, timerTicks);
@@ -2917,11 +2926,14 @@ public final class Arena {
             Map.Entry<BlockPos, BlockState> falling = pendingColorRainBlocks.remove(0);
             BlockPos tile = falling.getKey();
             BlockState state = falling.getValue();
-            BlockParticleOption particle = new BlockParticleOption(ParticleTypes.FALLING_DUST, state);
-            // Falling-dust particles use the new concrete's texture and drop from
-            // roughly ten blocks above the exact tile they recolour.
-            level.sendParticles(particle, tile.getX() + 0.5D, tile.getY() + 10.0D, tile.getZ() + 0.5D,
-                    0, 0.0D, -0.55D, 0.0D, 1.0D);
+
+            // A real Snowball projectile (not particles or falling-dust) drops vertically
+            // from ten blocks above the exact tile being recoloured.
+            Snowball snowball = new Snowball(level,
+                    tile.getX() + 0.5D, tile.getY() + 10.0D, tile.getZ() + 0.5D);
+            snowball.setDeltaMovement(0.0D, -0.85D, 0.0D);
+            snowball.setNoGravity(false);
+            level.addFreshEntity(snowball);
             level.setBlock(tile, state, 3);
         }
     }
@@ -3109,13 +3121,13 @@ public final class Arena {
         // Xmas occasionally gets a dedicated festive pixel-art motif instead of
         // the normal geometric pattern. Keep the regular patterns in rotation too.
         if ("xmas".equals(id) && random.nextInt(3) == 0) {
-            pattern = 32 + random.nextInt(6);
+            pattern = 32 + random.nextInt(14);
         } else {
             pattern = minPattern + random.nextInt(patternCount);
         }
         int rerolls = 0;
         while (recentPatterns.contains(pattern) && rerolls++ < 18) {
-            if ("xmas".equals(id) && random.nextInt(3) == 0) pattern = 32 + random.nextInt(6);
+            if ("xmas".equals(id) && random.nextInt(3) == 0) pattern = 32 + random.nextInt(14);
             else pattern = minPattern + random.nextInt(patternCount);
         }
         previousPattern = pattern;
@@ -3348,6 +3360,91 @@ public final class Arena {
                 if (az >= 13 && az <= 17 && ax <= (az - 12) / 2) yield DyeColor.YELLOW;
                 if (radius < 8) yield DyeColor.WHITE;
                 yield DyeColor.BLUE;
+            }
+            case 38 -> { // Santa hat with white brim and pom-pom
+                if (dz <= -10 && ax <= 2) yield DyeColor.WHITE;
+                if (dz >= -12 && dz <= 11 && ax <= (dz + 14) / 2) yield DyeColor.RED;
+                if (Math.abs(dz - 12) <= 1 && ax <= 14) yield DyeColor.WHITE;
+                yield DyeColor.BLUE;
+            }
+            case 39 -> { // Reindeer face, antlers, muzzle and bright nose
+                boolean antler = (az >= 8 && az <= 17 && (ax == 5 || ax == 11))
+                        || (az >= 12 && az <= 17 && (ax == 3 || ax == 13));
+                if (antler) yield DyeColor.YELLOW;
+                if (ax <= 13 && az <= 11) {
+                    if ((ax == 6 || ax == 7) && az <= 2) yield DyeColor.BLACK;
+                    if (ax <= 3 && az >= 5 && az <= 9) yield DyeColor.RED;
+                    yield DyeColor.BROWN;
+                }
+                yield DyeColor.WHITE;
+            }
+            case 40 -> { // Gingerbread house with icing roof, windows and door
+                if (dz <= -7 && dz >= -16 && ax <= (16 + dz) * 2 / 3) yield DyeColor.RED;
+                if (dz <= -5 && dz >= -17 && (ax + dz + 17) % 4 == 0) yield DyeColor.WHITE;
+                if (ax <= 12 && dz >= -4 && dz <= 14) {
+                    if ((ax >= 7 && dz <= 2) || (ax <= 2 && dz >= 5 && dz <= 9))
+                        yield DyeColor.LIGHT_BLUE;
+                    if (ax <= 3 && dz >= 8) yield DyeColor.BROWN;
+                    yield DyeColor.ORANGE;
+                }
+                yield DyeColor.GREEN;
+            }
+            case 41 -> { // Golden bells with red ribbons
+                double bellRadius = Math.hypot(ax, dz + 2);
+                if (bellRadius <= 12 && dz >= -8 && dz <= 13) {
+                    if (Math.floorMod(ax + dz, 7) == 0) yield DyeColor.RED;
+                    if (dz >= 7 && ax <= 2) yield DyeColor.RED;
+                    yield DyeColor.YELLOW;
+                }
+                if (az >= 13 && az <= 16 && ax <= 5) yield DyeColor.RED;
+                yield DyeColor.BLUE;
+            }
+            case 42 -> { // Ornament baubles with caps and decorative highlights
+                double ornamentA = Math.hypot(dx + 10, dz);
+                double ornamentB = Math.hypot(dx, dz);
+                double ornamentC = Math.hypot(dx - 10, dz);
+                double nearest = Math.min(ornamentA, Math.min(ornamentB, ornamentC));
+                if (nearest <= 7) {
+                    if (nearest >= 6) yield DyeColor.YELLOW;
+                    if ((ax + az) % 7 == 0) yield DyeColor.WHITE;
+                    yield ornamentA <= ornamentB && ornamentA <= ornamentC ? DyeColor.RED
+                            : ornamentB <= ornamentC ? DyeColor.GREEN : DyeColor.LIGHT_BLUE;
+                }
+                if (az >= 8 && az <= 14 && ax % 10 <= 1) yield DyeColor.YELLOW;
+                yield DyeColor.BLUE;
+            }
+            case 43 -> { // Sleigh silhouette with runners and gift cargo
+                if (dz >= 7 && dz <= 11 && ax <= 15) yield DyeColor.RED;
+                if (dz >= 12 && dz <= 14 && ax <= 16) yield DyeColor.YELLOW;
+                if (dz >= -5 && dz <= 6 && ax <= 11) {
+                    if (Math.floorMod(ax + dz, 6) <= 1) yield DyeColor.WHITE;
+                    yield DyeColor.RED;
+                }
+                if (dz >= 0 && dz <= 5 && ax >= 4 && ax <= 9) yield DyeColor.GREEN;
+                yield DyeColor.BLUE;
+            }
+            case 44 -> { // Holly sprig with red berries and branching leaves
+                boolean stem = ax <= 1 && az <= 15;
+                boolean leaf = (az >= 4 && az <= 15 && ax <= (az - 2) * 2
+                        && Math.floorMod(ax + az, 4) != 0);
+                if (stem) yield DyeColor.YELLOW;
+                if (leaf) yield DyeColor.GREEN;
+                if (Math.hypot(dx - 4, dz + 4) <= 2 || Math.hypot(dx + 4, dz - 4) <= 2)
+                    yield DyeColor.RED;
+                yield DyeColor.WHITE;
+            }
+            case 45 -> { // Snowman with hat, scarf, buttons and carrot nose
+                double body = Math.hypot(dx, dz - 5);
+                double head = Math.hypot(dx, dz + 8);
+                if (head <= 7 || body <= 11) {
+                    if (dz <= -14 && ax <= 6) yield DyeColor.BLACK;
+                    if (dz >= -3 && dz <= 0 && ax <= 7) yield DyeColor.RED;
+                    if (ax == 0 && dz >= -10 && dz <= -7) yield DyeColor.ORANGE;
+                    if ((ax == 3 && dz >= -10 && dz <= -7) || (ax == 4 && dz >= 2 && dz <= 5))
+                        yield DyeColor.BLACK;
+                    yield DyeColor.WHITE;
+                }
+                yield DyeColor.LIGHT_BLUE;
             }
             default -> null;
         };

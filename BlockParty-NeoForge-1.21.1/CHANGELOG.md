@@ -1,3 +1,9 @@
+# BlockParty 1.4.29 — Power-up cadence, Xmas floor art and physical Color Rain
+
+- Corrected the power-up spawn probability to 75% on eligible rounds and guarantee a spawn when three rounds have passed since the previous successful beacon wave. Consecutive-round spawns remain disabled.
+- Added eight more advanced Xmas floor motifs: Santa hat, reindeer, gingerbread house, bells, ornaments, sleigh, holly and snowman. Festive pattern selection now rotates across fourteen dedicated designs.
+- Replaced Color Rain's coloured falling-dust particles with actual vanilla snowball projectile entities falling vertically from ten blocks above each affected tile. Each tile is recoloured as its snowball is released.
+
 # BlockParty 1.4.28 — Power-up system revamp
 
 - SPEED UPGRADE and SUPER JUMP now last for the rest of the pickup round and the entire following round.
