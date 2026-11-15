@@ -3,6 +3,7 @@ package no.bangerfabrikken.blockparty.client;
 import no.bangerfabrikken.blockparty.BlockPartyMod;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -11,18 +12,12 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Downloads immutable BlockParty music assets to the local client cache.
- *
- * This is the first, deliberately isolated step toward remote playback. The
- * existing Minecraft sound player remains the active playback path until the
- * custom audio engine has been implemented and verified.
- */
+/** Downloads immutable BlockParty music assets into a local client cache. */
 public final class RemoteMusicCache {
     private static final String REVISION = "de6188b409c247dd5418055228a92e199d2138b0";
     private static final String BASE_URL =
@@ -33,74 +28,90 @@ public final class RemoteMusicCache {
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
-    private static final Set<String> IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static final ConcurrentHashMap<String, CompletableFuture<Path>> IN_FLIGHT =
+            new ConcurrentHashMap<>();
 
     private RemoteMusicCache() { }
 
-    /** Starts a background cache download. It never blocks the Minecraft client thread. */
+    /** Starts or joins a background cache download. Never blocks the client thread. */
     public static CompletableFuture<Path> warmUp(String trackId) {
-        if (trackId == null || !trackId.matches("[a-z0-9_]{1,48}")) return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid track id"));
-        Path target = cacheDirectory().resolve(trackId + ".ogg");
-        if (Files.isRegularFile(target)) {
-            try {
-                long size = Files.size(target);
-                if (size > 4 && size <= MAX_TRACK_BYTES) return CompletableFuture.completedFuture(target);
-                Files.deleteIfExists(target);
-            } catch (IOException exception) {
-                BlockPartyMod.LOGGER.warn("Could not inspect cached BlockParty track {}.", trackId, exception);
-                return CompletableFuture.failedFuture(exception);
-            }
+        if (trackId == null || !trackId.matches("[a-z0-9_]{1,48}")) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid track id"));
         }
-        if (!IN_FLIGHT.add(trackId)) return CompletableFuture.failedFuture(new IllegalStateException("Track download already in progress"));
+        Path target = cacheDirectory().resolve(trackId + ".ogg");
+        try {
+            if (isValidOgg(target)) return CompletableFuture.completedFuture(target);
+            Files.deleteIfExists(target);
+        } catch (IOException exception) {
+            BlockPartyMod.LOGGER.warn("Could not inspect cached BlockParty track {}.", trackId, exception);
+            return CompletableFuture.failedFuture(exception);
+        }
+        return IN_FLIGHT.computeIfAbsent(trackId, id ->
+                download(id, target).whenComplete((result, error) -> IN_FLIGHT.remove(id)));
+    }
 
+    private static CompletableFuture<Path> download(String trackId, Path target) {
+        Path temporary = target.resolveSibling(target.getFileName() + ".part");
+        try {
+            Files.createDirectories(target.getParent());
+            Files.deleteIfExists(temporary);
+        } catch (IOException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
         HttpRequest request = HttpRequest.newBuilder(URI.create(BASE_URL + trackId + ".ogg"))
                 .timeout(Duration.ofSeconds(90))
                 .header("User-Agent", "BlockParty-Minecraft-Mod/1.4.19")
-                .GET()
-                .build();
+                .GET().build();
 
-        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofFile(
+                        temporary, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                        StandardOpenOption.WRITE))
                 .thenApply(response -> {
-                    if (response.statusCode() != 200) {
-                        throw new IllegalStateException("HTTP " + response.statusCode());
+                    try {
+                        if (response.statusCode() != 200) {
+                            throw new IllegalStateException("HTTP " + response.statusCode());
+                        }
+                        if (!isValidOgg(temporary)) {
+                            throw new IllegalStateException("Downloaded file is not a valid-sized OGG stream");
+                        }
+                        moveAtomically(temporary, target);
+                        long size = Files.size(target);
+                        BlockPartyMod.LOGGER.info("Cached remote BlockParty track {} ({} KiB).",
+                                trackId, size / 1024);
+                        return target;
+                    } catch (IOException exception) {
+                        throw new IllegalStateException("Could not validate or store BlockParty music cache", exception);
                     }
-                    byte[] data = response.body();
-                    if (data.length < 4 || data.length > MAX_TRACK_BYTES
-                            || data[0] != 'O' || data[1] != 'g' || data[2] != 'g' || data[3] != 'S') {
-                        throw new IllegalStateException("Downloaded file is not a valid-sized OGG stream");
+                })
+                .whenComplete((result, error) -> {
+                    if (error != null) {
+                        try { Files.deleteIfExists(temporary); } catch (IOException ignored) { }
+                        BlockPartyMod.LOGGER.warn("Could not download remote BlockParty track {}. "
+                                + "The bundled music player remains available.", trackId, error);
                     }
-                    writeAtomically(target, data);
-                    BlockPartyMod.LOGGER.info("Cached remote BlockParty track {} ({} KiB).",
-                            trackId, data.length / 1024);
-                    return target;
-                })
-                .exceptionally(error -> {
-                    BlockPartyMod.LOGGER.warn("Could not download remote BlockParty track {}. "
-                            + "The bundled music player remains available.", trackId, error);
-                    return null;
-                })
-                .whenComplete((ignored, error) -> IN_FLIGHT.remove(trackId));
+                });
+    }
+
+    private static boolean isValidOgg(Path file) throws IOException {
+        if (!Files.isRegularFile(file)) return false;
+        long size = Files.size(file);
+        if (size < 4 || size > MAX_TRACK_BYTES) return false;
+        try (InputStream input = Files.newInputStream(file)) {
+            return input.read() == 'O' && input.read() == 'g'
+                    && input.read() == 'g' && input.read() == 'S';
+        }
+    }
+
+    private static void moveAtomically(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException ignored) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private static Path cacheDirectory() {
         return net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath()
                 .resolve("config").resolve("blockparty").resolve("music-cache");
-    }
-
-    private static void writeAtomically(Path target, byte[] data) {
-        Path temporary = target.resolveSibling(target.getFileName() + ".part");
-        try {
-            Files.createDirectories(target.getParent());
-            Files.write(temporary, data);
-            try {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING,
-                        StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-        } catch (IOException exception) {
-            try { Files.deleteIfExists(temporary); } catch (IOException ignored) { }
-            throw new IllegalStateException("Could not write BlockParty music cache", exception);
-        }
     }
 }
