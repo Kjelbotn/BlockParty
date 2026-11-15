@@ -76,7 +76,7 @@ public final class ClientMusicController {
                 RemoteAudioEngine.play(cachedTrack).whenComplete((success, error) ->
                         minecraft.execute(() -> {
                             if (generation != playbackGeneration || !soundId.equals(activeSoundId)) {
-                                if (Boolean.TRUE.equals(success)) RemoteAudioEngine.stop();
+                                // A newer playback request owns the shared engine now; do not stop it here.
                                 return;
                             }
                             if (Boolean.TRUE.equals(success) && error == null) {
