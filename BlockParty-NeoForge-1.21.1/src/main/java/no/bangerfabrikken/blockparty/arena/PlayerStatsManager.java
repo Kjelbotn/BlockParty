@@ -210,8 +210,8 @@ public final class PlayerStatsManager {
 
     public static void sendLeaderboard(ServerPlayer player) {
         List<PlayerRecord> top = topPlayers(5);
-        player.sendSystemMessage(Component.literal("BLOCKPARTY LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("TOP 5 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("BLOCKPARTY TOPPLISTE").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("TOPP 5 DANSERE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         if (top.isEmpty()) {
             player.sendSystemMessage(Component.literal("Ingen poeng registrert ennå. Overlev en runde for å få ditt første poeng!").withStyle(ChatFormatting.GRAY));
             return;
@@ -222,7 +222,7 @@ public final class PlayerStatsManager {
             ChatFormatting place = i == 0 ? ChatFormatting.GOLD : i == 1 ? ChatFormatting.WHITE : i == 2 ? ChatFormatting.RED : ChatFormatting.GRAY;
             player.sendSystemMessage(Component.literal("#" + (i + 1) + " ").withStyle(place, ChatFormatting.BOLD)
                     .append(Component.literal(record.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                    .append(Component.literal("  " + record.points() + " pts ").withStyle(ChatFormatting.AQUA))
+                    .append(Component.literal("  " + record.points() + " poeng ").withStyle(ChatFormatting.AQUA))
                     .append(Component.literal("[" + rank.name() + "]").withStyle(ChatFormatting.GREEN)));
         }
     }
@@ -289,13 +289,13 @@ public final class PlayerStatsManager {
     public static void sendPlayerRank(ServerPlayer player) {
         PlayerRecord record = getRecord(player.getUUID());
         Rank rank = getRank(record.points());
-        player.sendSystemMessage(Component.literal("YOUR BLOCKPARTY PROFILE").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("Points: " + record.points()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("DIN BLOCKPARTY-PROFIL").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("Poeng: " + record.points()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         player.sendSystemMessage(Component.literal("Rank: " + rank.name()).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("Win streak: " + record.currentStreak()).withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("Best win streak: " + record.bestStreak()).withStyle(ChatFormatting.LIGHT_PURPLE));
-        player.sendSystemMessage(Component.literal("Personal best: " + record.personalBest() + "/" + Arena.MAX_ROUNDS + " rounds").withStyle(ChatFormatting.WHITE));
-        player.sendSystemMessage(Component.literal("Wins: " + record.wins() + "  |  MVP awards: " + record.mvpAwards()).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal("Seiersrekke: " + record.currentStreak()).withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("Beste seiersrekke: " + record.bestStreak()).withStyle(ChatFormatting.LIGHT_PURPLE));
+        player.sendSystemMessage(Component.literal("Personlig rekord: " + record.personalBest() + "/" + Arena.MAX_ROUNDS + " runder").withStyle(ChatFormatting.WHITE));
+        player.sendSystemMessage(Component.literal("Seire: " + record.wins() + "  |  MVP-priser: " + record.mvpAwards()).withStyle(ChatFormatting.GRAY));
         if (rank.isMaxRank()) player.sendSystemMessage(Component.literal("Du har nådd høyeste rank!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         else player.sendSystemMessage(Component.literal("Neste rank: " + rank.nextThreshold() + " poeng (" + rank.pointsToNext(record.points()) + " igjen)").withStyle(ChatFormatting.LIGHT_PURPLE));
     }
