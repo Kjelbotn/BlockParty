@@ -7,7 +7,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /** Server-authoritative commands for the local BlockParty music player. */
-public record MusicControlPayload(ResourceLocation soundId, int action) implements CustomPacketPayload {
+public record MusicControlPayload(ResourceLocation soundId, int action, long startTick) implements CustomPacketPayload {
     public static final int PLAY = 0;
     public static final int PAUSE = 1;
     public static final int RESUME = 2;
@@ -22,8 +22,14 @@ public record MusicControlPayload(ResourceLocation soundId, int action) implemen
             StreamCodec.composite(
                     ResourceLocation.STREAM_CODEC, MusicControlPayload::soundId,
                     ByteBufCodecs.VAR_INT, MusicControlPayload::action,
+                    ByteBufCodecs.VAR_LONG, MusicControlPayload::startTick,
                     MusicControlPayload::new
             );
+
+    /** Compatibility constructor for commands that do not need a scheduled start. */
+    public MusicControlPayload(ResourceLocation soundId, int action) {
+        this(soundId, action, -1L);
+    }
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

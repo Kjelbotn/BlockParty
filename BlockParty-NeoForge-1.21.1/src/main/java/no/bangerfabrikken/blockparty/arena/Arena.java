@@ -1597,6 +1597,15 @@ public final class Arena {
         musicPaused = false;
     }
 
+    private void sendMusicControl(ResourceLocation soundId, int action, long startTick) {
+        if (level == null || soundId == null) return;
+        MusicControlPayload payload = new MusicControlPayload(soundId, action, startTick);
+        for (UUID uuid : players) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) PacketDistributor.sendToPlayer(player, payload);
+        }
+    }
+
     private void sendMusicControl(ServerPlayer player, ResourceLocation soundId, int action) {
         if (player == null) return;
         PacketDistributor.sendToPlayer(player, new MusicControlPayload(soundId, action));

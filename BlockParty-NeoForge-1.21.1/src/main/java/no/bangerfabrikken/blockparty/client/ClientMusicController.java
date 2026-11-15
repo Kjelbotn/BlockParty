@@ -38,7 +38,7 @@ public final class ClientMusicController {
     private static boolean activeSoundLoops;
     private static int ticksWaitingForChannel;
     private static int playbackRetries;
-    private static boolean playbackFailureLogged;\n    private static boolean usingRemoteAudio;\n    private static long playbackGeneration;
+    private static boolean playbackFailureLogged;\n    private static boolean usingRemoteAudio;\n    private static long playbackGeneration;\n    private static ResourceLocation pendingSoundId;\n    private static boolean pendingSoundLoops;\n    private static long pendingStartTick = -1L;
 
     private ClientMusicController() { }
 
@@ -52,6 +52,20 @@ public final class ClientMusicController {
             case MusicControlPayload.STOP -> stop();
             default -> BlockPartyMod.LOGGER.warn("Unknown BlockParty music action: {}", payload.action());
         }
+    }
+
+    private static void scheduleOrPlay(ResourceLocation soundId, boolean looping, long startTick) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (startTick <= 0L || minecraft.level == null) {
+            play(soundId, looping);
+            return;
+        }
+        stop();
+        pendingSoundId = soundId;
+        pendingSoundLoops = looping;
+        pendingStartTick = startTick;
+        // Keep the selected track warm even if a PRELOAD packet was delayed or missed.
+        preload(soundId);
     }
 
     private static void preload(ResourceLocation soundId) {
