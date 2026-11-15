@@ -2035,7 +2035,7 @@ public final class Arena {
         }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
-        tryStartWhenTwoPlayersHaveCompletedBothVotes(player.serverLevel().getServer());
+        tryStartWhenTwoPlayersHaveVotedForSongs(player.serverLevel().getServer());
         return true;
     }
 
