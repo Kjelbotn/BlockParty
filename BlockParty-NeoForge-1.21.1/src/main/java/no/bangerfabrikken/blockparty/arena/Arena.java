@@ -218,6 +218,8 @@ public final class Arena {
     /** Active beacon blocks are placed one block above five separate floor tiles. */
     private final Map<BlockPos, BlockState> activeBeacons = new HashMap<>();
     private final Map<UUID, String> musicVotes = new HashMap<>();
+    /** Number of distinct song selections per player: initial vote plus at most two changes. */
+    private final Map<UUID, Integer> musicVoteChanges = new HashMap<>();
     private final Set<UUID> musicVotingUnlocked = new HashSet<>();
     private final Set<UUID> fullLobbyInventoryNotices = new HashSet<>();
     private String selectedMusicTrackId;
@@ -2017,20 +2019,42 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Fant ikke sangen " + trackId + ".").withStyle(ChatFormatting.RED));
             return false;
         }
-        String previousVote = musicVotes.put(player.getUUID(), track.id());
+        UUID voterId = player.getUUID();
+        String previousVote = musicVotes.get(voterId);
         if (track.id().equals(previousVote)) {
-            player.sendSystemMessage(Component.literal("Du har allerede valgt denne sangen.")
-                    .withStyle(ChatFormatting.YELLOW));
-        } else if (previousVote != null) {
+            // Repeated clicks on the current song are ignored: no chat spam and no attempt used.
+            return false;
+        }
+
+        int selectionsUsed = musicVoteChanges.getOrDefault(voterId, 0);
+        if (selectionsUsed >= 3) {
+            player.sendSystemMessage(Component.literal("Du kan ikke stemme flere ganger.. :-)")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return false;
+        }
+
+        musicVotes.put(voterId, track.id());
+        selectionsUsed++;
+        musicVoteChanges.put(voterId, selectionsUsed);
+
+        if (previousVote != null) {
             player.sendSystemMessage(Component.literal("Stemmen din er endret til " + track.name().replace("§", "§​") + " — " + track.artist() + ".")
                     .withStyle(ChatFormatting.GREEN));
         } else {
             player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + " — " + track.artist() + "!")
                     .withStyle(ChatFormatting.GREEN));
         }
+
+        // Announce each successful song choice exactly once. Re-clicks and blocked
+        // fourth attempts never reach this broadcast.
         broadcast(Component.literal(player.getGameProfile().getName() + " stemte på sangen "
                 + track.name() + " — " + track.artist() + ".")
                 .withStyle(ChatFormatting.GRAY));
+
+        if (selectionsUsed == 3) {
+            player.sendSystemMessage(Component.literal("Du kan ikke stemme flere ganger.. :-)")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
         if (phase == Phase.COUNTDOWN) {
             selectedMusicTrackId = selectWinningSong();
         }
