@@ -33,6 +33,19 @@ public final class RemoteMusicCache {
 
     private RemoteMusicCache() { }
 
+    /** Returns a verified cached track, or null when it has not been downloaded yet. */
+    public static Path getCached(String trackId) {
+        if (trackId == null || !trackId.matches("[a-z0-9_]{1,48}")) return null;
+        Path target = cacheDirectory().resolve(trackId + ".ogg");
+        try {
+            if (isValidOgg(target)) return target;
+            Files.deleteIfExists(target);
+        } catch (IOException exception) {
+            BlockPartyMod.LOGGER.warn("Could not inspect cached BlockParty track {}.", trackId, exception);
+        }
+        return null;
+    }
+
     /** Starts or joins a background cache download. Never blocks the client thread. */
     public static CompletableFuture<Path> warmUp(String trackId) {
         if (trackId == null || !trackId.matches("[a-z0-9_]{1,48}")) {

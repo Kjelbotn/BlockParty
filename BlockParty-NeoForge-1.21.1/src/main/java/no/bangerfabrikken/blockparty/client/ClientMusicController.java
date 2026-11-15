@@ -38,7 +38,7 @@ public final class ClientMusicController {
     private static boolean activeSoundLoops;
     private static int ticksWaitingForChannel;
     private static int playbackRetries;
-    private static boolean playbackFailureLogged;
+    private static boolean playbackFailureLogged;\n    private static boolean usingRemoteAudio;\n    private static long playbackGeneration;
 
     private ClientMusicController() { }
 
@@ -56,11 +56,40 @@ public final class ClientMusicController {
     private static void play(ResourceLocation soundId, boolean looping) {
         Minecraft minecraft = Minecraft.getInstance();
         stop();
-        // Begin warming the remote cache in the background. Bundled playback remains
-        // authoritative until the custom decoder/OpenAL engine has been validated.
         if (soundId != null && "blockparty_music".equals(soundId.getNamespace())
                 && soundId.getPath().startsWith("music_")) {
-            RemoteMusicCache.warmUp(soundId.getPath().substring("music_".length()));
+            String trackId = soundId.getPath().substring("music_".length());
+            java.nio.file.Path cachedTrack = RemoteMusicCache.getCached(trackId);
+            if (cachedTrack == null) {
+                // First encounter downloads in the background while the known-good
+                // bundled track plays. A later play can use the verified local copy.
+                RemoteMusicCache.warmUp(trackId);
+            } else {
+                activeSoundId = soundId;
+                activeSoundLoops = looping;
+                playbackRetries = 0;
+                ticksWaitingForChannel = 0;
+                playbackFailureLogged = false;
+                paused = false;
+                pauseStateApplied = true;
+                long generation = ++playbackGeneration;
+                RemoteAudioEngine.play(cachedTrack).whenComplete((success, error) ->
+                        minecraft.execute(() -> {
+                            if (generation != playbackGeneration || !soundId.equals(activeSoundId)) {
+                                if (Boolean.TRUE.equals(success)) RemoteAudioEngine.stop();
+                                return;
+                            }
+                            if (Boolean.TRUE.equals(success) && error == null) {
+                                usingRemoteAudio = true;
+                                BlockPartyMod.LOGGER.info("BlockParty is using its verified local remote-music cache for {}.", trackId);
+                            } else {
+                                usingRemoteAudio = false;
+                                BlockPartyMod.LOGGER.warn("Remote playback failed for {}; falling back to bundled music.", trackId, error);
+                                startSound(minecraft);
+                            }
+                        }));
+                return;
+            }
         }
         if (BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isEmpty()) {
             BlockPartyMod.LOGGER.warn("BlockParty client is missing music sound event {}", soundId);
@@ -89,6 +118,11 @@ public final class ClientMusicController {
     }
 
     private static void pause() {
+        if (usingRemoteAudio) {
+            paused = true;
+            RemoteAudioEngine.pause();
+            return;
+        }
         if (currentSound == null) return;
         paused = true;
         pauseStateApplied = false;
@@ -97,6 +131,11 @@ public final class ClientMusicController {
     }
 
     private static void resume() {
+        if (usingRemoteAudio) {
+            paused = false;
+            RemoteAudioEngine.resume();
+            return;
+        }
         if (currentSound == null) return;
         paused = false;
         pauseStateApplied = false;
@@ -105,6 +144,9 @@ public final class ClientMusicController {
     }
 
     private static void stop() {
+        playbackGeneration++;
+        RemoteAudioEngine.stop();
+        usingRemoteAudio = false;
         if (currentSound != null) Minecraft.getInstance().getSoundManager().stop(currentSound);
         currentSound = null;
         activeSoundId = null;
@@ -118,7 +160,7 @@ public final class ClientMusicController {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (currentSound == null) return;
+        if (usingRemoteAudio || currentSound == null) return;
         if (!paused && !playbackFailureLogged) {
             // Detect starts with the public SoundManager API. Reflection is only needed
             // to pause/resume the individual OpenAL channel without pausing other sounds.
