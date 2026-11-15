@@ -35,6 +35,7 @@ public final class ClientMusicController {
     private static boolean pauseStateApplied;
     private static boolean reflectionWarningLogged;
     private static ResourceLocation activeSoundId;
+    private static boolean activeSoundLoops;
     private static int ticksWaitingForChannel;
     private static int playbackRetries;
     private static boolean playbackFailureLogged;
@@ -43,7 +44,8 @@ public final class ClientMusicController {
 
     public static void handle(MusicControlPayload payload) {
         switch (payload.action()) {
-            case MusicControlPayload.PLAY -> play(payload.soundId());
+            case MusicControlPayload.PLAY -> play(payload.soundId(), false);
+            case MusicControlPayload.LOOP -> play(payload.soundId(), true);
             case MusicControlPayload.PAUSE -> pause();
             case MusicControlPayload.RESUME -> resume();
             case MusicControlPayload.STOP -> stop();
@@ -51,7 +53,7 @@ public final class ClientMusicController {
         }
     }
 
-    private static void play(ResourceLocation soundId) {
+    private static void play(ResourceLocation soundId, boolean looping) {
         Minecraft minecraft = Minecraft.getInstance();
         stop();
         if (BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isEmpty()) {
@@ -61,6 +63,7 @@ public final class ClientMusicController {
 
         // Use the Records/Jukebox category, matching the previous BlockParty music setup.
         activeSoundId = soundId;
+        activeSoundLoops = looping;
         playbackRetries = 0;
         ticksWaitingForChannel = 0;
         playbackFailureLogged = false;
@@ -70,7 +73,7 @@ public final class ClientMusicController {
     private static void startSound(Minecraft minecraft) {
         currentSound = new SimpleSoundInstance(
                 activeSoundId, SoundSource.RECORDS, 1.0F, 1.0F, RandomSource.create(),
-                false, 0, SoundInstance.Attenuation.NONE, 0.0D, 0.0D, 0.0D, true
+                activeSoundLoops, 0, SoundInstance.Attenuation.NONE, 0.0D, 0.0D, 0.0D, true
         );
         paused = false;
         pauseStateApplied = true;
@@ -99,6 +102,7 @@ public final class ClientMusicController {
         if (currentSound != null) Minecraft.getInstance().getSoundManager().stop(currentSound);
         currentSound = null;
         activeSoundId = null;
+        activeSoundLoops = false;
         ticksWaitingForChannel = 0;
         playbackRetries = 0;
         playbackFailureLogged = false;

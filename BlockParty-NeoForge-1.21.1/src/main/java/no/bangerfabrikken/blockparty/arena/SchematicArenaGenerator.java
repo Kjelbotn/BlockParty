@@ -65,14 +65,31 @@ public final class SchematicArenaGenerator {
         }
 
         FloorRegion floor = findDanceFloor(schematic);
-        trimLobbySideBorder(level, origin, schematic, floor);
+        // The dance floor must be a true fall-through platform when its concrete is
+        // removed. Clear only snow directly beneath the 40x40 playable tiles; preserve
+        // all natural terrain and non-snow supports below the map.
+        for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
+            for (int z = floor.minZ; z < floor.minZ + FLOOR_SIZE; z++) {
+                BlockPos belowFloor = origin.offset(x, floor.y - 1, z);
+                BlockState support = level.getBlockState(belowFloor);
+                if (support.is(Blocks.SNOW) || support.is(Blocks.SNOW_BLOCK)) {
+                    level.setBlock(belowFloor, Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        // Flatten the snowy apron immediately outside the dance floor to the same
+        // ground datum as the floor surface. Do not overwrite buildings or terrain:
+        // only reposition existing snow blocks/layers into empty or snowy target cells.
+        normalizeSnowApron(level, origin, schematic, floor);
         placeDanceFloorLights(level, origin, floor);
         BlockPos first = origin.offset(floor.minX, floor.y, floor.minZ);
         BlockPos second = origin.offset(floor.minX + FLOOR_SIZE - 1, floor.y,
                 floor.minZ + FLOOR_SIZE - 1);
         int centerX = floor.minX + FLOOR_SIZE / 2;
-        // The white target screen faces south (+Z), toward the outdoor dance floor.
-        BlockPos display = origin.offset(centerX, floor.y + 11, floor.minZ - 9);
+        // Dedicated Xmas target-screen anchor: vertical centre of the large white panel.
+        // The display is placed one block toward the dance floor (+Z) and faces south,
+        // so its front is visible to players standing on the arena.
+        BlockPos display = origin.offset(centerX, floor.y + 16, floor.minZ - 9);
         // The black panel on the LEFT indoor wall is reserved for music voting.
         // Match the wall coordinates used by the old leaderboard panel, now removed.
         BlockPos lobbyScreen = origin.offset(10, 14, 95);
@@ -125,6 +142,23 @@ public final class SchematicArenaGenerator {
                 }
             }
         }
+        // Remove the non-playable red/white lobby-edge decoration added at generation.
+        int edgeZ = floor.minZ + FLOOR_SIZE;
+        for (int x = floor.minX; x < floor.minX + FLOOR_SIZE; x++) {
+            BlockPos edge = origin.offset(x, floor.y, edgeZ);
+            BlockPos barrier = edge.above();
+            BlockPos upperBarrier = edge.above(2);
+            Block current = level.getBlockState(edge).getBlock();
+            if (current == Blocks.RED_CONCRETE || current == Blocks.WHITE_CONCRETE) {
+                level.setBlock(edge, Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (level.getBlockState(barrier).is(Blocks.BARRIER)) {
+                level.setBlock(barrier, Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (level.getBlockState(upperBarrier).is(Blocks.BARRIER)) {
+                level.setBlock(upperBarrier, Blocks.AIR.defaultBlockState(), 3);
+            }
+        }
         AABB bounds = new AABB(origin.getX() - 2, origin.getY() - 2, origin.getZ() - 2,
                 origin.getX() + schematic.width + 2, origin.getY() + schematic.height + 8,
                 origin.getZ() + schematic.length + 2);
@@ -138,7 +172,7 @@ public final class SchematicArenaGenerator {
     /** Find the actual 40x40 concrete dance floor, not the indoor wooden lobby floor. */
     private static FloorRegion findDanceFloor(Schematic schematic) throws IOException {
         FloorRegion best = null;
-        int bestConcrete = -1, bestColors = -1;
+        int bestConcrete = -1, bestColors = -1, bestBorderScore = -1;
         for (int y = 0; y < schematic.height; y++) {
             for (int z = 0; z <= schematic.length - FLOOR_SIZE; z++) {
                 for (int x = 0; x <= schematic.width - FLOOR_SIZE; x++) {
@@ -152,8 +186,26 @@ public final class SchematicArenaGenerator {
                             if (CONCRETE_BLOCKS.contains(block)) { concrete++; colors.add(block); }
                         }
                     }
-                    if (concrete > bestConcrete || (concrete == bestConcrete && colors.size() > bestColors)) {
-                        bestConcrete = concrete; bestColors = colors.size(); best = new FloorRegion(x, z, y);
+                    // The Xmas schematic contains adjacent red/white concrete trim.
+                    // A simple first-match scan can therefore select a shifted 40x40
+                    // window: it accidentally absorbs the dead left/bottom border and
+                    // drops the playable row beside the right-hand wall. Anchor the
+                    // actual playfield by looking for the candy-cane trim immediately
+                    // OUTSIDE two adjoining sides of the candidate square.
+                    int left = countCandyBorder(schematic, z, x - 1, y, false);
+                    int right = countCandyBorder(schematic, z, x + FLOOR_SIZE, y, false);
+                    int near = countCandyBorder(schematic, x, z - 1, y, true);
+                    int far = countCandyBorder(schematic, x, z + FLOOR_SIZE, y, true);
+                    int borderScore = Math.max(Math.max(left + near, left + far),
+                            Math.max(right + near, right + far));
+                    if (concrete > bestConcrete
+                            || (concrete == bestConcrete && colors.size() > bestColors)
+                            || (concrete == bestConcrete && colors.size() == bestColors
+                            && borderScore > bestBorderScore)) {
+                        bestConcrete = concrete;
+                        bestColors = colors.size();
+                        bestBorderScore = borderScore;
+                        best = new FloorRegion(x, z, y);
                     }
                 }
             }
@@ -163,6 +215,52 @@ public final class SchematicArenaGenerator {
                     + bestConcrete + "/1600 blokker, " + bestColors + " farger).");
         }
         return best;
+    }
+
+    /** Counts red/white concrete trim immediately outside one candidate edge. */
+    private static int countCandyBorder(Schematic schematic, int start, int fixed, int y, boolean horizontal) {
+        int count = 0;
+        for (int offset = 0; offset < FLOOR_SIZE; offset++) {
+            int x = horizontal ? start + offset : fixed;
+            int z = horizontal ? fixed : start + offset;
+            if (x < 0 || x >= schematic.width || z < 0 || z >= schematic.length) continue;
+            int index = schematic.indices[x + z * schematic.width + y * schematic.width * schematic.length];
+            Block block = schematic.palette.get(index).getBlock();
+            if (block == Blocks.RED_CONCRETE || block == Blocks.WHITE_CONCRETE) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Keep the snow immediately around the dance floor at the same ground level as
+     * the playable surface. Only touch snow in a narrow apron around the floor;
+     * the rest of the Xmas schematic and any non-snow terrain remain untouched.
+     */
+    private static void normalizeSnowApron(ServerLevel level, BlockPos origin,
+                                           Schematic schematic, FloorRegion floor) {
+        int minX = Math.max(0, floor.minX - 4);
+        int maxX = Math.min(schematic.width - 1, floor.minX + FLOOR_SIZE + 3);
+        int minZ = Math.max(0, floor.minZ - 4);
+        int maxZ = Math.min(schematic.length - 1, floor.minZ + FLOOR_SIZE + 3);
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                boolean onPlayableFloor = x >= floor.minX && x < floor.minX + FLOOR_SIZE
+                        && z >= floor.minZ && z < floor.minZ + FLOOR_SIZE;
+                if (onPlayableFloor) continue;
+                for (int y = Math.max(0, floor.y - 3); y < Math.min(schematic.height, floor.y + 3); y++) {
+                    int index = schematic.indices[x + z * schematic.width + y * schematic.width * schematic.length];
+                    Block block = schematic.palette.get(index).getBlock();
+                    if (block != Blocks.SNOW && block != Blocks.SNOW_BLOCK) continue;
+                    BlockPos oldPos = origin.offset(x, y, z);
+                    BlockPos target = origin.offset(x, block == Blocks.SNOW_BLOCK ? floor.y - 1 : floor.y, z);
+                    if (oldPos.equals(target)) continue;
+                    BlockState targetState = level.getBlockState(target);
+                    if (!targetState.isAir() && !targetState.is(Blocks.SNOW) && !targetState.is(Blocks.SNOW_BLOCK)) continue;
+                    level.setBlock(oldPos, Blocks.AIR.defaultBlockState(), 3);
+                    level.setBlock(target, schematic.palette.get(index), 3);
+                }
+            }
+        }
     }
 
     /**

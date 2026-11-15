@@ -19,12 +19,24 @@ public final class BlockPartyText {
      */
     public static Display.TextDisplay spawnTextDisplay(ServerLevel level, double x, double y, double z,
                                                         float yaw, Component text, float scale, String tag) {
+        return spawnTextDisplay(level, x, y, z, yaw, text, scale, tag, "fixed");
+    }
+
+    /** Camera-facing display for wide arena screens where fixed yaw caused the text to disappear. */
+    public static Display.TextDisplay spawnBillboardTextDisplay(ServerLevel level, double x, double y, double z,
+                                                                  Component text, float scale, String tag) {
+        return spawnTextDisplay(level, x, y, z, 0.0F, text, scale, tag, "center");
+    }
+
+    private static Display.TextDisplay spawnTextDisplay(ServerLevel level, double x, double y, double z,
+                                                         float yaw, Component text, float scale, String tag,
+                                                         String billboardMode) {
         Display.TextDisplay display = EntityType.TEXT_DISPLAY.create(level);
         if (display == null) return null;
 
         CompoundTag data = new CompoundTag();
         data.putString("text", Component.Serializer.toJson(text, level.registryAccess()));
-        data.putString("billboard", "fixed");
+        data.putString("billboard", billboardMode);
         data.putString("alignment", "center");
         data.putBoolean("shadow", true);
         data.putBoolean("see_through", false);

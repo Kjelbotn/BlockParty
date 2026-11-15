@@ -12,6 +12,7 @@ public record MusicControlPayload(ResourceLocation soundId, int action) implemen
     public static final int PAUSE = 1;
     public static final int RESUME = 2;
     public static final int STOP = 3;
+    public static final int LOOP = 4;
 
     public static final Type<MusicControlPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath("blockparty", "music_control"));

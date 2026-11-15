@@ -134,8 +134,8 @@ public final class BlockPartyCommands {
 
         ArenaManager manager = ArenaManager.get();
         Arena existing = manager.get(id);
-        if (existing != null && (existing.getPlayerCount() > 0 || existing.isRunning())) {
-            source.sendFailure(Component.literal("Arenaen finnes allerede og er i bruk. Bruk /bp leave og stopp spillet før du genererer den på nytt."));
+        if (existing != null) {
+            source.sendFailure(Component.literal("Arenaen '" + id + "' finnes allerede. For å beskytte dekorasjonene dine kan en registrert arena ikke genereres på nytt. En vanlig BlockParty-oppdatering krever ikke regenerering. /bp demolish " + id + " sletter hele området, inkludert egne bygg og dekorasjoner."));
             return 0;
         }
 
@@ -168,8 +168,8 @@ public final class BlockPartyCommands {
     private static int generateXmas(CommandSourceStack source, ServerPlayer player) {
         ArenaManager manager = ArenaManager.get();
         Arena existing = manager.get("xmas");
-        if (existing != null && (existing.getPlayerCount() > 0 || existing.isRunning())) {
-            source.sendFailure(Component.literal("Xmas-arenaen er i bruk. Stopp kampen og tøm arenaen før du genererer på nytt."));
+        if (existing != null) {
+            source.sendFailure(Component.literal("Xmas-arenaen finnes allerede. For å beskytte dekorasjonene dine kan den ikke genereres på nytt. En vanlig BlockParty-oppdatering krever ikke regenerering. /bp demolish xmas sletter hele området, inkludert egne bygg og dekorasjoner."));
             return 0;
         }
         try {
@@ -434,7 +434,8 @@ public final class BlockPartyCommands {
 
     private static int help(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
-        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg Classic-arenaen | /bp xmas generate – bygg Xmas-arenaen (admin)"), false);
+        source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg en ny Classic-arena | /bp xmas generate – bygg en ny Xmas-arena (admin)"), false);
+        source.sendSuccess(() -> Component.literal("Eksisterende arenaer regenereres ikke, slik at egne dekorasjoner bevares. /bp demolish <id> sletter hele området permanent."), false);
         source.sendSuccess(() -> Component.literal("/bp arenas – vis valgbare arenaer | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);

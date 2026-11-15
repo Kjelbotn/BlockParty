@@ -70,7 +70,7 @@ final class MusicVotingMenu extends ChestMenu {
     void refreshContents() {
         songContainer.clearContent();
         trackBySlot.clear();
-        List<MusicTrackManager.Track> tracks = MusicTrackManager.getTracks();
+        List<MusicTrackManager.Track> tracks = MusicTrackManager.getTracks(arena.getId());
         int count = Math.min(tracks.size(), MAX_VISIBLE_TRACKS);
         String selectedTrack = arena.getPlayerMusicVote(viewerId);
 
@@ -112,14 +112,50 @@ final class MusicVotingMenu extends ChestMenu {
             )));
             songContainer.setItem(slot, icon);
         }
+
+        // Game-mode voting lives in the same GUI as song voting, on the bottom row.
+        Arena.GameMode selectedMode = arena.getPreferredGameMode(viewerId);
+        boolean hasModeVote = arena.hasGameModeVote(viewerId);
+        ItemStack classic = new ItemStack(Items.NETHER_STAR);
+        classic.set(DataComponents.CUSTOM_NAME, Component.literal(
+                (hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC")
+                .withStyle(hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? ChatFormatting.GREEN : ChatFormatting.GOLD));
+        classic.set(DataComponents.LORE, new ItemLore(List.of(
+                Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.CLASSIC)).withStyle(ChatFormatting.YELLOW),
+                Component.literal("Klikk for å stemme på Classic").withStyle(ChatFormatting.GRAY))));
+        songContainer.setItem(48, classic);
+
+        ItemStack memory = new ItemStack(Items.ENDER_EYE);
+        memory.set(DataComponents.CUSTOM_NAME, Component.literal(
+                (hasModeVote && selectedMode == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE")
+                .withStyle(hasModeVote && selectedMode == Arena.GameMode.MEMORY ? ChatFormatting.GREEN : ChatFormatting.LIGHT_PURPLE));
+        memory.set(DataComponents.LORE, new ItemLore(List.of(
+                Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.MEMORY)).withStyle(ChatFormatting.YELLOW),
+                Component.literal("Klikk for å stemme på Memory Mode").withStyle(ChatFormatting.GRAY))));
+        songContainer.setItem(50, memory);
+
+        ItemStack heading = new ItemStack(Items.COMPASS);
+        heading.set(DataComponents.CUSTOM_NAME, Component.literal("STEM PÅ SPILLMODUS")
+                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        heading.set(DataComponents.LORE, new ItemLore(List.of(
+                Component.literal("Velg Classic eller Memory Mode").withStyle(ChatFormatting.GRAY))));
+        songContainer.setItem(49, heading);
     }
 
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Never delegate to ChestMenu: voting icons must not be picked up, moved, or shift-clicked.
         if (!(player instanceof ServerPlayer serverPlayer)) return;
+        if (clickType != ClickType.PICKUP || button != 0) return;
+        if (slotId == 48 || slotId == 50) {
+            arena.setPreferredGameMode(serverPlayer,
+                    slotId == 48 ? Arena.GameMode.CLASSIC : Arena.GameMode.MEMORY);
+            refreshContents();
+            broadcastChanges();
+            return;
+        }
         String trackId = trackBySlot.get(slotId);
-        if (trackId == null || clickType != ClickType.PICKUP || button != 0) return;
+        if (trackId == null) return;
         arena.voteMusic(serverPlayer, trackId);
         refreshContents();
         broadcastChanges();
