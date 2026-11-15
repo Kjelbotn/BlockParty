@@ -464,19 +464,16 @@ public final class Arena {
         if (firstLobbyEntry) announceLobbyJoin(player);
     }
 
-    /** Announce a first-time lobby entry to online players who are currently in Survival mode. */
+    /** Announce a first-time lobby entry, identifying which map lobby the player joined. */
     private void announceLobbyJoin(ServerPlayer joiningPlayer) {
         if (level == null || level.getServer() == null) return;
+        String lobbyName = "xmas".equals(id) ? "XMAS" : "CLASSIC";
         Component announcement = Component.literal(joiningPlayer.getName().getString())
                 .withStyle(ChatFormatting.GREEN)
-                .append(Component.literal(" ble med i BlockParty-lobbyen! Bli med du også: ")
-                        .withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" ble med i BlockParty " + lobbyName
+                        + "-lobbyen. Bli med du også! ").withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal("/bp").withStyle(ChatFormatting.AQUA));
-        for (ServerPlayer online : level.getServer().getPlayerList().getPlayers()) {
-            if (online.gameMode.getGameModeForPlayer() == GameType.SURVIVAL) {
-                online.sendSystemMessage(announcement);
-            }
-        }
+        level.getServer().getPlayerList().broadcastSystemMessage(announcement, false);
     }
 
     /** Explicit match registration, triggered only by the lobby Nether Star. */
@@ -590,6 +587,10 @@ public final class Arena {
         if (players.isEmpty()) {
             throw new IllegalStateException("Ingen tilkoblede spillere er med i arenaen.");
         }
+
+        // Defensive reset at match start as well as match end: every match gets
+        // a fresh allowance of three distinct song selections per player.
+        musicVoteChanges.clear();
 
         long memoryVotes = players.stream()
                 .filter(uuid -> preferredGameModes.get(uuid) == GameMode.MEMORY)
@@ -3656,6 +3657,9 @@ public final class Arena {
         players.clear();
         musicVotingUnlocked.clear();
         musicVotes.clear();
+        // Song-vote attempt limits belong to one match only. Reset for everyone
+        // when the match ends so returning lobby players can vote next match.
+        musicVoteChanges.clear();
         selectedMusicTrackId = null;
         cottonPickerPlayers.clear();
         points.clear();
