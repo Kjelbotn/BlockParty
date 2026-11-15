@@ -512,10 +512,10 @@ public final class Arena {
         players.add(uuid);
         unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
-        player.sendSystemMessage(Component.literal("Skriv /bp leaderboard for å se topplisten.")
-                .withStyle(ChatFormatting.AQUA));
         player.sendSystemMessage(Component.literal("Du er påmeldt BlockParty! (" + players.size() + "/" + MAX_PLAYERS + ")")
                 .withStyle(ChatFormatting.GREEN));
+        player.sendSystemMessage(Component.literal("Skriv /bp leaderboard for å se topplisten.")
+                .withStyle(ChatFormatting.AQUA));
         broadcast(Component.literal(player.getName().getString() + " meldte seg på! (" + players.size() + "/" + MAX_PLAYERS + ")")
                 .withStyle(ChatFormatting.YELLOW));
     }
@@ -2129,8 +2129,6 @@ public final class Arena {
         }
         GameMode mode = selected == null ? GameMode.CLASSIC : selected;
         preferredGameModes.put(player.getUUID(), mode);
-        int classicVotes = getGameModeVoteCount(GameMode.CLASSIC);
-        int memoryVotes = getGameModeVoteCount(GameMode.MEMORY);
 
         // A song vote may start the 10-second countdown; keep mode voting open
         // during that countdown and apply the latest majority before teleport.
@@ -3652,7 +3650,7 @@ public final class Arena {
                     player.teleportTo(level, rescue.getX() + 0.5, rescue.getY() + 1.05, rescue.getZ() + 0.5,
                             player.getYRot(), player.getXRot());
                     player.fallDistance = 0.0F;
-                    player.sendSystemMessage(Component.literal("LUCKY LANDING reddet deg! #TakkHMS!")
+                    player.sendSystemMessage(Component.literal("LUCKY LANDING reddet deg!")
                             .withStyle(ChatFormatting.GREEN));
                     playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
                     return;
