@@ -154,6 +154,10 @@ public final class RemoteMusicCache {
 
     private static Path cacheDirectory() {
         return net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath()
-                .resolve("config").resolve("blockparty").resolve("music-cache");
+                .resolve("config").resolve("blockparty").resolve("music-cache")
+                // A new immutable asset revision gets its own cache namespace, so a
+                // future song update can never silently reuse an older OGG with the
+                // same track id.
+                .resolve(REVISION);
     }
 }
