@@ -29,6 +29,7 @@ public final class BlockPartyCommands {
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root(String name) {
         return Commands.literal(name)
                 .executes(context -> quickJoin(context.getSource()))
+                .then(Commands.literal("main").executes(context -> join(context.getSource(), "main")))
                 .then(Commands.literal("generate")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -110,17 +111,10 @@ public final class BlockPartyCommands {
 
     private static int quickJoin(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        ArenaManager manager = ArenaManager.get();
-        Arena arena = manager.findArena(player.getUUID());
-        if (arena == null) arena = manager.findDefaultLobbyArena();
-        if (arena == null) {
-            source.sendFailure(Component.literal("Fant ingen konfigurert BlockParty-lobby. Administrator må først bruke /bp generate <id> 40."));
-            return 0;
-        }
-        Arena current = manager.findArena(player.getUUID());
-        if (current != null && current != arena) current.leave(player, false);
-        arena.join(player);
-        player.sendSystemMessage(Component.literal("§6BlockParty av Bangerfabrikken er under utvikling. Bugs kan forekomme. Har du forslag til funksjoner eller forbedringer? Ta gjerne kontakt med oss på Discord!"));
+        player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                (containerId, inventory, viewer) -> new no.bangerfabrikken.blockparty.arena.MapSelectionMenu(
+                        containerId, inventory, (ServerPlayer) viewer),
+                Component.literal("Velg BlockParty-kart")));
         return 1;
     }
 
@@ -436,7 +430,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("BlockParty-kommandoer:").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
         source.sendSuccess(() -> Component.literal("/bp generate <id> [størrelse] – bygg en ny Classic-arena | /bp xmas generate – bygg en ny Xmas-arena (admin)"), false);
         source.sendSuccess(() -> Component.literal("Eksisterende arenaer regenereres ikke, slik at egne dekorasjoner bevares. /bp demolish <id> sletter hele området permanent."), false);
-        source.sendSuccess(() -> Component.literal("/bp arenas – vis valgbare arenaer | /bp join <id> – velg arena"), false);
+        source.sendSuccess(() -> Component.literal("/bp – åpne kartvelgeren | /bp main eller /bp xmas – gå direkte til en lobby | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – oppdater lobbyspawn"), false);
