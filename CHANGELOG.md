@@ -1,3 +1,8 @@
+# BlockParty 1.4.25
+
+- Fixed song-vote attempt counters persisting between matches. All players receive a fresh three-selection allowance at match start and counters are cleared again when the match ends.
+- Lobby join announcements now identify the destination: `PLAYER ble med i BlockParty XMAS-lobbyen. Bli med du også! /bp` or `PLAYER ble med i BlockParty CLASSIC-lobbyen. Bli med du også! /bp`. Announcements are broadcast server-wide and only on first entry to that lobby session.
+
 # BlockParty 1.4.24
 
 - Changed the song-vote limit notice from light pink to light red (`ChatFormatting.RED`).
