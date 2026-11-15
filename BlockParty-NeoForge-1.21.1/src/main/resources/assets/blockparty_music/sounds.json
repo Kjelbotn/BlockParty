@@ -368,5 +368,15 @@
         "volume": 1
       }
     ]
+  },
+  "music_nena_99_luftballons": {
+    "subtitle": "subtitles.blockparty.music_nena_99_luftballons",
+    "sounds": [
+      {
+        "name": "blockparty:music/nena_99_luftballons",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }
