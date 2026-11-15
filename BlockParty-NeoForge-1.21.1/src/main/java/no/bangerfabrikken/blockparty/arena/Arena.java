@@ -2028,8 +2028,8 @@ public final class Arena {
 
         int selectionsUsed = musicVoteChanges.getOrDefault(voterId, 0);
         if (selectionsUsed >= 3) {
-            player.sendSystemMessage(Component.literal("Du kan ikke stemme flere ganger.. :-)")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            // The pink notice was already shown immediately after the third selection.
+            // Silently ignore later clicks so the player cannot spam their own chat either.
             return false;
         }
 
