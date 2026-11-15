@@ -158,6 +158,12 @@ public final class ClientMusicController {
     }
 
     private static void pause() {
+        // A floor-collapse packet can arrive during the synchronized start delay.
+        // Remember it even though no audio channel exists yet.
+        if (pendingSoundId != null) {
+            paused = true;
+            return;
+        }
         if (usingRemoteAudio || remotePlaybackPending) {
             paused = true;
             RemoteAudioEngine.pause();
@@ -171,6 +177,10 @@ public final class ClientMusicController {
     }
 
     private static void resume() {
+        if (pendingSoundId != null) {
+            paused = false;
+            return;
+        }
         if (usingRemoteAudio || remotePlaybackPending) {
             paused = false;
             RemoteAudioEngine.resume();
@@ -212,7 +222,19 @@ public final class ClientMusicController {
             pendingSoundId = null;
             pendingSoundLoops = false;
             pendingStartTick = -1L;
+            boolean pauseImmediately = paused;
             play(soundToStart, shouldLoop);
+            if (pauseImmediately) {
+                // play() resets the previous track state; restore the pause request
+                // against whichever playback path (remote or bundled) was selected.
+                paused = true;
+                if (remotePlaybackPending) {
+                    RemoteAudioEngine.pause();
+                } else if (currentSound != null) {
+                    pauseStateApplied = false;
+                    applyPauseState();
+                }
+            }
         }
         if (usingRemoteAudio || currentSound == null) return;
         if (!paused && !playbackFailureLogged) {

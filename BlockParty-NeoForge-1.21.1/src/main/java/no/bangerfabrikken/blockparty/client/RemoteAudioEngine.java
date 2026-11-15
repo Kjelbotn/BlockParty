@@ -18,8 +18,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Experimental remote OGG player built on Minecraft's native JOrbis decoder
- * and streaming OpenAL channel pool. Kept opt-in until verified in-game.
+ * Remote OGG player built on Minecraft's native JOrbis decoder
+ * and streaming OpenAL channel pool. Playback remains isolated from the
+ * regular SoundManager instances so the bundled path can be used as fallback.
  */
 public final class RemoteAudioEngine {
     private static final Object STATE_LOCK = new Object();
