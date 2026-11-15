@@ -1,3 +1,9 @@
+# BlockParty 1.4.22
+
+- After a player successfully votes for a song, immediately open the separate Classic / Memory Mode GUI so the mode vote cannot be overlooked.
+- Keep mode voting available during the automatic 10-second countdown, allowing players to choose after the second song vote has started the countdown.
+- Preserve the existing song vote when the mode GUI opens; Classic remains the default if nobody votes for a mode.
+
 # BlockParty 1.4.21
 
 - Changed `/bp` into a map-selection chest GUI with exactly two choices: dark-green concrete for Classic/Main and red concrete for Xmas.
