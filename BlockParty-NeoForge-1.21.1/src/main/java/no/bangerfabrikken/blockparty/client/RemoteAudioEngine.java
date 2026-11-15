@@ -22,15 +22,23 @@ import java.util.concurrent.atomic.AtomicLong;
  * and streaming OpenAL channel pool. Kept opt-in until verified in-game.
  */
 public final class RemoteAudioEngine {
+    private static final Object STATE_LOCK = new Object();
     private static final AtomicLong PLAY_GENERATION = new AtomicLong();
-    private static volatile ChannelAccess.ChannelHandle activeHandle;
-    private static volatile boolean paused;
+    private static ChannelAccess.ChannelHandle activeHandle;
+    private static boolean paused;
 
     private RemoteAudioEngine() { }
 
     public static CompletableFuture<Boolean> play(Path oggFile) {
-        long generation = PLAY_GENERATION.incrementAndGet();
-        releaseActiveHandle();
+        long generation;
+        ChannelAccess.ChannelHandle previous;
+        synchronized (STATE_LOCK) {
+            generation = PLAY_GENERATION.incrementAndGet();
+            previous = activeHandle;
+            activeHandle = null;
+            paused = false;
+        }
+        releaseHandle(previous);
         if (oggFile == null || !Files.isRegularFile(oggFile)) {
             return CompletableFuture.completedFuture(false);
         }
@@ -72,29 +80,31 @@ public final class RemoteAudioEngine {
                 // ChannelHandle.execute runs on Minecraft's audio executor. Complete
                 // only after the stream has actually been attached and playback started.
                 handle.execute(channel -> {
-                    if (PLAY_GENERATION.get() != generation || handle.isStopped()) {
-                        closeQuietly(stream);
-                        handle.release();
-                        attached.complete(false);
-                        return;
-                    }
-                    try {
-                        channel.setRelative(true);
-                        channel.setVolume(1.0F);
-                        channel.setPitch(1.0F);
-                        channel.attachBufferStream(stream);
-                        streamAttached.set(true);
-                        channel.play();
-                        activeHandle = handle;
-                        paused = false;
-                        BlockPartyMod.LOGGER.info("Started experimental cached BlockParty OGG playback: {}",
-                                oggFile.getFileName());
-                        attached.complete(true);
-                    } catch (RuntimeException exception) {
-                        if (!streamAttached.get()) closeQuietly(stream);
-                        handle.release();
-                        BlockPartyMod.LOGGER.error("Could not start cached BlockParty OGG {}.", oggFile, exception);
-                        attached.complete(false);
+                    synchronized (STATE_LOCK) {
+                        if (PLAY_GENERATION.get() != generation || handle.isStopped()) {
+                            closeQuietly(stream);
+                            handle.release();
+                            attached.complete(false);
+                            return;
+                        }
+                        try {
+                            channel.setRelative(true);
+                            channel.setVolume(1.0F);
+                            channel.setPitch(1.0F);
+                            channel.attachBufferStream(stream);
+                            streamAttached.set(true);
+                            channel.play();
+                            activeHandle = handle;
+                            paused = false;
+                            BlockPartyMod.LOGGER.info("Started experimental cached BlockParty OGG playback: {}",
+                                    oggFile.getFileName());
+                            attached.complete(true);
+                        } catch (RuntimeException exception) {
+                            if (!streamAttached.get()) closeQuietly(stream);
+                            handle.release();
+                            BlockPartyMod.LOGGER.error("Could not start cached BlockParty OGG {}.", oggFile, exception);
+                            attached.complete(false);
+                        }
                     }
                 });
             } catch (RuntimeException exception) {
@@ -111,28 +121,37 @@ public final class RemoteAudioEngine {
     }
 
     public static void pause() {
-        ChannelAccess.ChannelHandle handle = activeHandle;
-        if (handle == null || handle.isStopped() || paused) return;
-        paused = true;
+        ChannelAccess.ChannelHandle handle;
+        synchronized (STATE_LOCK) {
+            handle = activeHandle;
+            if (handle == null || handle.isStopped() || paused) return;
+            paused = true;
+        }
         handle.execute(channel -> channel.pause());
     }
 
     public static void resume() {
-        ChannelAccess.ChannelHandle handle = activeHandle;
-        if (handle == null || handle.isStopped() || !paused) return;
-        paused = false;
+        ChannelAccess.ChannelHandle handle;
+        synchronized (STATE_LOCK) {
+            handle = activeHandle;
+            if (handle == null || handle.isStopped() || !paused) return;
+            paused = false;
+        }
         handle.execute(channel -> channel.unpause());
     }
 
     public static void stop() {
-        PLAY_GENERATION.incrementAndGet();
-        releaseActiveHandle();
+        ChannelAccess.ChannelHandle handle;
+        synchronized (STATE_LOCK) {
+            PLAY_GENERATION.incrementAndGet();
+            handle = activeHandle;
+            activeHandle = null;
+            paused = false;
+        }
+        releaseHandle(handle);
     }
 
-    private static void releaseActiveHandle() {
-        ChannelAccess.ChannelHandle handle = activeHandle;
-        activeHandle = null;
-        paused = false;
+    private static void releaseHandle(ChannelAccess.ChannelHandle handle) {
         if (handle != null && !handle.isStopped()) handle.release();
     }
 
