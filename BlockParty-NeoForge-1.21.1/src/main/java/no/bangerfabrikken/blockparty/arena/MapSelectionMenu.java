@@ -46,7 +46,7 @@ public final class MapSelectionMenu extends ChestMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Keep the menu strictly read-only: no item pickup, shift-clicking or dragging.
-        if (!(player instanceof ServerPlayer serverPlayer) || serverPlayer.getUUID() != viewer.getUUID()) return;
+        if (!(player instanceof ServerPlayer serverPlayer) || !serverPlayer.getUUID().equals(viewer.getUUID())) return;
         if (clickType != ClickType.PICKUP || button != 0) return;
         if (slotId == 2) {
             selectMap(serverPlayer, "main");
