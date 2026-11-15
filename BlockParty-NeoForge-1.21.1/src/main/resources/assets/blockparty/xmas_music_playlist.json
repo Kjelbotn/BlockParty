@@ -53,6 +53,24 @@
       "name": "Odin er en alkis (jul)",
       "artist": "Bangerfabrikken",
       "bpm": 0
+    },
+    {
+      "id": "oslo_gospelkor_en_stjerne_skinner_i_natt",
+      "name": "En stjerne skinner i natt",
+      "artist": "Oslo Gospelkor",
+      "bpm": 0
+    },
+    {
+      "id": "travellin_strawberries_the_stovel_dance",
+      "name": "The Støvel Dance",
+      "artist": "Travellin' Strawberries",
+      "bpm": 0
+    },
+    {
+      "id": "solvguttene_deilig_er_jorden",
+      "name": "Deilig er jorden",
+      "artist": "Sølvguttene",
+      "bpm": 0
     }
   ]
 }
