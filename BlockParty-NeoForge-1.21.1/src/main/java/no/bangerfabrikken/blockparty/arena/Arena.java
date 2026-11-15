@@ -638,7 +638,7 @@ public final class Arena {
         specialScreenTicks = 0;
         Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
         if (winningTrack != null) {
-            sendMusicControl(MusicControlPayload.PRELOAD);
+            sendMusicControl(winningTrack.soundId(), MusicControlPayload.PRELOAD);
             broadcast(Component.literal("Vote ended. " + winningTrack.name() + " by " + winningTrack.artist() + " won.")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
         }
@@ -1602,6 +1602,16 @@ public final class Arena {
         PacketDistributor.sendToPlayer(player, new MusicControlPayload(soundId, action));
     }
 
+    /** Broadcast a track-specific command to every participant (including automatic preloads). */
+    private void sendMusicControl(ResourceLocation soundId, int action) {
+        if (level == null || soundId == null) return;
+        MusicControlPayload payload = new MusicControlPayload(soundId, action);
+        for (UUID uuid : players) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) PacketDistributor.sendToPlayer(player, payload);
+        }
+    }
+
     private void sendMusicControl(int action) {
         if (level == null) return;
         ResourceLocation id = activeMusicId != null ? activeMusicId
@@ -2034,7 +2044,7 @@ public final class Arena {
         if (phase == Phase.COUNTDOWN) {
             selectedMusicTrackId = selectWinningSong();
             Track selectedTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
-            if (selectedTrack != null) sendMusicControl(player, selectedTrack.soundId(), MusicControlPayload.PRELOAD);
+            if (selectedTrack != null) sendMusicControl(selectedTrack.soundId(), MusicControlPayload.PRELOAD);
         }
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
