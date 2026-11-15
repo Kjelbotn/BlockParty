@@ -437,11 +437,11 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
-        source.sendSuccess(() -> Component.literal("Sanger under 1:30 spilles med 10 runder. Sanger på 1:30 eller mer spilles med 20 runder. Rundetiden skaleres etter låtlengden."), false);
+        source.sendSuccess(() -> Component.literal("Alle matcher har opptil 25 runder. Rundetiden blir kortere utover i matchen."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 5 | /bp rank – spillerprofil | /bp ranklist – alle ranker og poengkrav"), false);
         source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);
-        source.sendSuccess(() -> Component.literal("Lobbyen teller ned fra 60 sekunder. /bp start <id> starter umiddelbart."), false);
+        source.sendSuccess(() -> Component.literal("Automatisk nedtelling starter når minst to påmeldte spillere har stemt på en sang. /bp start <id> starter manuelt."), false);
         source.sendSuccess(() -> Component.literal("/bp music reload – last inn egendefinert spilleliste (admin)"), false);
         return 1;
     }
