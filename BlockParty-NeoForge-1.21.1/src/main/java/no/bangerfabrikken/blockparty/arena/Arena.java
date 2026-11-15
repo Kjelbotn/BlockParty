@@ -2088,7 +2088,7 @@ public final class Arena {
 
         if (selectionsUsed == 3) {
             player.sendSystemMessage(Component.literal("Du kan ikke stemme flere ganger.. :-)")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+                    .withStyle(ChatFormatting.RED));
         }
         if (phase == Phase.COUNTDOWN) {
             selectedMusicTrackId = selectWinningSong();
