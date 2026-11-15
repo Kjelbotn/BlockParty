@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.neoforged.neoforge.network.PacketDistributor;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
@@ -81,7 +82,7 @@ public final class Arena {
     public enum GameMode { CLASSIC, MEMORY }
 
     private enum PowerUp {
-        SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN
+        SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER, LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -176,6 +177,8 @@ public final class Arena {
     private final Set<UUID> personalBestNotified = new HashSet<>();
     private final Set<UUID> leapFallProtection = new HashSet<>();
     private final Set<UUID> luckyLanding = new HashSet<>();
+    /** Players currently seeing the floor as white wool; this is client-only and lasts one round. */
+    private final Set<UUID> cottonPickerPlayers = new HashSet<>();
     /** Independent three-second scanner effect for each player who collects it. */
     private final Map<UUID, Integer> scannerTicks = new HashMap<>();
     private long matchStartTick;
@@ -531,6 +534,7 @@ public final class Arena {
         if (wasMember && "xmas".equals(id)) {
             sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.STOP);
         }
+        restoreCottonPickerView(player);
         players.remove(uuid);
         preferredGameModes.remove(uuid);
         alive.remove(uuid);
@@ -1335,7 +1339,7 @@ public final class Arena {
 
         BlockState restore = activeBeacons.remove(clickedPos);
         level.setBlock(clickedPos, restore == null ? Blocks.AIR.defaultBlockState() : restore, 3);
-        int powerRoll = random.nextInt(110);
+        int powerRoll = random.nextInt(120);
         PowerUp powerUp = powerRoll < 10 ? PowerUp.SLOWNESS
                 : powerRoll < 24 ? PowerUp.LEAP
                 : powerRoll < 38 ? PowerUp.COLOR_TELEPORTER
@@ -1343,7 +1347,8 @@ public final class Arena {
                 : powerRoll < 64 ? PowerUp.LUCKY_LANDING
                 : powerRoll < 76 ? PowerUp.SPEED_UPGRADE
                 : powerRoll < 88 ? PowerUp.SUPER_JUMP
-                : powerRoll < 100 ? PowerUp.NIGHT_VISION : PowerUp.COLOR_RAIN;
+                : powerRoll < 100 ? PowerUp.NIGHT_VISION
+                : powerRoll < 110 ? PowerUp.COTTON_PICKER : PowerUp.COLOR_RAIN;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1357,6 +1362,7 @@ public final class Arena {
             case COLOR_SCANNER -> label = "COLOR SCANNER";
             case LUCKY_LANDING -> label = "LUCKY LANDING";
             case COLOR_RAIN -> label = "COLOR RAIN";
+            case COTTON_PICKER -> label = "COTTON PICKER";
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -1415,6 +1421,11 @@ public final class Arena {
             player.sendSystemMessage(Component.literal(
                     "COLOR RAIN aktivert! Fargerike blokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        } else if (powerUp == PowerUp.COTTON_PICKER) {
+            cottonPickerPlayers.add(player.getUUID());
+            applyCottonPickerView(player);
+            player.sendSystemMessage(Component.literal("COTTON PICKER! Hele dansegulvet ser ut som hvit ull for deg denne runden!")
+                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COLOR_SCANNER) {
             scannerTicks.put(player.getUUID(), 60);
             activated = true;
@@ -1431,7 +1442,7 @@ public final class Arena {
         if (activated) {
             powerupsCollected.merge(player.getUUID(), 1, Integer::sum);
             DailyChallengeManager.recordPowerup(level.getServer(), player);
-            boolean penalty = powerUp == PowerUp.SLOWNESS;
+            boolean penalty = powerUp == PowerUp.SLOWNESS || powerUp == PowerUp.COTTON_PICKER;
             player.sendSystemMessage(Component.literal((penalty ? "PENALTY: " : "POWER-UP: ") + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE));
             broadcast(Component.literal(player.getName().getString() + (penalty ? " traff " : " plukket opp ") + label + "!")
@@ -1512,7 +1523,31 @@ public final class Arena {
         activeBeacons.clear();
     }
 
+    /** Send fake white-wool block updates only to the player who collected Cotton Picker. */
+    private void applyCottonPickerView(ServerPlayer player) {
+        if (level == null || !player.serverLevel().dimension().equals(level.dimension())) return;
+        BlockState cotton = Blocks.WHITE_WOOL.defaultBlockState();
+        for (BlockPos pos : floorSnapshot.keySet()) {
+            player.connection.send(new ClientboundBlockUpdatePacket(pos, cotton));
+        }
+    }
+
+    /** Restore the real current floor states for this player without changing the server world. */
+    private void restoreCottonPickerView(ServerPlayer player) {
+        if (!cottonPickerPlayers.remove(player.getUUID())) return;
+        if (level == null || !player.serverLevel().dimension().equals(level.dimension())) return;
+        for (BlockPos pos : floorSnapshot.keySet()) {
+            player.connection.send(new ClientboundBlockUpdatePacket(pos, level.getBlockState(pos)));
+        }
+    }
+
     private void clearActivePowerUps(MinecraftServer server) {
+        // Restore each affected player's private block view before the next round starts.
+        for (UUID uuid : new HashSet<>(cottonPickerPlayers)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) restoreCottonPickerView(player);
+            else cottonPickerPlayers.remove(uuid);
+        }
         for (Map.Entry<UUID, Set<Holder<MobEffect>>> entry : new HashMap<>(roundPowerupEffects).entrySet()) {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player != null) for (Holder<MobEffect> effect : entry.getValue()) {
@@ -3622,6 +3657,7 @@ public final class Arena {
         musicVotingUnlocked.clear();
         musicVotes.clear();
         selectedMusicTrackId = null;
+        cottonPickerPlayers.clear();
         points.clear();
         powerupsCollected.clear();
         leapFallProtection.clear();
