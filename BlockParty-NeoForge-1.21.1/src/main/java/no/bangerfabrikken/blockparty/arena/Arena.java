@@ -469,7 +469,7 @@ public final class Arena {
         if (firstLobbyEntry && "xmas".equals(id)) {
             sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
         }
-        player.sendSystemMessage(Component.literal("Velkommen til BlockParty! Trykk Nether Star når du vil melde deg på.")
+        player.sendSystemMessage(Component.literal("Velkommen til BlockParty! Trykk på Nether Star for å bli med!")
                 .withStyle(ChatFormatting.GREEN));
         if (firstLobbyEntry) announceLobbyJoin(player);
     }
@@ -512,7 +512,8 @@ public final class Arena {
         players.add(uuid);
         unlockMusicVotingAfterStar(player);
         refreshLobbyDisplays();
-        PlayerStatsManager.sendPlayerRank(player);
+        player.sendSystemMessage(Component.literal("Skriv /bp leaderboard for å se topplisten.")
+                .withStyle(ChatFormatting.AQUA));
         player.sendSystemMessage(Component.literal("Du er påmeldt BlockParty! (" + players.size() + "/" + MAX_PLAYERS + ")")
                 .withStyle(ChatFormatting.GREEN));
         broadcast(Component.literal(player.getName().getString() + " meldte seg på! (" + players.size() + "/" + MAX_PLAYERS + ")")
@@ -568,7 +569,7 @@ public final class Arena {
         restorePlayerState(player);
 
         if (wasMember) {
-            player.sendSystemMessage(Component.literal("Du forlot BlockParty-arenaen '" + id + "'.").withStyle(ChatFormatting.GRAY));
+
             if (phase == Phase.COUNTDOWN && players.isEmpty()) {
                 phase = Phase.WAITING;
                 timerTicks = 0;
@@ -610,8 +611,7 @@ public final class Arena {
                 .count();
         // Only explicit lobby votes count. Ties and no votes default to Classic.
         gameMode = memoryVotes > classicVotes ? GameMode.MEMORY : GameMode.CLASSIC;
-        broadcast(Component.literal("AVSTEMNING: " + (gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC")
-                        + " vant! (Classic " + classicVotes + " – Memory " + memoryVotes + ")")
+        broadcast(Component.literal((gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + " vant avstemningen!")
                 .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         // Keep mode votes through the lobby countdown so the combined GUI remains usable.
 
@@ -659,7 +659,7 @@ public final class Arena {
         specialScreenTicks = 0;
         Track winningTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
         if (winningTrack != null) {
-            broadcast(Component.literal("Vote ended. " + winningTrack.name() + " by " + winningTrack.artist() + " won.")
+            broadcast(Component.literal(winningTrack.name() + " av " + winningTrack.artist() + " vant!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
         }
 
@@ -727,7 +727,7 @@ public final class Arena {
         showScoreboard(server);
         phase = Phase.TELEPORT_COUNTDOWN;
         timerTicks = TELEPORT_COUNTDOWN_TICKS;
-        broadcast(Component.literal("Du er på banen! Spillet starter om 5 sekunder.")
+        broadcast(Component.literal("Spillet begynner om 5 sekunder.")
                 .withStyle(ChatFormatting.GREEN));
         for (UUID uuid : alive) {
             ServerPlayer p = server.getPlayerList().getPlayer(uuid);
@@ -867,13 +867,13 @@ public final class Arena {
         player.setNoGravity(true);
         podiumFreezeTicks.put(player.getUUID(), 100);
         podiumFreezePositions.put(player.getUUID(), spawn);
-        String place = switch (rank) {
-            case 0 -> "1. plass";
-            case 1 -> "2. plass";
-            default -> "3. plass";
+        String placementMessage = switch (rank) {
+            case 0 -> "Du tok 1. plass! Gratulerer! :D";
+            case 1 -> "Du tok 2. plass! Ikke så verst!";
+            default -> "Du tok 3. plass! Bedre lykke neste gang";
         };
         ChatFormatting colour = rank == 0 ? ChatFormatting.GOLD : rank == 1 ? ChatFormatting.GRAY : ChatFormatting.RED;
-        player.sendSystemMessage(Component.literal("Du tok " + place + "! Hold posisjonen på podiet i 5 sekunder.")
+        player.sendSystemMessage(Component.literal(placementMessage)
                 .withStyle(colour, ChatFormatting.BOLD));
     }
 
@@ -1466,7 +1466,7 @@ public final class Arena {
                 DyeColor fakeColor = decoys.get(random.nextInt(decoys.size()));
                 fakeDisplayedColors.put(uuid, fakeColor);
                 setTargetColorItem(player, fakeColor);
-                player.sendSystemMessage(Component.literal("FAKE COLOR! Hotbar-blokken viser feil farge. Se på arenaens måltavle!")
+                player.sendSystemMessage(Component.literal("FAKE COLOR! Hotbar-blokken viser feil farge.")
                         .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
             }
         } else if (powerUp == PowerUp.PUMPKIN_VISION) {
@@ -1503,9 +1503,9 @@ public final class Arena {
                 case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE -> true;
                 default -> false;
             };
-            player.sendSystemMessage(Component.literal((penalty ? "PENALTY: " : "POWER-UP: ") + label + "!")
+            player.sendSystemMessage(Component.literal((penalty ? "STRAFF: " : "POWER-UP: ") + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE));
-            broadcast(Component.literal(player.getName().getString() + (penalty ? " traff " : " plukket opp ") + label + "!")
+            broadcast(Component.literal(penalty ? player.getName().getString() + " fikk " + label + " som straff!" : player.getName().getString() + " plukket opp " + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.AQUA));
         }
         playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
@@ -1583,7 +1583,7 @@ public final class Arena {
         }
         if (!chosenFloors.isEmpty()) {
             lastPowerupRound = round;
-            broadcast(Component.literal("✦ " + chosenFloors.size() + " POWER-UPS HAR SPAWNET! Høyreklikk en beacon!")
+            broadcast(Component.literal(chosenFloors.size() + " Power-Ups har spawnet. Finn dem!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
             playSound(ModSounds.BEACON_SPAWN, SoundSource.PLAYERS, 0.65F, 1.0F);
         }
@@ -2131,10 +2131,7 @@ public final class Arena {
         preferredGameModes.put(player.getUUID(), mode);
         int classicVotes = getGameModeVoteCount(GameMode.CLASSIC);
         int memoryVotes = getGameModeVoteCount(GameMode.MEMORY);
-        player.sendSystemMessage(Component.literal("Du stemte på "
-                + (mode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + ". Stemmer nå: Classic "
-                + classicVotes + " – Memory " + memoryVotes + ".")
-                .withStyle(ChatFormatting.GREEN));
+
         // A song vote may start the 10-second countdown; keep mode voting open
         // during that countdown and apply the latest majority before teleport.
         if (phase == Phase.COUNTDOWN) {
@@ -2197,7 +2194,7 @@ public final class Arena {
     public boolean voteMusic(ServerPlayer player, String trackId) {
         if (!players.contains(player.getUUID()) || !musicVotingUnlocked.contains(player.getUUID())
                 || !isInsideBlockPartyArea(player)) {
-            player.sendSystemMessage(Component.literal("Du må være i BlockParty og trykke på Nether Star før du kan stemme.")
+            player.sendSystemMessage(Component.literal("Du må trykke på Nether Star før du kan stemme.")
                     .withStyle(ChatFormatting.RED));
             return false;
         }
@@ -2583,7 +2580,7 @@ public final class Arena {
                 if (timerTicks <= 0) {
                     Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
-                        broadcast(Component.literal("Now playing: " + nowPlaying.name() + " by " + nowPlaying.artist() + ". :)")
+                        broadcast(Component.literal("Nå spilles: " + nowPlaying.name() + " av " + nowPlaying.artist() + "!")
                                 .withStyle(ChatFormatting.AQUA));
                     }
                     beginRound(server);
@@ -2911,8 +2908,7 @@ public final class Arena {
         }
 
         if (!pendingColorRainBlocks.isEmpty()) {
-            broadcast(Component.literal("🌈 COLOR RAIN! " + pendingColorRainBlocks.size()
-                    + " blokker får nye farger over hele dansegulvet!")
+            broadcast(Component.literal("COLOR RAIN!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
         }
     }
@@ -3656,7 +3652,7 @@ public final class Arena {
                     player.teleportTo(level, rescue.getX() + 0.5, rescue.getY() + 1.05, rescue.getZ() + 0.5,
                             player.getYRot(), player.getXRot());
                     player.fallDistance = 0.0F;
-                    player.sendSystemMessage(Component.literal("LUCKY LANDING reddet deg! Én eliminering er blokkert.")
+                    player.sendSystemMessage(Component.literal("LUCKY LANDING reddet deg! #TakkHMS!")
                             .withStyle(ChatFormatting.GREEN));
                     playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
                     return;
@@ -3696,7 +3692,7 @@ public final class Arena {
         player.setNoGravity(false);
         player.setDeltaMovement(0.0, 0.0, 0.0);
         player.fallDistance = 0.0F;
-        player.sendSystemMessage(Component.literal("Du er ute! Du kan bevege deg fritt rundt i spectatorområdet.")
+        player.sendSystemMessage(Component.literal("Du tapte konkurransen. Sett deg godt til rette og følg med på de andre!")
                 .withStyle(ChatFormatting.RED));
         playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.55F, 1.0F);
     }
@@ -3715,8 +3711,7 @@ public final class Arena {
         removeActiveBeacon();
 
         // Restore the next floor right away, then show WAITING FOR COLOR for one second.
-        broadcastActionBar(Component.literal("RUNDE " + round + " FULLFØRT  •  " + alive.size() + " IGJEN")
-                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+
         refreshLobbyDisplays();
 
         if (alive.isEmpty()) {
@@ -3828,8 +3823,7 @@ public final class Arena {
             broadcast(Component.literal("🏆 " + getMatchRoundLimit() + " RUNDER FULLFØRT! Alle gjenværende spillere vinner! 🏆")
                     .withStyle(ChatFormatting.GOLD));
         }
-        broadcast(Component.literal("MATCHVARIGHET: " + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
-                .withStyle(ChatFormatting.YELLOW));
+
         for (UUID uuid : players) {
             ServerPlayer participant = level.getServer().getPlayerList().getPlayer(uuid);
             if (participant != null) participant.sendSystemMessage(Component.literal("STATISTIKK  •  "
@@ -3891,7 +3885,7 @@ public final class Arena {
                 player.getInventory().setItem(8, createLeaveLobbyItem());
             }
             player.inventoryMenu.broadcastChanges();
-            player.sendSystemMessage(Component.literal("Kampen er ferdig! Alle er sendt tilbake til BlockParty-lobbyen. Bruk /bp leave eller redstone dust for å dra hjem.")
+            player.sendSystemMessage(Component.literal("Takk for at du spilte BlockParty. Spillet er over. Trykk på Nether Star for å spille mer eller Redstone Dust for å dra dit du kom fra!")
                     .withStyle(ChatFormatting.GREEN));
         }
 
