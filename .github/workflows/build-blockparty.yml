@@ -8,7 +8,7 @@ on:
       - fix/xmas-1-1-6-screen-spectator-border
       - fix/1-1-7-xmas-screen-adventure-spectators
       - fix/xmas-display-entity-fps-1-4-8
-      - release/1.4.18
+      - release/1.4.19
   pull_request:
     branches:
       - main
@@ -132,7 +132,7 @@ jobs:
             ffmpeg -hide_banner -loglevel error -y -i "$input" \
               -map 0:a:0 -vn -map_metadata -1 \
               -af "loudnorm=I=-14:TP=-1.0:LRA=11" -ac 2 -ar 44100 \
-              -c:a libvorbis -q:a 2 "$output"
+              -c:a libvorbis -q:a 0 "$output"
             test -s "$output"
             mv "$output" "$input"
 
