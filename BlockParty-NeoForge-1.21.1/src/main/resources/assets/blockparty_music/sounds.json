@@ -378,5 +378,35 @@
         "volume": 1
       }
     ]
+  },
+  "music_oslo_gospelkor_en_stjerne_skinner_i_natt": {
+    "subtitle": "subtitles.blockparty.music_oslo_gospelkor_en_stjerne_skinner_i_natt",
+    "sounds": [
+      {
+        "name": "blockparty:music/oslo_gospelkor_en_stjerne_skinner_i_natt",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_travellin_strawberries_the_stovel_dance": {
+    "subtitle": "subtitles.blockparty.music_travellin_strawberries_the_stovel_dance",
+    "sounds": [
+      {
+        "name": "blockparty:music/travellin_strawberries_the_stovel_dance",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_solvguttene_deilig_er_jorden": {
+    "subtitle": "subtitles.blockparty.music_solvguttene_deilig_er_jorden",
+    "sounds": [
+      {
+        "name": "blockparty:music/solvguttene_deilig_er_jorden",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }
