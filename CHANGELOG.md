@@ -1,3 +1,9 @@
+# BlockParty 1.4.21
+
+- Changed `/bp` into a map-selection chest GUI with exactly two choices: dark-green concrete for Classic/Main and red concrete for Xmas.
+- Selecting a map saves/restores the player's normal inventory through the existing arena session flow, then teleports them to the selected lobby and supplies the standard BlockParty lobby items.
+- Added `/bp main` as a direct lobby command; retained `/bp xmas` and `/bp join <id>`.
+
 # BlockParty 1.4.8
 
 - Fixed the Xmas arena screen creating a new Text Display every refresh. Existing tagged displays are now reused and updated in place, while misplaced and duplicate displays are removed. This prevents unbounded entity buildup and the resulting client/server performance degradation.
