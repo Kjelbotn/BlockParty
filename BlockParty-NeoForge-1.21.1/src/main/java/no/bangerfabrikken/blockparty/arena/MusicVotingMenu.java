@@ -156,8 +156,10 @@ final class MusicVotingMenu extends ChestMenu {
         }
         String trackId = trackBySlot.get(slotId);
         if (trackId == null) return;
-        arena.voteMusic(serverPlayer, trackId);
-        refreshContents();
-        broadcastChanges();
+        if (!arena.voteMusic(serverPlayer, trackId)) {
+            refreshContents();
+            broadcastChanges();
+        }
+        // A successful song vote opens the separate game-mode menu from Arena.
     }
 }
