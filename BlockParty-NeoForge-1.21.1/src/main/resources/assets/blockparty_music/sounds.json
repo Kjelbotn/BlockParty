@@ -358,5 +358,15 @@
         "volume": 1
       }
     ]
+  },
+  "music_odin_alkis_dubstep": {
+    "subtitle": "subtitles.blockparty.music_odin_alkis_dubstep",
+    "sounds": [
+      {
+        "name": "blockparty:music/odin_alkis_dubstep",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }

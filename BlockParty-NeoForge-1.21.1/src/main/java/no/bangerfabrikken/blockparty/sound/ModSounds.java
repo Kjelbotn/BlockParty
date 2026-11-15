@@ -43,6 +43,7 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_LUXUS_SUR_MUS = musicSound("music_luxus_leverpostei_sur_mus");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR = musicSound("music_oingo_boingo_little_girls_pedobear");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_INNI_HODET_DITT = musicSound("music_inni_hodet_ditt");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ODIN_ALKIS_DUBSTEP = musicSound("music_odin_alkis_dubstep");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_AMBIENT = musicSound("ambient_christmas");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_ANDY_MOST_WONDERFUL = musicSound("music_andy_most_wonderful");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_MARIAH_ALL_I_WANT = musicSound("music_mariah_all_i_want");
