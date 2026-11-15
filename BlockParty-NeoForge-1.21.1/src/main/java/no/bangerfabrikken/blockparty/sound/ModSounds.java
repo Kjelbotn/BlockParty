@@ -44,6 +44,10 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_OINGO_BOINGO_LITTLE_GIRLS_PEDOBEAR = musicSound("music_oingo_boingo_little_girls_pedobear");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_INNI_HODET_DITT = musicSound("music_inni_hodet_ditt");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ODIN_ALKIS_DUBSTEP = musicSound("music_odin_alkis_dubstep");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_NENA_99_LUFTBALLONS = musicSound("music_nena_99_luftballons");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_OSLO_GOSPELKOR_EN_STJERNE = musicSound("music_oslo_gospelkor_en_stjerne_skinner_i_natt");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_TRAVELLIN_STRAWBERRIES_STOVEL_DANCE = musicSound("music_travellin_strawberries_the_stovel_dance");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_SOLVGUTTENE_DEILIG_ER_JORDEN = musicSound("music_solvguttene_deilig_er_jorden");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_AMBIENT = musicSound("ambient_christmas");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_ANDY_MOST_WONDERFUL = musicSound("music_andy_most_wonderful");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_MARIAH_ALL_I_WANT = musicSound("music_mariah_all_i_want");
