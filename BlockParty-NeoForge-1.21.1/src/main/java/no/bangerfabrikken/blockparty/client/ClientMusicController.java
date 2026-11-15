@@ -118,9 +118,11 @@ public final class ClientMusicController {
                                 BlockPartyMod.LOGGER.info("BlockParty is using its verified local remote-music cache for {}.", trackId);
                             } else {
                                 usingRemoteAudio = false;
+                                boolean keepPaused = paused;
                                 BlockPartyMod.LOGGER.warn("Remote playback failed for {}; falling back to bundled music.", trackId, error);
                                 startSound(minecraft);
-                                if (paused) {
+                                if (keepPaused) {
+                                    paused = true;
                                     pauseStateApplied = false;
                                     applyPauseState();
                                 }
