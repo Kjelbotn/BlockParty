@@ -38,20 +38,20 @@ public final class RemoteMusicCache {
     private RemoteMusicCache() { }
 
     /** Starts a background cache download. It never blocks the Minecraft client thread. */
-    public static void warmUp(String trackId) {
-        if (trackId == null || !trackId.matches("[a-z0-9_]{1,48}")) return;
+    public static CompletableFuture<Path> warmUp(String trackId) {
+        if (trackId == null || !trackId.matches("[a-z0-9_]{1,48}")) return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid track id"));
         Path target = cacheDirectory().resolve(trackId + ".ogg");
         if (Files.isRegularFile(target)) {
             try {
                 long size = Files.size(target);
-                if (size > 4 && size <= MAX_TRACK_BYTES) return;
+                if (size > 4 && size <= MAX_TRACK_BYTES) return CompletableFuture.completedFuture(target);
                 Files.deleteIfExists(target);
             } catch (IOException exception) {
                 BlockPartyMod.LOGGER.warn("Could not inspect cached BlockParty track {}.", trackId, exception);
-                return;
+                return CompletableFuture.failedFuture(exception);
             }
         }
-        if (!IN_FLIGHT.add(trackId)) return;
+        if (!IN_FLIGHT.add(trackId)) return CompletableFuture.failedFuture(new IllegalStateException("Track download already in progress"));
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(BASE_URL + trackId + ".ogg"))
                 .timeout(Duration.ofSeconds(90))
@@ -59,7 +59,7 @@ public final class RemoteMusicCache {
                 .GET()
                 .build();
 
-        HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                 .thenAccept(response -> {
                     if (response.statusCode() != 200) {
                         throw new IllegalStateException("HTTP " + response.statusCode());
