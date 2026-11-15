@@ -1,7 +1,13 @@
+# BlockParty 1.4.24
+
+- Changed the song-vote limit notice from light pink to light red (`ChatFormatting.RED`).
+- Added the negative `COTTON PICKER` power-up. For the player who collects it, every dancefloor block is shown as white wool using individual client-only block updates; the server world and other players' views are unchanged.
+- Restores the player's real floor view at the end of the round and when leaving the arena.
+
 # BlockParty 1.4.23
 
 - Prevented song-vote chat spam: each successful song selection is announced only once; repeated clicks on the current song do not broadcast or consume a change.
-- Limited each player to three distinct song selections per voting session (initial vote plus two changes). After the third selection, a light-pink message says `Du kan ikke stemme flere ganger.. :-)` and further changes are blocked.
+- Limited each player to three distinct song selections per voting session (initial vote plus two changes). After the third selection, a light-red message says `Du kan ikke stemme flere ganger.. :-)` and further changes are blocked.
 - Reset vote-change counters when players leave the arena/BlockParty area and when a match ends.
 
 # BlockParty 1.4.22
