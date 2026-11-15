@@ -1,3 +1,8 @@
+# BlockParty 1.4.26 — Nena added to Classic playlist
+
+- Added Nena — 99 Luftballons to the Classic/Main music voting playlist only. Xmas playlist remains unchanged.
+- Registered the streaming sound event for the new track; the OGG asset is supplied separately at the matching music asset path.
+
 # BlockParty 1.4.5 — Public voting and combined vote countdown
 
 - Announced each player's selected song and game mode in the lobby chat, including when a vote is changed.
