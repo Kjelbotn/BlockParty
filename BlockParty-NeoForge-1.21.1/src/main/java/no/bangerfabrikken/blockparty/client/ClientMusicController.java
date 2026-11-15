@@ -39,7 +39,11 @@ public final class ClientMusicController {
     private static int ticksWaitingForChannel;
     private static int playbackRetries;
     private static boolean playbackFailureLogged;
-    private static boolean usingRemoteAudio;\n    private static long playbackGeneration;\n    private static ResourceLocation pendingSoundId;\n    private static boolean pendingSoundLoops;\n    private static long pendingStartTick = -1L;
+    private static boolean usingRemoteAudio;
+    private static long playbackGeneration;
+    private static ResourceLocation pendingSoundId;
+    private static boolean pendingSoundLoops;
+    private static long pendingStartTick = -1L;
 
     private ClientMusicController() { }
 
