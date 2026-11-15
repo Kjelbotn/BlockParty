@@ -8,6 +8,7 @@ on:
       - fix/xmas-1-1-6-screen-spectator-border
       - fix/1-1-7-xmas-screen-adventure-spectators
       - fix/xmas-display-entity-fps-1-4-8
+      - release/1.4.15
   pull_request:
     branches:
       - main
