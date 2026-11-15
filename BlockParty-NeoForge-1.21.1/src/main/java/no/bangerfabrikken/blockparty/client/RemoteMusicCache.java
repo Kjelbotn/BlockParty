@@ -60,7 +60,7 @@ public final class RemoteMusicCache {
                 .build();
 
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                .thenAccept(response -> {
+                .thenApply(response -> {
                     if (response.statusCode() != 200) {
                         throw new IllegalStateException("HTTP " + response.statusCode());
                     }
@@ -72,6 +72,7 @@ public final class RemoteMusicCache {
                     writeAtomically(target, data);
                     BlockPartyMod.LOGGER.info("Cached remote BlockParty track {} ({} KiB).",
                             trackId, data.length / 1024);
+                    return target;
                 })
                 .exceptionally(error -> {
                     BlockPartyMod.LOGGER.warn("Could not download remote BlockParty track {}. "
