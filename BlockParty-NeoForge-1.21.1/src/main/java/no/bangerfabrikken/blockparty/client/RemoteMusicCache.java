@@ -4,7 +4,6 @@ import no.bangerfabrikken.blockparty.BlockPartyMod;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -136,40 +135,34 @@ public final class RemoteMusicCache {
                 .header("User-Agent", "BlockParty-Minecraft-Mod/1.4.19")
                 .GET().build();
 
-        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
+        // Write the response asynchronously to disk. Unlike BodyHandlers.ofInputStream(),
+        // this keeps the HTTP request's 90-second timeout active until the complete body
+        // has arrived; a stalled body can therefore not pin a worker thread indefinitely.
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofFile(temporary,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                        StandardOpenOption.WRITE))
                 .thenApply(response -> {
-                    try (InputStream body = response.body()) {
+                    try {
                         if (response.statusCode() != 200) {
                             throw new IllegalStateException("HTTP " + response.statusCode());
                         }
                         long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
-                        if (declaredLength > MAX_TRACK_BYTES) {
-                            throw new IllegalStateException("Remote music file exceeds the 100 MiB safety limit");
+                        if (declaredLength != expected.size()) {
+                            throw new IllegalStateException("Unexpected remote music content length: "
+                                    + declaredLength + " (expected " + expected.size() + ")");
+                        }
+                        long written = Files.size(response.body());
+                        if (written != expected.size() || written > MAX_TRACK_BYTES) {
+                            throw new IllegalStateException("Remote music file has an unexpected size: "
+                                    + written + " (expected " + expected.size() + ")");
                         }
 
-                        long written = 0L;
-                        MessageDigest digest = newGitBlobDigest(expected.size());
-                        byte[] buffer = new byte[16 * 1024];
-                        try (OutputStream output = Files.newOutputStream(temporary,
-                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
-                                StandardOpenOption.WRITE)) {
-                            int read;
-                            while ((read = body.read(buffer)) != -1) {
-                                written += read;
-                                if (written > MAX_TRACK_BYTES || written > expected.size()) {
-                                    throw new IllegalStateException("Remote music stream exceeded its expected size");
-                                }
-                                digest.update(buffer, 0, read);
-                                output.write(buffer, 0, read);
-                            }
-                        }
-
-                        String actualSha1 = HexFormat.of().formatHex(digest.digest());
-                        if (written != expected.size() || !actualSha1.equals(expected.gitBlobSha1())) {
+                        String actualSha1 = gitBlobSha1(response.body(), expected.size());
+                        if (!actualSha1.equals(expected.gitBlobSha1())) {
                             throw new IllegalStateException("Downloaded music failed its immutable Git blob checksum "
-                                    + "(size " + written + "/" + expected.size() + ", SHA-1 " + actualSha1 + ")");
+                                    + "(SHA-1 " + actualSha1 + ")");
                         }
-                        if (!isValidOgg(temporary)) {
+                        if (!isValidOgg(response.body())) {
                             throw new IllegalStateException("Downloaded file is not a valid OGG stream");
                         }
                         moveAtomically(temporary, target);
@@ -197,6 +190,16 @@ public final class RemoteMusicCache {
                 && Files.isRegularFile(marker)
                 && Files.readString(marker).trim().equals(expected.gitBlobSha1())
                 && isValidOgg(file);
+    }
+
+    private static String gitBlobSha1(Path file, long size) throws IOException {
+        MessageDigest digest = newGitBlobDigest(size);
+        byte[] buffer = new byte[16 * 1024];
+        try (InputStream input = Files.newInputStream(file)) {
+            int read;
+            while ((read = input.read(buffer)) != -1) digest.update(buffer, 0, read);
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     private static MessageDigest newGitBlobDigest(long size) {
