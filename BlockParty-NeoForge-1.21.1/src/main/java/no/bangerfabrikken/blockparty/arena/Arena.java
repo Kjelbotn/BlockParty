@@ -1906,7 +1906,8 @@ public final class Arena {
     }
 
     private void openGameModeMenu(ServerPlayer player) {
-        if (phase != Phase.WAITING || !isLobbyAccessibleTo(player)
+        if ((phase != Phase.WAITING && phase != Phase.COUNTDOWN)
+                || !isLobbyAccessibleTo(player)
                 || !returnLocations.containsKey(player.getUUID())) return;
         player.openMenu(new SimpleMenuProvider(
                 (containerId, inventory, menuPlayer) ->
@@ -2036,6 +2037,9 @@ public final class Arena {
         refreshOpenMusicVotingMenus();
         refreshDjScreen();
         tryStartWhenTwoPlayersHaveVotedForSongs(player.serverLevel().getServer());
+        // After recording the song vote, immediately give this player the separate
+        // two-choice mode GUI. COUNTDOWN remains open for late mode votes.
+        openGameModeMenu(player);
         return true;
     }
 
