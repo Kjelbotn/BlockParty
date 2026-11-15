@@ -4,6 +4,7 @@ import no.bangerfabrikken.blockparty.BlockPartyMod;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -59,8 +60,19 @@ public final class RemoteMusicCache {
             BlockPartyMod.LOGGER.warn("Could not inspect cached BlockParty track {}.", trackId, exception);
             return CompletableFuture.failedFuture(exception);
         }
-        return IN_FLIGHT.computeIfAbsent(trackId, id ->
-                download(id, target).whenComplete((result, error) -> IN_FLIGHT.remove(id)));
+
+        // Publish the shared future before starting any work. This also handles
+        // immediate setup failures without leaving a permanently failed map entry.
+        CompletableFuture<Path> pending = new CompletableFuture<>();
+        CompletableFuture<Path> existing = IN_FLIGHT.putIfAbsent(trackId, pending);
+        if (existing != null) return existing;
+
+        download(trackId, target).whenComplete((path, error) -> {
+            if (error == null) pending.complete(path);
+            else pending.completeExceptionally(error);
+            IN_FLIGHT.remove(trackId, pending);
+        });
+        return pending;
     }
 
     private static CompletableFuture<Path> download(String trackId, Path target) {
@@ -76,21 +88,38 @@ public final class RemoteMusicCache {
                 .header("User-Agent", "BlockParty-Minecraft-Mod/1.4.19")
                 .GET().build();
 
-        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofFile(
-                        temporary, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
-                        StandardOpenOption.WRITE))
+        return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
                 .thenApply(response -> {
-                    try {
+                    try (InputStream body = response.body()) {
                         if (response.statusCode() != 200) {
                             throw new IllegalStateException("HTTP " + response.statusCode());
                         }
+                        long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
+                        if (declaredLength > MAX_TRACK_BYTES) {
+                            throw new IllegalStateException("Remote music file exceeds the 100 MiB safety limit");
+                        }
+
+                        long written = 0L;
+                        byte[] buffer = new byte[16 * 1024];
+                        try (OutputStream output = Files.newOutputStream(temporary,
+                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                                StandardOpenOption.WRITE)) {
+                            int read;
+                            while ((read = body.read(buffer)) != -1) {
+                                written += read;
+                                if (written > MAX_TRACK_BYTES) {
+                                    throw new IllegalStateException("Remote music stream exceeded the 100 MiB safety limit");
+                                }
+                                output.write(buffer, 0, read);
+                            }
+                        }
+
                         if (!isValidOgg(temporary)) {
                             throw new IllegalStateException("Downloaded file is not a valid-sized OGG stream");
                         }
                         moveAtomically(temporary, target);
-                        long size = Files.size(target);
                         BlockPartyMod.LOGGER.info("Cached remote BlockParty track {} ({} KiB).",
-                                trackId, size / 1024);
+                                trackId, written / 1024);
                         return target;
                     } catch (IOException exception) {
                         throw new IllegalStateException("Could not validate or store BlockParty music cache", exception);
