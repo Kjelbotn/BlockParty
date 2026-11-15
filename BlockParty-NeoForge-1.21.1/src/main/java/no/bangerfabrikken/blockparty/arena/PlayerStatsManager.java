@@ -25,10 +25,15 @@ public final class PlayerStatsManager {
     private static final String FILE_NAME = "blockparty-player-stats.properties";
     private static final int STATS_SCHEMA_VERSION = 2;
     private static final Map<UUID, PlayerRecord> PLAYERS = new HashMap<>();
-    private static final int[] RANK_THRESHOLDS = {0, 100, 250, 500, 1_000, 2_500, 5_000, 10_000};
+    private static final int[] RANK_THRESHOLDS = {
+            0, 100, 250, 500, 1_000, 2_000, 3_500, 5_000, 7_500,
+            10_000, 15_000, 25_000, 40_000, 60_000, 80_000
+    };
     private static final String[] RANK_NAMES = {
-            "Rookie", "Bronze Dancer", "Silver Dancer", "Gold Dancer",
-            "Platinum Dancer", "Diamond Dancer", "Superstar", "BlockParty Legend"
+            "Dance Rookie", "Party Starter", "Toe Tapper", "Disco King",
+            "Beat Chaser", "Freestyler", "Breakdancer", "Dance Machine",
+            "Superstar", "Hammer Time", "Fresh Prince", "Floor Destroyer",
+            "Disco Royalty", "Moonwalker", "Dance Legend"
     };
 
     private PlayerStatsManager() { }
@@ -222,27 +227,58 @@ public final class PlayerStatsManager {
         }
     }
 
-    /** Prints every rank and the permanent point threshold required to reach it. */
-    public static void sendRankList(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal("BLOCKPARTY RANK LIST").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("Rankene låses opp ved å samle poeng ved å overleve runder.")
-                .withStyle(ChatFormatting.GRAY));
+    /** Returns the shared chat/list colour for a rank index. */
+    public static ChatFormatting getRankColor(int index) {
+        return switch (index) {
+            case 0 -> ChatFormatting.GRAY;
+            case 1 -> ChatFormatting.WHITE;
+            case 2 -> ChatFormatting.AQUA;
+            case 3 -> ChatFormatting.GREEN;
+            case 4 -> ChatFormatting.YELLOW;
+            case 5 -> ChatFormatting.GOLD;
+            case 6 -> ChatFormatting.RED;
+            case 7 -> ChatFormatting.GREEN;
+            case 8 -> ChatFormatting.LIGHT_PURPLE;
+            case 9 -> ChatFormatting.GOLD;
+            case 10 -> ChatFormatting.AQUA;
+            case 11 -> ChatFormatting.RED;
+            case 12 -> ChatFormatting.DARK_PURPLE;
+            case 13 -> ChatFormatting.BLUE;
+            default -> ChatFormatting.YELLOW;
+        };
+    }
+
+    public static ChatFormatting getRankColor(Rank rank) {
         for (int i = 0; i < RANK_NAMES.length; i++) {
-            ChatFormatting colour = switch (i) {
-                case 0 -> ChatFormatting.GRAY;
-                case 1 -> ChatFormatting.GOLD;
-                case 2 -> ChatFormatting.AQUA;
-                case 3 -> ChatFormatting.YELLOW;
-                case 4 -> ChatFormatting.LIGHT_PURPLE;
-                case 5 -> ChatFormatting.BLUE;
-                case 6 -> ChatFormatting.RED;
-                default -> ChatFormatting.DARK_PURPLE;
-            };
-            String requirement = i == 0 ? "Startnivå" : RANK_THRESHOLDS[i] + " poeng";
-            player.sendSystemMessage(Component.literal((i + 1) + ". ")
-                    .withStyle(ChatFormatting.DARK_GRAY)
-                    .append(Component.literal(RANK_NAMES[i]).withStyle(colour))
-                    .append(Component.literal(" — " + requirement).withStyle(ChatFormatting.GRAY)));
+            if (RANK_NAMES[i].equals(rank.name())) return getRankColor(i);
+        }
+        return ChatFormatting.WHITE;
+    }
+
+    /** Shows only the next three ranks, keeping chat output compact. */
+    public static void sendRankList(ServerPlayer player) {
+        int points = getRecord(player.getUUID()).points();
+        int currentIndex = 0;
+        for (int i = 0; i < RANK_THRESHOLDS.length; i++) {
+            if (points >= RANK_THRESHOLDS[i]) currentIndex = i;
+            else break;
+        }
+
+        player.sendSystemMessage(Component.literal("BLOCKPARTY — NESTE RANKER")
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        int shown = 0;
+        for (int i = currentIndex + 1; i < RANK_NAMES.length && shown < 3; i++, shown++) {
+            player.sendSystemMessage(Component.literal(RANK_NAMES[i])
+                    .withStyle(getRankColor(i), net.minecraft.ChatFormatting.BOLD)
+                    .append(Component.literal(" — " + String.format(java.util.Locale.ROOT, "%,d", RANK_THRESHOLDS[i])
+                            .replace(',', ' ') + " poeng").withStyle(ChatFormatting.GRAY)));
+        }
+        if (shown == 0) {
+            player.sendSystemMessage(Component.literal("Du har nådd den høyeste ranken!")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        } else if (currentIndex + shown + 1 < RANK_NAMES.length) {
+            player.sendSystemMessage(Component.literal("Fortsett å samle poeng for å oppdage flere ranker!")
+                    .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
         player.sendSystemMessage(Component.literal("Bruk /bp rank for å se din nåværende rank.")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));

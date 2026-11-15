@@ -138,20 +138,12 @@ public final class BlockPartyMod {
 
         PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
-        ChatFormatting rankColor = switch (rank.name()) {
-            case "Rookie" -> ChatFormatting.GRAY;
-            case "Bronze Dancer" -> ChatFormatting.GOLD;
-            case "Silver Dancer" -> ChatFormatting.AQUA;
-            case "Gold Dancer" -> ChatFormatting.YELLOW;
-            case "Platinum Dancer" -> ChatFormatting.LIGHT_PURPLE;
-            case "Diamond Dancer" -> ChatFormatting.BLUE;
-            case "Superstar" -> ChatFormatting.RED;
-            case "BlockParty Legend" -> ChatFormatting.DARK_PURPLE;
-            default -> ChatFormatting.WHITE;
-        };
+        ChatFormatting rankColor = PlayerStatsManager.getRankColor(rank);
 
+        // The opening bracket, rank title and closing bracket deliberately share
+        // one style so the complete rank tag is coloured consistently.
         Component formattedMessage = Component.literal("[" + rank.name() + "] ")
-                .withStyle(ChatFormatting.GRAY)
+                .withStyle(rankColor)
                 .append(Component.literal(player.getGameProfile().getName()).withStyle(rankColor))
                 .append(Component.literal(": ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(event.getRawText()).withStyle(ChatFormatting.WHITE));
