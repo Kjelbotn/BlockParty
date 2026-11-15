@@ -95,7 +95,7 @@ public final class RemoteAudioEngine {
                             streamAttached.set(true);
                             channel.play();
                             activeHandle = handle;
-                            paused = false;
+                            if (paused) channel.pause();
                             BlockPartyMod.LOGGER.info("Started experimental cached BlockParty OGG playback: {}",
                                     oggFile.getFileName());
                             attached.complete(true);
@@ -123,21 +123,21 @@ public final class RemoteAudioEngine {
     public static void pause() {
         ChannelAccess.ChannelHandle handle;
         synchronized (STATE_LOCK) {
-            handle = activeHandle;
-            if (handle == null || handle.isStopped() || paused) return;
+            if (paused) return;
             paused = true;
+            handle = activeHandle;
         }
-        handle.execute(channel -> channel.pause());
+        if (handle != null && !handle.isStopped()) handle.execute(channel -> channel.pause());
     }
 
     public static void resume() {
         ChannelAccess.ChannelHandle handle;
         synchronized (STATE_LOCK) {
-            handle = activeHandle;
-            if (handle == null || handle.isStopped() || !paused) return;
+            if (!paused) return;
             paused = false;
+            handle = activeHandle;
         }
-        handle.execute(channel -> channel.unpause());
+        if (handle != null && !handle.isStopped()) handle.execute(channel -> channel.unpause());
     }
 
     public static void stop() {

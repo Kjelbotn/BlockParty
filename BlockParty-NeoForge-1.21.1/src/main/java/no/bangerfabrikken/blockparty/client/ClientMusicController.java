@@ -40,6 +40,7 @@ public final class ClientMusicController {
     private static int playbackRetries;
     private static boolean playbackFailureLogged;
     private static boolean usingRemoteAudio;
+    private static boolean remotePlaybackPending;
     private static long playbackGeneration;
     private static ResourceLocation pendingSoundId;
     private static boolean pendingSoundLoops;
@@ -103,19 +104,26 @@ public final class ClientMusicController {
                 paused = false;
                 pauseStateApplied = true;
                 long generation = ++playbackGeneration;
+                remotePlaybackPending = true;
                 RemoteAudioEngine.play(cachedTrack).whenComplete((success, error) ->
                         minecraft.execute(() -> {
                             if (generation != playbackGeneration || !soundId.equals(activeSoundId)) {
                                 // A newer playback request owns the shared engine now; do not stop it here.
                                 return;
                             }
+                            remotePlaybackPending = false;
                             if (Boolean.TRUE.equals(success) && error == null) {
                                 usingRemoteAudio = true;
+                                if (paused) RemoteAudioEngine.pause();
                                 BlockPartyMod.LOGGER.info("BlockParty is using its verified local remote-music cache for {}.", trackId);
                             } else {
                                 usingRemoteAudio = false;
                                 BlockPartyMod.LOGGER.warn("Remote playback failed for {}; falling back to bundled music.", trackId, error);
                                 startSound(minecraft);
+                                if (paused) {
+                                    pauseStateApplied = false;
+                                    applyPauseState();
+                                }
                             }
                         }));
                 return;
@@ -148,7 +156,7 @@ public final class ClientMusicController {
     }
 
     private static void pause() {
-        if (usingRemoteAudio) {
+        if (usingRemoteAudio || remotePlaybackPending) {
             paused = true;
             RemoteAudioEngine.pause();
             return;
@@ -161,7 +169,7 @@ public final class ClientMusicController {
     }
 
     private static void resume() {
-        if (usingRemoteAudio) {
+        if (usingRemoteAudio || remotePlaybackPending) {
             paused = false;
             RemoteAudioEngine.resume();
             return;
@@ -180,6 +188,7 @@ public final class ClientMusicController {
         pendingStartTick = -1L;
         RemoteAudioEngine.stop();
         usingRemoteAudio = false;
+        remotePlaybackPending = false;
         if (currentSound != null) Minecraft.getInstance().getSoundManager().stop(currentSound);
         currentSound = null;
         activeSoundId = null;
