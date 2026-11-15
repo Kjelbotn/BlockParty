@@ -9,7 +9,7 @@ on:
       - feature/xmas-arena
       - fix/1-1-7-xmas-screen-adventure-spectators
       - fix/xmas-display-entity-fps-1-4-8
-      - release/1.4.17
+      - release/1.4.18
 
 permissions:
   contents: read
@@ -93,7 +93,7 @@ jobs:
             ffmpeg -hide_banner -loglevel error -y -i "$input" \
               -map 0:a:0 -vn -map_metadata -1 \
               -af "loudnorm=I=-14:TP=-1.0:LRA=11" -ac 2 -ar 44100 \
-              -c:a libvorbis -q:a 3 "$output"
+              -c:a libvorbis -q:a 2 "$output"
             test -s "$output"
             mv "$output" "$input"
             codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$input")"
@@ -141,6 +141,6 @@ jobs:
       - name: Upload release JAR
         uses: actions/upload-artifact@v4
         with:
-          name: BlockParty-1.4.17-JAR
+          name: BlockParty-1.4.18-JAR
           path: BlockParty-NeoForge-1.21.1/build/libs/*.jar
           if-no-files-found: error
