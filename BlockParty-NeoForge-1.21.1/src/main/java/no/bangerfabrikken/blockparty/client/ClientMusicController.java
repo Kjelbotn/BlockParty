@@ -38,14 +38,15 @@ public final class ClientMusicController {
     private static boolean activeSoundLoops;
     private static int ticksWaitingForChannel;
     private static int playbackRetries;
-    private static boolean playbackFailureLogged;\n    private static boolean usingRemoteAudio;\n    private static long playbackGeneration;\n    private static ResourceLocation pendingSoundId;\n    private static boolean pendingSoundLoops;\n    private static long pendingStartTick = -1L;
+    private static boolean playbackFailureLogged;
+    private static boolean usingRemoteAudio;\n    private static long playbackGeneration;\n    private static ResourceLocation pendingSoundId;\n    private static boolean pendingSoundLoops;\n    private static long pendingStartTick = -1L;
 
     private ClientMusicController() { }
 
     public static void handle(MusicControlPayload payload) {
         switch (payload.action()) {
-            case MusicControlPayload.PLAY -> play(payload.soundId(), false);
-            case MusicControlPayload.LOOP -> play(payload.soundId(), true);
+            case MusicControlPayload.PLAY -> scheduleOrPlay(payload.soundId(), false, payload.startTick());
+            case MusicControlPayload.LOOP -> scheduleOrPlay(payload.soundId(), true, payload.startTick());
             case MusicControlPayload.PRELOAD -> preload(payload.soundId());
             case MusicControlPayload.PAUSE -> pause();
             case MusicControlPayload.RESUME -> resume();
@@ -170,6 +171,9 @@ public final class ClientMusicController {
 
     private static void stop() {
         playbackGeneration++;
+        pendingSoundId = null;
+        pendingSoundLoops = false;
+        pendingStartTick = -1L;
         RemoteAudioEngine.stop();
         usingRemoteAudio = false;
         if (currentSound != null) Minecraft.getInstance().getSoundManager().stop(currentSound);
@@ -185,6 +189,16 @@ public final class ClientMusicController {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (pendingSoundId != null && minecraft.level != null
+                && minecraft.level.getGameTime() >= pendingStartTick) {
+            ResourceLocation soundToStart = pendingSoundId;
+            boolean shouldLoop = pendingSoundLoops;
+            pendingSoundId = null;
+            pendingSoundLoops = false;
+            pendingStartTick = -1L;
+            play(soundToStart, shouldLoop);
+        }
         if (usingRemoteAudio || currentSound == null) return;
         if (!paused && !playbackFailureLogged) {
             // Detect starts with the public SoundManager API. Reflection is only needed

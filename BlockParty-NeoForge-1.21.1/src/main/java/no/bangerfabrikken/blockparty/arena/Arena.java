@@ -1007,7 +1007,7 @@ public final class Arena {
             }
             musicTicksRemaining = track.durationTicks();
             musicFinished = false;
-            sendMusicControl(MusicControlPayload.PLAY);
+            sendMusicControl(track.soundId(), MusicControlPayload.PLAY, level.getGameTime() + 40L);
             BlockPartyMod.LOGGER.info("Looping BlockParty track '{}' for the remaining match rounds.", track.name());
         }
     }
@@ -1573,7 +1573,8 @@ public final class Arena {
         musicPaused = false;
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
                 track.name(), track.soundId(), players.size());
-        sendMusicControl(MusicControlPayload.PLAY);
+        // Schedule a shared future start tick so clients begin together despite packet latency.
+        sendMusicControl(track.soundId(), MusicControlPayload.PLAY, level.getGameTime() + 40L);
     }
 
     /** Pause the actual client audio channel; its OpenAL playback cursor is retained. */
