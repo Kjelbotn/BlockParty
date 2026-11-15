@@ -1952,7 +1952,7 @@ public final class Arena {
                 + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
                 .withStyle(ChatFormatting.GRAY));
         refreshOpenMusicVotingMenus();
-        tryStartWhenTwoPlayersHaveCompletedBothVotes(player.serverLevel().getServer());
+        tryStartWhenTwoPlayersHaveVotedForSongs(player.serverLevel().getServer());
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -2040,16 +2040,13 @@ public final class Arena {
     }
 
     /**
-     * Starts the ten-second lobby countdown only after at least two distinct
-     * participants have submitted both a song vote and a game-mode vote.
+     * Starts the ten-second lobby countdown as soon as two distinct players
+     * have voted for a song. Game mode is optional and defaults to Classic.
      */
-    private void tryStartWhenTwoPlayersHaveCompletedBothVotes(MinecraftServer server) {
+    private void tryStartWhenTwoPlayersHaveVotedForSongs(MinecraftServer server) {
         if (phase != Phase.WAITING || players.size() < MIN_PLAYERS) return;
-        long completeVoters = players.stream()
-                .filter(preferredGameModes::containsKey)
-                .filter(musicVotes::containsKey)
-                .count();
-        if (completeVoters < MIN_PLAYERS) return;
+        long songVoters = players.stream().filter(musicVotes::containsKey).count();
+        if (songVoters < MIN_PLAYERS) return;
         try {
             start(server);
         } catch (IllegalStateException exception) {
@@ -2885,13 +2882,15 @@ public final class Arena {
         int depth = Math.abs(pos2.getZ() - pos1.getZ()) + 1;
         int centerX = width / 2;
         int centerZ = depth / 2;
-        // Early rounds use broad readable shapes; later rounds introduce finer, more fragmented layouts.
+        // Main starts with readable shapes, then progressively unlocks denser,
+        // more irregular layouts. The wider pools prevent the same few easy designs
+        // from dominating the 25-round match. Xmas keeps its existing progression.
         int minPattern = "xmas".equals(id)
                 ? (round <= 5 ? 0 : round <= 10 ? 4 : round <= 15 ? 8 : round <= 20 ? 12 : 16)
-                : (round <= 5 ? 0 : round <= 10 ? 2 : round <= 15 ? 4 : round <= 20 ? 7 : 10);
+                : (round <= 5 ? 0 : round <= 10 ? 6 : round <= 15 ? 12 : round <= 20 ? 19 : 24);
         int maxPattern = "xmas".equals(id)
                 ? (round <= 5 ? 11 : round <= 10 ? 19 : round <= 15 ? 25 : round <= 20 ? 29 : 31)
-                : (round <= 5 ? 5 : round <= 10 ? 9 : round <= 15 ? 12 : round <= 20 ? 14 : 15);
+                : (round <= 5 ? 12 : round <= 10 ? 22 : round <= 15 ? 29 : round <= 20 ? 35 : 38);
         int patternCount = maxPattern - minPattern + 1;
         int pattern;
         // Xmas occasionally gets a dedicated festive pixel-art motif instead of
@@ -3017,6 +3016,47 @@ public final class Arena {
                     int spiral = (int) Math.floor(Math.atan2(dz, dx) * 6 + Math.hypot(dx, dz) / 1.7);
                     index = edge * 3 + spiral + twist;
                 } // inward spiral maze
+                case 31 -> {
+                    int gx = x / 2, gz = z / 2;
+                    index = Math.floorMod(gx * 11 - gz * 7 + (gx * gz) % 17 + twist, 31);
+                } // offset diagonal micro-checker
+                case 32 -> {
+                    int ringA = (int) Math.floor(Math.hypot(dx + 8, dz - 7));
+                    int ringB = (int) Math.floor(Math.hypot(dx - 8, dz + 7));
+                    index = Math.min(ringA, ringB) + Math.floorMod(x * z, 9) + twist;
+                } // twin broken rings
+                case 33 -> {
+                    int cell = round >= 20 ? 1 : 2;
+                    int gx = x / cell, gz = z / cell;
+                    index = gx * 19 + gz * 13 + (gx * gz * 5) % 23 + ((gx + 2 * gz) % 4) * 3 + twist;
+                } // dense offset pixel weave
+                case 34 -> {
+                    double angle = Math.atan2(dz, dx);
+                    double radius = Math.hypot(dx, dz);
+                    index = (int) Math.floor(Math.sin(angle * 9 + radius * 0.31) * 9
+                            + Math.cos(angle * 5 - radius * 0.23) * 7) + twist;
+                } // interference rosette
+                case 35 -> {
+                    int stripe = Math.floorMod(x * 5 + z * 3 + (x * z) / 5, 19);
+                    index = stripe + ((x / 3 + z / 2) % 2 == 0 ? 7 : -7) + twist;
+                } // broken crosshatch
+                case 36 -> {
+                    int gx = x / 2, gz = z / 2;
+                    int diagonalA = Math.floorMod(gx + gz * 2, 11);
+                    int diagonalB = Math.floorMod(gx * 3 - gz, 13);
+                    index = diagonalA * 2 + diagonalB + ((gx ^ gz) % 5) * 3 + twist;
+                } // interleaved diagonal lattice
+                case 37 -> {
+                    int cell = 2;
+                    int gx = x / cell, gz = z / cell;
+                    int checker = ((gx + gz) % 2 == 0) ? 1 : -1;
+                    index = gx * 7 + gz * 17 + checker * ((gx * gz) % 11) + twist;
+                } // warped checker maze
+                case 38 -> {
+                    int cell = 1;
+                    int gx = x / cell, gz = z / cell;
+                    index = gx * 23 + gz * 29 + (gx * gz) % 31 + ((gx ^ (gz * 3)) % 7) * 5 + twist;
+                } // maximum-density fractured mosaic
                 default -> {
                     int roundLimit = getMatchRoundLimit();
                     int cell = round >= roundLimit ? 1 : round >= (int) Math.ceil(roundLimit * 0.8) ? 2 : 3;
