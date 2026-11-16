@@ -96,7 +96,7 @@ public final class BlockPartyCommands {
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(context -> resetStats(context.getSource(),
                                         StringArgumentType.getString(context, "player")))))
-                .then(Commands.literal("rank").executes(context -> rank(context.getSource()))
+                .then(Commands.literal("rank").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("ranklist").executes(context -> rankList(context.getSource())))
                 .then(Commands.literal("profile").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("vote")
@@ -439,7 +439,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
         source.sendSuccess(() -> Component.literal("Alle matcher har opptil 25 runder. Rundetiden blir kortere utover i matchen."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
-        source.sendSuccess(() -> Component.literal("/bp cosmetics – kosmetikkbutikk | /bp cosmetics buy <id> | /bp cosmetics equip <id> | /bp cosmetics clear"), false);
+        source.sendSuccess(() -> Component.literal("Kosmetikk åpnes via Kosmetikk-knappen i kompassmenyen. Kjøp og utstyr trails, rustning, kill sounds og footsteps direkte i GUI-et."), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 5 | /bp rank – spillerprofil | /bp ranklist – alle ranker og poengkrav"), false);
         source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);
         source.sendSuccess(() -> Component.literal("Automatisk nedtelling starter når minst to påmeldte spillere har stemt på en sang. /bp start <id> starter manuelt."), false);
