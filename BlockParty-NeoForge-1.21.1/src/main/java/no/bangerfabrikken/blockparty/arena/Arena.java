@@ -2429,8 +2429,10 @@ public final class Arena {
     /** Colourful firework-like particle bursts around podium finishers for five seconds. */
     private void tickPodiumFireworks() {
         if (podiumFireworksTicks <= 0 || level == null || podiumFreezePositions.isEmpty()) return;
-        if (podiumFireworksTicks % 5 == 0) {
+        if (podiumFireworksTicks % 20 == 0) {
             for (BlockPos spawn : new ArrayList<>(podiumFreezePositions.values())) {
+                level.playSound(null, spawn, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.AMBIENT, 0.8F, 0.9F + random.nextFloat() * 0.25F);
+                level.playSound(null, spawn, SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.AMBIENT, 0.65F, 0.85F + random.nextFloat() * 0.3F);
                 for (int burst = 0; burst < 3; burst++) {
                     double angle = random.nextDouble() * Math.PI * 2.0;
                     double radius = 0.8 + random.nextDouble() * 1.5;
@@ -2592,8 +2594,9 @@ public final class Arena {
                 if (timerTicks <= 0) {
                     Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
-                        broadcast(Component.literal("Nå spilles: " + nowPlaying.name() + " av " + nowPlaying.artist() + "!")
-                                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+                        broadcast(Component.literal("♫ NÅ SPILLES ♫").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                        broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                                .append(Component.literal(" — " + nowPlaying.artist()).withStyle(ChatFormatting.GRAY)));
                     }
                     beginRound(server);
                 }
@@ -2607,7 +2610,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.63F;
+                        default -> 0.5946F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2678,7 +2681,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.63F;
+                        default -> 0.5946F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2791,6 +2794,9 @@ public final class Arena {
                 if (dancer != null) dancer.displayClientMessage(notice, true);
             }
         }
+        int currentRoundTicks = getRoundDurationTicks(round);
+        int previousRoundTicks = round > 1 ? getRoundDurationTicks(round - 1) : currentRoundTicks;
+        if (currentRoundTicks < previousRoundTicks) broadcast(Component.literal("FARTEN ØKER! Neste runde varer " + formatSeconds(currentRoundTicks) + " sekunder.").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         lastTargetContactTick.clear();
         lastTargetContactPos.clear();
         Set<DyeColor> roundColors = randomizeFloorForRound();
@@ -3015,12 +3021,16 @@ public final class Arena {
         }
         PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
-        String[] names = {"bp_lobby_rank", "bp_lobby_best", "bp_lobby_wins", "bp_lobby_points"};
+        String[] names = {"bp_lobby_rank", "bp_lobby_best", "bp_lobby_podium", "bp_lobby_games", "bp_lobby_wins", "bp_lobby_points"};
         Component[] rows = {
                 Component.literal("Rank: ").withStyle(ChatFormatting.GRAY)
                         .append(Component.literal(rank.name()).withStyle(PlayerStatsManager.getRankColor(rank))),
                 Component.literal("Rekord: ").withStyle(ChatFormatting.GRAY)
                         .append(Component.literal(record.personalBest() + "/" + MAX_ROUNDS).withStyle(ChatFormatting.AQUA)),
+                Component.literal("Pallplasser: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.podiums())).withStyle(ChatFormatting.GOLD)),
+                Component.literal("Kamper: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.gamesPlayed())).withStyle(ChatFormatting.AQUA)),
                 Component.literal("Seire: ").withStyle(ChatFormatting.GRAY)
                         .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.YELLOW)),
                 Component.literal("Poeng: ").withStyle(ChatFormatting.GRAY)
@@ -3776,8 +3786,8 @@ public final class Arena {
         for (UUID uuid : alive) {
             ServerPlayer survivor = level.getServer().getPlayerList().getPlayer(uuid);
             if (survivor != null) {
-                level.playSound(null, survivor.blockPosition(), ModSounds.YAY.get(),
-                        SoundSource.PLAYERS, 0.72F, 1.0F);
+                // The supplied yay.ogg is absent from repository assets; use a vanilla positive cue until it is added.
+                level.playSound(null, survivor.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.72F, 1.18F);
             }
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
@@ -3859,6 +3869,8 @@ public final class Arena {
         // A win streak counts consecutive match victories, never rounds survived.
         // Every participant other than the declared winner has lost this match.
         for (UUID participantId : players) {
+            ServerPlayer participant = level.getServer().getPlayerList().getPlayer(participantId);
+            if (participant != null) PlayerStatsManager.recordMatchPlayed(level.getServer(), participant, lastPodiumPlayers.contains(participantId));
             if (winner == null || !participantId.equals(winner.getUUID())) {
                 PlayerStatsManager.breakStreak(level.getServer(), participantId);
             }
@@ -3990,7 +4002,7 @@ public final class Arena {
 
         // Start the 20-second podium display window only after all participants have returned.
         podiumDisplayTicks = matchWinnerId != null && !"xmas".equals(id) && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
-        podiumFireworksTicks = matchWinnerId != null && !"xmas".equals(id) && !podiumFreezePositions.isEmpty() ? 100 : 0;
+        podiumFireworksTicks = matchWinnerId != null && !"xmas".equals(id) && !podiumFreezePositions.isEmpty() ? 200 : 0;
 
         alive.clear();
         eliminatedPlayers.clear();
