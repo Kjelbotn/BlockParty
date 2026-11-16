@@ -39,14 +39,14 @@ final class BlockPartyHubMenu extends ChestMenu {
             else if (row == 2 || row == 4) contents.setItem(slot, accent.copy());
         }
 
-        add(4, Items.AMETHYST_SHARD, "BLOCKPARTY HUB", "Velkommen! Velg en kategori nedenfor.");
+        add(4, Items.AMETHYST_SHARD, "BLOCKPARTY-MENY", "Velkommen! Velg en kategori nedenfor.");
         add(11, Items.PLAYER_HEAD, "PROFIL", "Se poeng, rank, rekorder og seire.");
         add(13, Items.MUSIC_DISC_CAT, "MUSIKKAVSTEMNING", "Velg hvilken låt som skal spilles.");
-        add(15, Items.GOLDEN_HELMET, "LEADERBOARD", "Se de 10 beste BlockParty-spillerne.");
-        add(29, Items.CLOCK, "DAILY CHALLENGES", "Tre daglige oppgaver med personlige poengbelønninger.");
-        add(31, Items.COMPASS, "GAME MODE", "Velg Classic eller Memory Mode for neste match.");
-        add(33, Items.LEATHER_CHESTPLATE, "KOSMETIKK", "Skins og effekter kommer senere.");
-        add(49, Items.LIME_CONCRETE, "BLI MED I NESTE MATCH", "Registrer deg til neste BlockParty-runde.");
+        add(15, Items.GOLDEN_HELMET, "TOPPLISTE", "Se de 5 beste spillerne i BlockParty.");
+        add(29, Items.CLOCK, "DAGLIGE UTFORDRINGER", "Tre daglige oppgaver med personlige poengbelønninger.");
+        add(31, Items.COMPASS, "SPILLMODUS", "Velg Classic eller Memory Mode for neste match.");
+        add(33, Items.LEATHER_CHESTPLATE, "KOSMETIKK", "Utseender og effekter kommer senere.");
+        add(49, Items.LIME_CONCRETE, "MELD DEG PÅ NESTE MATCH", "Registrer deg til neste BlockParty-match.");
     }
 
     private ItemStack pane(net.minecraft.world.item.Item item) {

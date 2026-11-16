@@ -26,13 +26,13 @@ public final class DailyChallengeManager {
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("d. MMMM", Locale.forLanguageTag("nb-NO"));
     private static final List<Challenge> CATALOGUE = List.of(
-            new Challenge("survive_8", "Survivor", "Overlev 8 runder", 8, 15, Kind.ROUND),
-            new Challenge("survive_15", "Endurance", "Overlev 15 runder", 15, 25, Kind.ROUND),
-            new Challenge("powerups_3", "Power Hunter", "Samle 3 power-ups", 3, 10, Kind.POWERUP),
-            new Challenge("powerups_5", "Power Collector", "Samle 5 power-ups", 5, 15, Kind.POWERUP),
-            new Challenge("powerups_8", "Power Master", "Samle 8 power-ups", 8, 25, Kind.POWERUP),
-            new Challenge("win_1", "Match Winner", "Vinn 1 match", 1, 20, Kind.WIN),
-            new Challenge("win_2", "Champion", "Vinn 2 matcher", 2, 25, Kind.WIN)
+            new Challenge("survive_8", "Overlever", "Overlev 8 runder", 8, 15, Kind.ROUND),
+            new Challenge("survive_15", "Utholdenhet", "Overlev 15 runder", 15, 25, Kind.ROUND),
+            new Challenge("powerups_3", "Power-Up-jeger", "Samle 3 Power-Ups", 3, 10, Kind.POWERUP),
+            new Challenge("powerups_5", "Power-Up-samler", "Samle 5 Power-Ups", 5, 15, Kind.POWERUP),
+            new Challenge("powerups_8", "Power-Up-mester", "Samle 8 Power-Ups", 8, 25, Kind.POWERUP),
+            new Challenge("win_1", "Matchvinner", "Vinn 1 match", 1, 20, Kind.WIN),
+            new Challenge("win_2", "Mester", "Vinn 2 matcher", 2, 25, Kind.WIN)
     );
     private static final Map<UUID, Progress> DATA = new HashMap<>();
     private static MinecraftServer server;
@@ -152,7 +152,7 @@ public final class DailyChallengeManager {
                 if (next >= c.target) {
                     d.claimed.add(id);
                     PlayerStatsManager.addPoints(minecraftServer, player, c.reward);
-                    player.sendSystemMessage(Component.literal("Daily Challenge fullført: " + c.title + "  +" + c.reward + " poeng!")
+                    player.sendSystemMessage(Component.literal("Daglig utfordring fullført: " + c.title + "  +" + c.reward + " poeng!")
                             .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
                 }
             }
@@ -160,7 +160,7 @@ public final class DailyChallengeManager {
         if (changed && d.ids.stream().allMatch(d.claimed::contains) && !d.bonusClaimed) {
             d.bonusClaimed = true;
             PlayerStatsManager.addPoints(minecraftServer, player, COMPLETION_BONUS);
-            player.sendSystemMessage(Component.literal("Alle Daily Challenges fullført! Bonus: +50 poeng!")
+            player.sendSystemMessage(Component.literal("Alle dagens utfordringer er fullført! Bonus: +50 poeng!")
                     .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         }
         if (changed) save();
@@ -173,7 +173,7 @@ public final class DailyChallengeManager {
     public static synchronized List<Component> getLines(ServerPlayer player) {
         Progress d = get(player);
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("DAILY CHALLENGES  •  " + LocalDate.parse(d.date).format(DATE_FORMAT))
+        lines.add(Component.literal("DAGLIGE UTFORDRINGER  •  " + LocalDate.parse(d.date).format(DATE_FORMAT))
                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         lines.add(Component.literal("Fullfør alle tre for +50 bonuspoeng.").withStyle(ChatFormatting.GRAY));
         for (String id : d.ids) {

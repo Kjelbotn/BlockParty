@@ -52,17 +52,17 @@ final class MusicVotingMenu extends ChestMenu {
     }
 
     private static String getDifficulty(int matchSeconds) {
-        if (matchSeconds >= 180) return "EASY";
-        if (matchSeconds >= 120) return "MEDIUM";
-        if (matchSeconds >= 90) return "HARD";
-        return "EXPERT";
+        if (matchSeconds >= 180) return "LETT";
+        if (matchSeconds >= 120) return "MIDDELS";
+        if (matchSeconds >= 90) return "VANSKELIG";
+        return "EKSPERT";
     }
 
     private static ChatFormatting getDifficultyColor(String difficulty) {
         return switch (difficulty) {
-            case "EASY" -> ChatFormatting.GREEN;
-            case "MEDIUM" -> ChatFormatting.AQUA;
-            case "HARD" -> ChatFormatting.GOLD;
+            case "LETT" -> ChatFormatting.GREEN;
+            case "MIDDELS" -> ChatFormatting.AQUA;
+            case "VANSKELIG" -> ChatFormatting.GOLD;
             default -> ChatFormatting.RED;
         };
     }
@@ -104,7 +104,7 @@ final class MusicVotingMenu extends ChestMenu {
             icon.set(DataComponents.LORE, new ItemLore(List.of(
                     Component.literal("Artist: " + track.artist()).withStyle(ChatFormatting.GRAY),
                     Component.literal(Arena.getTrackRoundLimit(track) + " RUNDER"
-                            + " | " + difficulty + " | " + formatDuration(matchSeconds))
+                            + "  •  " + difficulty + "  •  " + formatDuration(matchSeconds))
                             .withStyle(getDifficultyColor(difficulty), ChatFormatting.BOLD),
                     Component.literal("Stemmer: " + votes).withStyle(ChatFormatting.YELLOW),
                     Component.literal(selected ? "DITT NÅVÆRENDE VALG" : "Klikk for å stemme eller bytte valg")

@@ -1406,13 +1406,13 @@ public final class Arena {
             }
             if (freeSlot < 0) {
                 activated = false;
-                player.sendSystemMessage(Component.literal("Ingen ledig inventoryplass til LEAP BOOST-fjæren.")
+                player.sendSystemMessage(Component.literal("Du har ikke plass i inventaret til LEAP BOOST-fjæren.")
                         .withStyle(ChatFormatting.YELLOW));
             } else {
                 player.getInventory().setItem(freeSlot, feather);
                 player.getInventory().setChanged();
                 player.inventoryMenu.broadcastChanges();
-                player.sendSystemMessage(Component.literal("LEAP BOOST-fjær lagt i inventoryet ditt.")
+                player.sendSystemMessage(Component.literal("LEAP BOOST-fjæren er lagt i inventaret ditt.")
                         .withStyle(ChatFormatting.AQUA));
             }
         } else if (powerUp == PowerUp.COLOR_TELEPORTER) {
@@ -1445,7 +1445,7 @@ public final class Arena {
             // Picking it up only schedules the effect; the current floor remains untouched.
             colorRainNextRound = true;
             player.sendSystemMessage(Component.literal(
-                    "COLOR RAIN aktivert! Fargede concrete-blokker regner ned på dansegulvet neste runde.")
+                    "COLOR RAIN aktivert! Fargede betongblokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         } else if (powerUp == PowerUp.COTTON_PICKER) {
             cottonPickerPlayers.add(uuid);
@@ -2651,7 +2651,7 @@ public final class Arena {
                 tickColorRain();
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 20 == 0) {
-                    broadcastActionBar(Component.literal("Waiting...")
+                    broadcastActionBar(Component.literal("VENTER PÅ NESTE RUNDE...")
                             .withStyle(ChatFormatting.DARK_RED));
                 }
                 if (timerTicks <= 0) {
@@ -2805,7 +2805,7 @@ public final class Arena {
             timerTicks = WAITING_FOR_COLOR_TICKS;
             // Replace the previous round's title immediately with the next target colour.
             updateArenaWelcomeDisplay();
-            broadcastActionBar(Component.literal("Waiting...")
+            broadcastActionBar(Component.literal("VENTER PÅ NESTE RUNDE...")
                     .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
             updateScoreboard(server);
         }
@@ -3806,7 +3806,7 @@ public final class Arena {
             PlayerStatsManager.recordMvp(level.getServer(), mvp);
             Component title = Component.literal(winner.getName().getString())
                     .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
-            Component subtitle = Component.literal("is the winner of this game!")
+            Component subtitle = Component.literal("er vinneren av denne matchen!")
                     .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD, ChatFormatting.ITALIC);
             for (UUID uuid : players) {
                 ServerPlayer viewer = level.getServer().getPlayerList().getPlayer(uuid);
@@ -3819,7 +3819,7 @@ public final class Arena {
                     .withStyle(ChatFormatting.GOLD));
             broadcast(Component.literal("MVP: " + mvp.getName().getString() + "  •  "
                     + points.getOrDefault(mvp.getUUID(), 0) + " runder overlevd  •  "
-                    + powerupsCollected.getOrDefault(mvp.getUUID(), 0) + " power-ups")
+                    + powerupsCollected.getOrDefault(mvp.getUUID(), 0) + " Power-Ups")
                     .withStyle(ChatFormatting.AQUA));
         } else if (alive.isEmpty()) {
             broadcast(Component.literal("BlockParty er ferdig – ingen overlevde denne gangen.").withStyle(ChatFormatting.GRAY));
@@ -3832,7 +3832,7 @@ public final class Arena {
             ServerPlayer participant = level.getServer().getPlayerList().getPlayer(uuid);
             if (participant != null) participant.sendSystemMessage(Component.literal("STATISTIKK  •  "
                     + points.getOrDefault(uuid, 0) + " runder overlevd  •  "
-                    + powerupsCollected.getOrDefault(uuid, 0) + " power-ups  •  "
+                    + powerupsCollected.getOrDefault(uuid, 0) + " Power-Ups  •  
                     + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
                     .withStyle(ChatFormatting.AQUA));
         }
@@ -4178,11 +4178,11 @@ public final class Arena {
 
         // LEADERBOARD PANEL — keep a constant vertical centre regardless of list length.
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("LEADERBOARD").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        lines.add(Component.literal("TOP 5 DANCERS").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        lines.add(Component.literal("BLOCKPARTY TOPPLISTE").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        lines.add(Component.literal("TOPP 5 DANSERE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(5);
         if (top.isEmpty()) {
-            lines.add(Component.literal("No scores yet - survive a round to score!").withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal("Ingen poeng ennå – overlev en runde for å få poeng!").withStyle(ChatFormatting.GRAY));
         } else {
             for (int i = 0; i < top.size(); i++) {
                 PlayerStatsManager.PlayerRecord record = top.get(i);
@@ -4191,7 +4191,7 @@ public final class Arena {
                         : i == 2 ? ChatFormatting.RED : ChatFormatting.GRAY;
                 lines.add(Component.literal("#" + (i + 1) + "  ").withStyle(placeColor, ChatFormatting.BOLD)
                         .append(Component.literal(record.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                        .append(Component.literal("   " + record.points() + " pts   ").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                        .append(Component.literal("   " + record.points() + " poeng   ).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
                         .append(Component.literal(rank.name()).withStyle(ChatFormatting.AQUA)));
             }
         }

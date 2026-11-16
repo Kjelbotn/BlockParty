@@ -32,7 +32,7 @@ final class DailyChallengeMenu extends ChestMenu {
             if (slot < 9 || slot >= 18 || slot % 9 == 0 || slot % 9 == 8) contents.setItem(slot, frame.copy());
         }
         List<Component> lines = DailyChallengeManager.getLines(viewer);
-        contents.setItem(4, named(Items.CLOCK, "DAILY CHALLENGES",
+        contents.setItem(4, named(Items.CLOCK, "DAGLIGE UTFORDRINGER",
                 lines.isEmpty() ? List.of() : List.of(lines.get(0))));
         int[] slots = {10, 12, 14, 16};
         for (int i = 1; i < lines.size() && i <= slots.length; i++) {
@@ -48,7 +48,7 @@ final class DailyChallengeMenu extends ChestMenu {
 
     private ItemStack named(net.minecraft.world.item.Item item, String name, List<Component> lore) {
         ItemStack stack = new ItemStack(item);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         if (!lore.isEmpty()) stack.set(DataComponents.LORE, new ItemLore(lore));
         return stack;
     }
