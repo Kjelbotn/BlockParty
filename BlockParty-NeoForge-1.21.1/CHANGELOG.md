@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.50
+- Lowered the YAY floor-return cue and removed it from match start.
+- Preserve the captured original dance-floor layout for round 1; generated patterns begin in round 2.
+- Judge safe standing by the player's full collision footprint, preventing edge-of-block false eliminations.
+- Strengthened Lucky Landing fallback placement and restored its landing tile if the fall phase removed it.
+
 ## 1.4.49
 - Convert the supplied YAY sound from Opus to Minecraft-compatible Vorbis during release builds.
 - Trigger YAY only after the next floor has been repainted, and only for players still alive.

@@ -368,6 +368,9 @@ public final class Arena {
     private boolean rescueWithLuckyLanding(ServerPlayer player) {
         UUID uuid = player.getUUID();
         if (!luckyLanding.contains(uuid) || level == null) return false;
+        // Prefer a currently solid tile of the target colour. If that tile was
+        // already removed (or the floor is in a transition), fall back to any
+        // surviving tile, then the captured original floor as a final safe pad.
         List<BlockPos> safeTiles = floorSnapshot.entrySet().stream()
                 .filter(entry -> targetColor != null && BlockPartyColors.getColor(entry.getValue()) == targetColor)
                 .map(Map.Entry::getKey)
@@ -380,17 +383,30 @@ public final class Arena {
                             && level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
                     .toList();
         }
+        if (safeTiles.isEmpty()) {
+            safeTiles = originalFloorSnapshot.keySet().stream()
+                    .filter(pos -> level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
+                    .toList();
+        }
         BlockPos rescue = safeTiles.isEmpty()
-                ? (pos1 == null ? lastTargetContactPos.get(uuid) : pos1)
+                ? (lastTargetContactPos.get(uuid) != null ? lastTargetContactPos.get(uuid) : pos1)
                 : safeTiles.get(random.nextInt(safeTiles.size()));
         if (rescue == null) return false;
 
+        // Restore the chosen tile if the fall phase has already removed it.
+        BlockState rescueState = floorSnapshot.getOrDefault(rescue, originalFloorSnapshot.get(rescue));
+        if (rescueState != null && !level.getBlockState(rescue).blocksMotion()) {
+            level.setBlock(rescue, rescueState, 3);
+        }
         luckyLanding.remove(uuid);
         pendingEliminations.remove(uuid);
+        player.stopRiding();
         player.teleportTo(level, rescue.getX() + 0.5D, rescue.getY() + 1.05D,
                 rescue.getZ() + 0.5D, player.getYRot(), player.getXRot());
         player.fallDistance = 0.0F;
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        player.setOnGround(true);
+        player.hurtMarked = true;
         if (player.getHealth() <= 0.0F) player.setHealth(1.0F);
         sendSystemMessage(player, Component.literal("LUCKY LANDING reddet deg!")
                 .withStyle(ChatFormatting.GREEN));
@@ -2934,13 +2950,27 @@ public final class Arena {
                                 .withStyle(ChatFormatting.DARK_AQUA)));
         lastTargetContactTick.clear();
         lastTargetContactPos.clear();
-        Set<DyeColor> roundColors = randomizeFloorForRound();
+        // Round 1 must use the exact concrete layout captured when the arena was
+        // configured. Only later rounds receive generated patterns.
+        Set<DyeColor> roundColors;
+        if (firstRound) {
+            floorSnapshot.clear();
+            floorSnapshot.putAll(originalFloorSnapshot);
+            roundColors = EnumSet.noneOf(DyeColor.class);
+            for (BlockState state : originalFloorSnapshot.values()) {
+                DyeColor originalColor = BlockPartyColors.getColor(state);
+                if (originalColor != null) roundColors.add(originalColor);
+            }
+        } else {
+            roundColors = randomizeFloorForRound();
+        }
         if (roundColors.isEmpty()) {
             declareWinner();
             return;
         }
-        // The new floor has been repainted above; play YAY only now, to active survivors.
-        playSoundToAlive(ModSounds.YAY, 0.75F, 1.0F);
+        // YAY is a between-round reward cue only; never play it at match start.
+        // Keep it deliberately quieter so it does not overpower the game audio.
+        if (!firstRound) playSoundToAlive(ModSounds.YAY, 0.38F, 1.0F);
 
         // Apply any queued COLOR RAIN only now, on the freshly generated next-round floor.
         prepareColorRainForNextRound();
@@ -3836,15 +3866,34 @@ public final class Arena {
         return level == null ? null : BlockPartyColors.getColor(level.getBlockState(pos));
     }
 
+    /**
+     * Checks the player's full horizontal collision footprint, not just the block
+     * containing their feet. A dancer standing on the edge of a correct tile still
+     * overlaps that tile even when blockPosition() points at the neighbouring block.
+     */
+    private BlockPos findTargetTileUnderPlayer(ServerPlayer player) {
+        if (player == null || targetColor == null || pos1 == null || level == null
+                || player.serverLevel() != level) return null;
+        AABB bounds = player.getBoundingBox();
+        if (bounds.minY < pos1.getY() + 0.55D || bounds.minY > pos1.getY() + 2.5D) return null;
+        int minX = Mth.floor(bounds.minX + 1.0E-5D);
+        int maxX = Mth.floor(bounds.maxX - 1.0E-5D);
+        int minZ = Mth.floor(bounds.minZ + 1.0E-5D);
+        int maxZ = Mth.floor(bounds.maxZ - 1.0E-5D);
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockPos tile = new BlockPos(x, pos1.getY(), z);
+                if (getGameplayFloorColor(tile) == targetColor) return tile;
+            }
+        }
+        return null;
+    }
+
     private void rememberTargetContacts(MinecraftServer server) {
-        if (targetColor == null) return;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player == null) continue;
-            BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            if (getGameplayFloorColor(tile) == targetColor
-                    && player.getY() >= pos1.getY() + 0.75
-                    && player.getY() <= pos1.getY() + 2.5) {
+            BlockPos tile = findTargetTileUnderPlayer(player);
+            if (tile != null) {
                 lastTargetContactPos.put(uuid, tile.immutable());
                 lastTargetContactTick.put(uuid, (long) scoreboardTick);
             }
@@ -3852,25 +3901,11 @@ public final class Arena {
     }
 
     private void recordTargetContacts(MinecraftServer server) {
-        if (targetColor == null || pos1 == null) return;
-        long now = level.getGameTime();
-        for (UUID uuid : alive) {
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player == null) continue;
-            BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            if (getGameplayFloorColor(tile) == targetColor) {
-                lastTargetContactTick.put(uuid, (long) scoreboardTick);
-                lastTargetContactPos.put(uuid, tile.immutable());
-            }
-        }
+        rememberTargetContacts(server);
     }
 
     private boolean isStandingOnTargetTile(ServerPlayer player) {
-        if (targetColor == null || pos1 == null || level == null) return false;
-        BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-        return getGameplayFloorColor(tile) == targetColor
-                && player.getY() >= pos1.getY() + 0.75
-                && player.getY() <= pos1.getY() + 2.5;
+        return findTargetTileUnderPlayer(player) != null;
     }
 
     private void resolveRound() {
@@ -3881,15 +3916,15 @@ public final class Arena {
                 pendingEliminations.add(uuid);
                 continue;
             }
-            BlockPos tile = new BlockPos(player.blockPosition().getX(), pos1.getY(), player.blockPosition().getZ());
-            DyeColor standingColor = getGameplayFloorColor(tile);
-            boolean onTargetNow = standingColor == targetColor;
+            BlockPos tile = findTargetTileUnderPlayer(player);
+            boolean onTargetNow = tile != null;
             long lastContact = lastTargetContactTick.getOrDefault(uuid, Long.MIN_VALUE);
             BlockPos lastTile = lastTargetContactPos.get(uuid);
             boolean tickOrderGrace = !onTargetNow && lastTile != null
-                    && scoreboardTick - lastContact <= 3
-                    && Math.abs(player.getX() - (lastTile.getX() + 0.5)) <= 0.85
-                    && Math.abs(player.getZ() - (lastTile.getZ() + 0.5)) <= 0.85
+                    && scoreboardTick - lastContact <= 5
+                    && player.getBoundingBox().inflate(0.12D, 0.0D, 0.12D)
+                            .intersects(new AABB(lastTile.getX(), pos1.getY(), lastTile.getZ(),
+                                    lastTile.getX() + 1.0D, pos1.getY() + 1.15D, lastTile.getZ() + 1.0D))
                     && player.getY() >= pos1.getY() + 0.55
                     && player.getY() <= pos1.getY() + 2.5;
             if (!onTargetNow && !tickOrderGrace) pendingEliminations.add(uuid);
