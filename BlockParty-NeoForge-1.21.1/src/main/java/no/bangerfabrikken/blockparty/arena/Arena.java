@@ -239,6 +239,7 @@ public final class Arena {
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
     private final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
+    private static final Set<UUID> ACTIVE_LOBBY_STATS_VIEWERS = new HashSet<>();
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
@@ -3039,6 +3040,7 @@ public final class Arena {
             }
             lobbyStatsObjectives.put(player.getUUID(), objective);
         }
+        ACTIVE_LOBBY_STATS_VIEWERS.add(player.getUUID());
         PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
         Component[] rows = {
@@ -3079,6 +3081,7 @@ public final class Arena {
         for (UUID uuid : lobbyStatsObjectives.keySet()) {
             ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
             if (viewer != null) {
+                ACTIVE_LOBBY_STATS_VIEWERS.remove(uuid);
                 viewer.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
             }
         }
@@ -3105,7 +3108,7 @@ public final class Arena {
 
     private void hideSidebarFromNonParticipants(MinecraftServer server) {
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
-            if (!players.contains(online.getUUID())) {
+            if (!players.contains(online.getUUID()) && !ACTIVE_LOBBY_STATS_VIEWERS.contains(online.getUUID())) {
                 online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
             }
         }
