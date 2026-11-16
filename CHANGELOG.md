@@ -1,3 +1,9 @@
+# BlockParty 1.4.37 — Chat, now-playing and lobby sidebar hotfix
+
+- Removed bold styling from BlockParty chat; player points now appear in yellow after the username.
+- Changed the match-start song announcement to four lines: cyan “Nå spilles”, yellow song title, cyan “Artist”, yellow artist name.
+- Fixed lobby stats sidebar rows by displaying their formatted Components directly instead of exposing fake scoreboard holder names through team prefixes.
+
 # BlockParty 1.4.25
 
 - Fixed song-vote attempt counters persisting between matches. All players receive a fresh three-selection allowance at match start and counters are cleared again when the match ends.
