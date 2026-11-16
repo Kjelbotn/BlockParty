@@ -154,6 +154,7 @@ public final class Arena {
     private float targetDisplayYaw;
     private String lastXmasScreenText;
     private String lastXmasDjScreenSignature;
+    private boolean xmasHeadingUpdated;
     private BlockPos lobbyScreenCenter;
     private float lobbyScreenYaw = 180.0F;
     private double lobbyX;
@@ -1233,10 +1234,14 @@ public final class Arena {
         } else if (headings.isEmpty()) {
             BlockPartyText.spawnTextDisplay(level, x, y + 1.65, z, 0.0F,
                     createRainbowBlockPartyText(), 16.0F, headingTag);
+            xmasHeadingUpdated = true;
         } else {
-            // Keep the existing heading entity untouched between refreshes. Reloading
-            // its saved entity data every tick resets the client-side text interpolation
-            // and can make the title visibly blink.
+            // Existing worlds can contain the old rainbow title. Upgrade it once per
+            // Arena instance, then leave it alone to avoid per-refresh flicker.
+            if (!xmasHeadingUpdated) {
+                BlockPartyText.updateTextDisplay(headings.get(0), level, createRainbowBlockPartyText(), 16.0F);
+                xmasHeadingUpdated = true;
+            }
             for (int i = 1; i < headings.size(); i++) headings.get(i).discard();
         }
 
