@@ -239,6 +239,7 @@ public final class Arena {
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
     private final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
+    private static final Set<UUID> LOBBY_STATS_VIEWERS = new HashSet<>();
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
@@ -3039,6 +3040,7 @@ public final class Arena {
             }
             lobbyStatsObjectives.put(player.getUUID(), objective);
         }
+        LOBBY_STATS_VIEWERS.add(player.getUUID());
         PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
         String[] names = {"bp_lobby_points", "bp_lobby_games", "bp_lobby_placings", "bp_lobby_victories"};
@@ -3067,8 +3069,12 @@ public final class Arena {
 
     private void hideLobbyStatsSidebar(MinecraftServer server) {
         if (server == null) return;
-        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
-            online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+        for (UUID uuid : players) {
+            LOBBY_STATS_VIEWERS.remove(uuid);
+            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
+            if (participant != null) {
+                participant.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+            }
         }
     }
 
@@ -3093,7 +3099,7 @@ public final class Arena {
 
     private void hideSidebarFromNonParticipants(MinecraftServer server) {
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
-            if (!players.contains(online.getUUID())) {
+            if (!players.contains(online.getUUID()) && !LOBBY_STATS_VIEWERS.contains(online.getUUID())) {
                 online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
             }
         }
