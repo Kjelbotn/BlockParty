@@ -38,6 +38,19 @@ import org.slf4j.Logger;
 
 @Mod(BlockPartyMod.MOD_ID)
 public final class BlockPartyMod {
+    private static Component blockPartySystemPrefix() {
+        return Component.literal("B").withStyle(net.minecraft.ChatFormatting.AQUA)
+                .append(Component.literal("l").withStyle(net.minecraft.ChatFormatting.GREEN))
+                .append(Component.literal("o").withStyle(net.minecraft.ChatFormatting.YELLOW))
+                .append(Component.literal("c").withStyle(net.minecraft.ChatFormatting.GOLD))
+                .append(Component.literal("k").withStyle(net.minecraft.ChatFormatting.RED))
+                .append(Component.literal("Party").withStyle(net.minecraft.ChatFormatting.DARK_AQUA))
+                .append(Component.literal(" | ").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+    }
+
+    private static void sendSystemMessage(ServerPlayer player, Component message) {
+        sendSystemMessage(player, blockPartySystemPrefix().append(message));
+    }
     public static final String MOD_ID = "blockparty";
     public static final Logger LOGGER = LogUtils.getLogger();
 
@@ -126,7 +139,7 @@ public final class BlockPartyMod {
         boolean allowed = root.equals("bp") || (isOperator && isGameModeCommand);
         if (!allowed) {
             event.setCanceled(true);
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+            sendSystemMessage(player, net.minecraft.network.chat.Component.literal(
                     "Kommandoer er deaktivert i BlockParty. Bruk /bp leave eller Redstone Dust for å forlate området.")
                     .withStyle(net.minecraft.ChatFormatting.RED));
         }
@@ -218,7 +231,7 @@ public final class BlockPartyMod {
         if (no.bangerfabrikken.blockparty.arena.Arena.isHubItem(stack)) {
             no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findLobbyArenaFor(player);
             if (arena != null) arena.openHub(player);
-            else player.sendSystemMessage(net.minecraft.network.chat.Component.literal("HUB fungerer i BlockParty-lobbyen.")
+            else sendSystemMessage(player, net.minecraft.network.chat.Component.literal("HUB fungerer i BlockParty-lobbyen.")
                     .withStyle(net.minecraft.ChatFormatting.YELLOW));
             return true;
         }
@@ -228,11 +241,11 @@ public final class BlockPartyMod {
             if (arena != null && arena.hasReturnLocation(player.getUUID()) && arena.isLobbyControlPhase()) {
                 arena.leave(player, true);
             } else if (arena != null && arena.hasReturnLocation(player.getUUID())) {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                sendSystemMessage(player, net.minecraft.network.chat.Component.literal(
                         "Du kan ikke forlate matchen med lobbykontrollene. Bruk vanlig spillflyt.")
                         .withStyle(net.minecraft.ChatFormatting.RED));
             } else {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                sendSystemMessage(player, net.minecraft.network.chat.Component.literal(
                         "Du er ikke registrert som deltaker i en BlockParty-arena.")
                         .withStyle(net.minecraft.ChatFormatting.YELLOW));
             }
@@ -243,7 +256,7 @@ public final class BlockPartyMod {
             no.bangerfabrikken.blockparty.arena.Arena arena = ArenaManager.get().findArena(player.getUUID());
             if (arena == null) arena = ArenaManager.get().findLobbyArenaFor(player);
             if (arena == null) {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                sendSystemMessage(player, net.minecraft.network.chat.Component.literal(
                         "Gå til BlockParty-lobbyen og høyreklikk Join-stjernen for å bli med.")
                         .withStyle(net.minecraft.ChatFormatting.YELLOW));
             } else {
@@ -258,7 +271,7 @@ public final class BlockPartyMod {
             if (arena != null) {
                 arena.openMusicVoting(player);
             } else {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                sendSystemMessage(player, net.minecraft.network.chat.Component.literal(
                         "Musikkboken fungerer i BlockParty-lobbyen.")
                         .withStyle(net.minecraft.ChatFormatting.YELLOW));
             }
