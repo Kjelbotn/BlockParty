@@ -90,7 +90,7 @@ public final class Arena {
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
-        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN
+        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN, FREEZE
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -193,6 +193,10 @@ public final class Arena {
     private final Set<UUID> personalBestNotified = new HashSet<>();
     private final Set<UUID> leapFallProtection = new HashSet<>();
     private final Set<UUID> luckyLanding = new HashSet<>();
+    private record FreezeState(double x, double y, double z, float yaw, float pitch, int ticksLeft) {
+        FreezeState tick() { return new FreezeState(x, y, z, yaw, pitch, ticksLeft - 1); }
+    }
+    private final Map<UUID, FreezeState> frozenPlayers = new HashMap<>();
     /** Players currently seeing the floor as white wool; this is client-only and lasts one round. */
     private final Set<UUID> cottonPickerPlayers = new HashSet<>();
     /** Independent three-second scanner effect for each player who collects it. */
@@ -257,7 +261,7 @@ public final class Arena {
     /** Seven-second INNI/HODET/DITT screen cycle for the BareTruls track. */
     private int specialScreenTicks;
     /** COLOR RAIN collected in one round is applied only to the next generated floor. */
-    private boolean colorRainNextRound;
+    private int colorRainCharges;
     /** New floor colors waiting for their physical snowballs to be released. */
     private final List<Map.Entry<BlockPos, BlockState>> pendingColorRainBlocks = new ArrayList<>();
     private ResourceLocation activeMusicId;
@@ -349,7 +353,8 @@ public final class Arena {
         if (player == null || level == null || player.serverLevel() != level || !alive.contains(player.getUUID())
                 || !isGameInProgress() || pos1 == null) return false;
         double eliminationY = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
-        if (player.getY() > eliminationY) return false;
+        if (player.getY() > eliminationY && !luckyLanding.contains(player.getUUID())
+                && !isOutsidePlayableFloor(player)) return false;
         if (rescueWithLuckyLanding(player)) return true;
         // A fall/void death event can arrive before the regular arena tick. Revive the
         // player just enough for the normal elimination teleport to complete cleanly.
@@ -362,21 +367,21 @@ public final class Arena {
     /** A single authoritative rescue path shared by void checks and normal eliminations. */
     private boolean rescueWithLuckyLanding(ServerPlayer player) {
         UUID uuid = player.getUUID();
-        if (!luckyLanding.contains(uuid) || targetColor == null || level == null || floorSnapshot.isEmpty()) {
-            return false;
-        }
+        if (!luckyLanding.contains(uuid) || level == null) return false;
         List<BlockPos> safeTiles = floorSnapshot.entrySet().stream()
-                .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
+                .filter(entry -> targetColor != null && BlockPartyColors.getColor(entry.getValue()) == targetColor)
                 .map(Map.Entry::getKey)
-                .filter(pos -> level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
+                .filter(pos -> level.getBlockState(pos).blocksMotion()
+                        && level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
                 .toList();
         if (safeTiles.isEmpty()) {
-            safeTiles = floorSnapshot.entrySet().stream()
-                    .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
-                    .map(Map.Entry::getKey)
+            safeTiles = floorSnapshot.keySet().stream()
+                    .filter(pos -> level.getBlockState(pos).blocksMotion()
+                            && level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
                     .toList();
         }
-        BlockPos rescue = safeTiles.isEmpty() ? lastTargetContactPos.get(uuid)
+        BlockPos rescue = safeTiles.isEmpty()
+                ? (pos1 == null ? lastTargetContactPos.get(uuid) : pos1)
                 : safeTiles.get(random.nextInt(safeTiles.size()));
         if (rescue == null) return false;
 
@@ -705,7 +710,7 @@ public final class Arena {
         soloMode = players.size() == 1;
         activeBeacons.clear();
         lastPowerupRound = -10;
-        colorRainNextRound = false;
+        colorRainCharges = 0;
         pendingColorRainBlocks.clear();
         stopMusic();
         selectedMusicTrackId = selectWinningSong();
@@ -1404,7 +1409,8 @@ public final class Arena {
         BlockState restore = activeBeacons.remove(clickedPos);
         level.setBlock(clickedPos, restore == null ? Blocks.AIR.defaultBlockState() : restore, 3);
         int powerRoll = random.nextInt(100);
-        PowerUp powerUp = powerRoll < 6 ? PowerUp.SLOWNESS
+        PowerUp powerUp = powerRoll < 2 ? PowerUp.FREEZE
+                : powerRoll < 6 ? PowerUp.SLOWNESS
                 : powerRoll < 16 ? PowerUp.LEAP
                 : powerRoll < 26 ? PowerUp.COLOR_TELEPORTER
                 : powerRoll < 36 ? PowerUp.COLOR_SCANNER
@@ -1436,12 +1442,19 @@ public final class Arena {
             case PUMPKIN_VISION -> label = "PUMPKIN VISION";
             case PANIC_MODE -> label = "PANIC MODE";
             case FULL_SOM_FAEN -> { effect = MobEffects.CONFUSION; label = "FULL SOM FAEN!"; }
+            case FREEZE -> label = "FREEZE";
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
         boolean activated = true;
         UUID uuid = player.getUUID();
-        if (powerUp == PowerUp.LEAP) {
+        if (powerUp == PowerUp.FREEZE) {
+            frozenPlayers.put(uuid, new FreezeState(player.getX(), player.getY(), player.getZ(),
+                    player.getYRot(), player.getXRot(), 40));
+            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            sendSystemMessage(player, Component.literal("FREEZE! Du er låst fast i 2 sekunder.")
+                    .withStyle(ChatFormatting.AQUA));
+        } else if (powerUp == PowerUp.LEAP) {
             ItemStack feather = new ItemStack(Items.FEATHER);
             feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
                     .withStyle(ChatFormatting.GREEN));
@@ -1493,7 +1506,7 @@ public final class Arena {
             }
         } else if (powerUp == PowerUp.COLOR_RAIN) {
             // Picking it up only schedules the effect; the current floor remains untouched.
-            colorRainNextRound = true;
+            colorRainCharges = Math.min(3, colorRainCharges + 1);
             sendSystemMessage(player, Component.literal(
                     "COLOR RAIN aktivert! Fargede betongblokker regner ned på dansegulvet neste runde.")
                     .withStyle(ChatFormatting.GREEN));
@@ -1534,10 +1547,9 @@ public final class Arena {
             PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
                     PowerUpVisualPayload.START_CAMERA_SHAKE, 80));
         } else if (powerUp == PowerUp.FULL_SOM_FAEN) {
+            // Use Minecraft's native Nausea renderer for the characteristic rotating view.
             player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 20 * 12, 0, false, true, true));
             roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(MobEffects.CONFUSION);
-            PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
-                    PowerUpVisualPayload.START_INTENSE_CAMERA_SHAKE, 20 * 12));
         } else if (player.hasEffect(effect)) {
             activated = false;
             sendSystemMessage(player, Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.")
@@ -1557,7 +1569,7 @@ public final class Arena {
             powerupsCollected.merge(uuid, 1, Integer::sum);
             DailyChallengeManager.recordPowerup(level.getServer(), player);
             boolean penalty = switch (powerUp) {
-                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN -> true;
+                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN, FREEZE -> true;
                 default -> false;
             };
             // Positive pickups get a personal confirmation. Penalties already have
@@ -1762,6 +1774,7 @@ public final class Arena {
 
         scannerTicks.clear();
         leapFallProtection.clear();
+        // Freeze runs on its own timer and is not cancelled by unrelated pickups.
         // Lucky Landing is intentionally retained until the FALL phase resolves.
         // LEAP BOOST feathers intentionally remain in inventory for a later round.
     }
@@ -1790,6 +1803,7 @@ public final class Arena {
         }
         scannerTicks.remove(uuid);
         luckyLanding.remove(uuid);
+        frozenPlayers.remove(uuid);
         leapFallProtection.remove(uuid);
     }
 
@@ -2551,8 +2565,30 @@ public final class Arena {
         }
     }
 
+    private void tickFrozenPlayers(MinecraftServer server) {
+        if (frozenPlayers.isEmpty()) return;
+        for (Map.Entry<UUID, FreezeState> entry : new HashMap<>(frozenPlayers).entrySet()) {
+            UUID uuid = entry.getKey();
+            FreezeState state = entry.getValue();
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null || !alive.contains(uuid)) {
+                frozenPlayers.remove(uuid);
+                continue;
+            }
+            player.setPos(state.x(), state.y(), state.z());
+            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            player.fallDistance = 0.0F;
+            if (state.ticksLeft() <= 1) {
+                frozenPlayers.remove(uuid);
+                sendSystemMessage(player, Component.literal("FREEZE er over!")
+                        .withStyle(ChatFormatting.GREEN));
+            } else frozenPlayers.put(uuid, state.tick());
+        }
+    }
+
     public void tick(MinecraftServer server) {
         scoreboardTick++;
+        tickFrozenPlayers(server);
         tickPodiumFireworks();
         tickWinnerPodiumFreeze(server);
         if (podiumDisplayTicks > 0 && --podiumDisplayTicks == 0) {
@@ -2981,12 +3017,13 @@ public final class Arena {
     /** Selects random replacement tiles in cells distributed across the complete dance floor. */
     private void prepareColorRainForNextRound() {
         pendingColorRainBlocks.clear();
-        if (gameMode == GameMode.MEMORY || !colorRainNextRound || level == null
+        if (gameMode == GameMode.MEMORY || colorRainCharges <= 0 || level == null
                 || floorSnapshot.isEmpty() || palette.size() < 2) {
-            colorRainNextRound = false;
+            colorRainCharges = 0;
             return;
         }
-        colorRainNextRound = false;
+        int rainCharges = colorRainCharges;
+        colorRainCharges = 0;
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
@@ -2995,7 +3032,7 @@ public final class Arena {
         int width = maxX - minX + 1;
         int depth = maxZ - minZ + 1;
         int targetCount = Math.min(floorSnapshot.size(),
-                Math.max(1, (int) Math.ceil(floorSnapshot.size() * 0.20D)));
+                Math.max(1, (int) Math.ceil(floorSnapshot.size() * Math.min(0.60D, 0.20D * rainCharges))));
         int columns = Math.min(width, Math.max(1,
                 (int) Math.ceil(Math.sqrt(targetCount * width / (double) depth))));
         int rows = Math.min(depth, Math.max(1, (int) Math.ceil(targetCount / (double) columns)));
@@ -3954,7 +3991,7 @@ public final class Arena {
     private void declareWinner() {
         if (phase == Phase.FINISHING) return;
         stopMusic();
-        colorRainNextRound = false;
+        colorRainCharges = 0;
         pendingColorRainBlocks.clear();
         lastMatchDurationTicks = Math.max(0L, scoreboardTick - matchStartTick);
         playSound(ModSounds.VICTORY, SoundSource.PLAYERS, 1.0F, 1.0F);
@@ -4056,7 +4093,7 @@ public final class Arena {
             boolean isWinner = winner != null && uuid.equals(winner.getUUID());
             int placement = lastPodiumPlayers.indexOf(uuid) + 1;
             String placeText = placement > 0 ? placement + ". plass" : "Fullført";
-            String divider = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+            String divider = "________________________________________";
             sendCenteredSystemMessage(participant, blockPartyBrand(), "BlockParty");
             sendCenteredSystemMessage(participant, Component.literal(isWinner ? "SEIER!" : "MATCH FERDIG")
                     .withStyle(isWinner ? ChatFormatting.GREEN : ChatFormatting.YELLOW), isWinner ? "SEIER!" : "MATCH FERDIG");

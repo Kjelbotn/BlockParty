@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.45
+- Added FREEZE: locks the collector in place for 2 seconds.
+- Made Lucky Landing a persistent one-use rescue with a safe-floor fallback.
+- FULL SOM FAEN now uses Minecraft's native Nausea camera distortion.
+- Made COLOR RAIN pickups stack independently, increasing the next-round rain amount.
+- Replaced the victory divider with solid underscore characters.
+
+# Changelog
+
 ## 1.4.44
 - Fixed lobby statistics sidebar refresh on dedicated multiplayer servers.
 - Added a strong camera sway to FULL SOM FAEN alongside vanilla nausea.

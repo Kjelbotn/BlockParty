@@ -10,7 +10,6 @@ import net.minecraft.resources.ResourceLocation;
 public record PowerUpVisualPayload(int action, int durationTicks) implements CustomPacketPayload {
     public static final int START_CAMERA_SHAKE = 0;
     public static final int CLEAR_CAMERA_SHAKE = 1;
-    public static final int START_INTENSE_CAMERA_SHAKE = 2;
 
     public static final Type<PowerUpVisualPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath("blockparty", "powerup_visual"));
