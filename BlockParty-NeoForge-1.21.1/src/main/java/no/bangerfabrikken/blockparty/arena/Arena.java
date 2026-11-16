@@ -21,6 +21,8 @@ import no.bangerfabrikken.blockparty.network.PowerUpVisualPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.world.item.DyeColor;
@@ -74,6 +76,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -240,6 +243,7 @@ public final class Arena {
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
     private static final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
+    private static final Set<UUID> lobbyStatsObjectivesKnownByClient = new HashSet<>();
     private static final Set<UUID> ACTIVE_LOBBY_STATS_VIEWERS = new HashSet<>();
     private int scoreboardTick;
     private int djBeatTicks;
@@ -332,9 +336,9 @@ public final class Arena {
                 && y >= floorY - 18 && y <= floorY + 30;
         // ArenaGenerator builds a 64x56 lobby; lobbyX is its centre and lobbyZ is 20 blocks
         // from its rear edge. Include the roofless lobby volume and a small vertical margin.
-        boolean lobbyArea = Math.abs(x - lobbyX) <= 34
-                && z >= lobbyZ - 22 && z <= lobbyZ + 38
-                && y >= lobbyY - 3 && y <= lobbyY + 28;
+        boolean lobbyArea = Math.abs(x - lobbyX) <= 40
+                && z >= lobbyZ - 26 && z <= lobbyZ + 44
+                && y >= lobbyY - 5 && y <= lobbyY + 30;
         return arenaArea || lobbyArea;
     }
 
@@ -403,8 +407,8 @@ public final class Arena {
         int maxZ = Math.max(pos1.getZ(), pos2.getZ()) + 14;
         int floorY = pos1.getY();
         AABB arenaArea = new AABB(minX, floorY - 18, minZ, maxX + 1, floorY + 31, maxZ + 1);
-        AABB lobbyArea = new AABB(lobbyX - 34, lobbyY - 3, lobbyZ - 22,
-                lobbyX + 34, lobbyY + 29, lobbyZ + 39);
+        AABB lobbyArea = new AABB(lobbyX - 40, lobbyY - 5, lobbyZ - 26,
+                lobbyX + 40, lobbyY + 31, lobbyZ + 45);
         for (Mob mob : level.getEntitiesOfClass(Mob.class, arenaArea)) mob.discard();
         for (Mob mob : level.getEntitiesOfClass(Mob.class, lobbyArea)) mob.discard();
     }
@@ -590,6 +594,8 @@ public final class Arena {
     }
 
     public void handleLogout(ServerPlayer player) {
+        lobbyStatsObjectivesKnownByClient.remove(player.getUUID());
+        ACTIVE_LOBBY_STATS_VIEWERS.remove(player.getUUID());
         podiumFreezeTicks.remove(player.getUUID());
         podiumFreezePositions.remove(player.getUUID());
         player.setNoGravity(false);
@@ -1184,16 +1190,7 @@ public final class Arena {
      * refresh or chunk/entity reload has removed the Text Display.
      */
     private static Component createRainbowBlockPartyText() {
-        return Component.literal("B").withStyle(ChatFormatting.RED)
-                .append(Component.literal("L").withStyle(ChatFormatting.GOLD))
-                .append(Component.literal("O").withStyle(ChatFormatting.YELLOW))
-                .append(Component.literal("C").withStyle(ChatFormatting.GREEN))
-                .append(Component.literal("K").withStyle(ChatFormatting.AQUA))
-                .append(Component.literal("P").withStyle(ChatFormatting.BLUE))
-                .append(Component.literal("A").withStyle(ChatFormatting.LIGHT_PURPLE))
-                .append(Component.literal("R").withStyle(ChatFormatting.RED))
-                .append(Component.literal("T").withStyle(ChatFormatting.GOLD))
-                .append(Component.literal("Y").withStyle(ChatFormatting.YELLOW));
+        return blockPartyBrand();
     }
 
     private void refreshXmasArenaScreen() {
@@ -3057,11 +3054,18 @@ public final class Arena {
                 Component.literal("Victories: ").withStyle(ChatFormatting.GOLD)
                         .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.RED))
         };
-        String uuidKey = player.getUUID().toString().replace("-", "").substring(0, 8);
+        boolean objectiveAlreadyKnown = lobbyStatsObjectivesKnownByClient.contains(player.getUUID());
+        if (!objectiveAlreadyKnown) {
+            // A reconnecting client does not retain private objectives from its previous connection.
+            player.connection.send(new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_ADD));
+            lobbyStatsObjectivesKnownByClient.add(player.getUUID());
+        } else {
+            player.connection.send(new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_CHANGE));
+        }
+        String uuidHex = player.getUUID().toString().replace("-", "").substring(0, 16);
         for (int i = 0; i < rows.length; i++) {
             // Formatting-only holder names render no visible text; each player's entries are unique.
             StringBuilder hiddenEntry = new StringBuilder();
-            String uuidHex = player.getUUID().toString().replace("-", "").substring(0, 16);
             for (int n = 0; n < uuidHex.length(); n++) {
                 hiddenEntry.append('\u00A7').append(uuidHex.charAt(n));
             }
@@ -3074,8 +3078,10 @@ public final class Arena {
             // private objective is sent separately from the shared scoreboard.
             score.display(rows[i]);
             score.numberFormatOverride(BlankFormat.INSTANCE);
+            // Explicitly replay every row because the shared objective may survive a reconnect.
+            player.connection.send(new ClientboundSetScorePacket(entryName, objective.getName(),
+                    rows.length - i, Optional.of(rows[i]), Optional.of(BlankFormat.INSTANCE)));
         }
-        // Each player receives a private objective and uniquely hidden score entries.
         player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
     }
 
@@ -3098,10 +3104,10 @@ public final class Arena {
         Objective current = scoreboard.getObjective("bp_match");
         if (current == null) {
             current = scoreboard.addObjective("bp_match", ObjectiveCriteria.DUMMY,
-                    Component.literal("BlockParty").withStyle(ChatFormatting.YELLOW),
+                    blockPartyBrand(),
                     ObjectiveCriteria.RenderType.INTEGER, false, null);
         } else {
-            current.setDisplayName(Component.literal("BlockParty").withStyle(ChatFormatting.YELLOW));
+            current.setDisplayName(blockPartyBrand());
         }
         sidebarObjective = current;
 
@@ -4470,7 +4476,7 @@ public final class Arena {
 
     private static void sendCenteredSystemMessage(ServerPlayer player, Component message, String plainText) {
         if (player != null) {
-            player.sendSystemMessage(centerMatchResultLine(withBlockPartyPrefix(message), "BlockParty | " + plainText));
+            player.sendSystemMessage(centerMatchResultLine(message, plainText));
         }
     }
 
