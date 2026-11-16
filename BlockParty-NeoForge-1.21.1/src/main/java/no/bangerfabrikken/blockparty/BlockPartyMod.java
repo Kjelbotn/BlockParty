@@ -49,7 +49,7 @@ public final class BlockPartyMod {
     }
 
     private static void sendSystemMessage(ServerPlayer player, Component message) {
-        sendSystemMessage(player, blockPartySystemPrefix().append(message));
+        player.sendSystemMessage(blockPartySystemPrefix().append(message));
     }
     public static final String MOD_ID = "blockparty";
     public static final Logger LOGGER = LogUtils.getLogger();
