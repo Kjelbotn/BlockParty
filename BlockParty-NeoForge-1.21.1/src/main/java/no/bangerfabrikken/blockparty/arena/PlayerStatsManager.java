@@ -179,7 +179,7 @@ public final class PlayerStatsManager {
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
             if (online.getGameProfile().getName().equalsIgnoreCase(target)) {
                 PLAYERS.put(online.getUUID(), new PlayerRecord(online.getUUID(), online.getGameProfile().getName(),
-                        0, 0, 0, 0, 0, 0, 0, 0, 0));
+                        0, 0, 0, 0, 0, 0, 0, 0));
                 save(server);
                 return true;
             }
@@ -187,7 +187,7 @@ public final class PlayerStatsManager {
         for (PlayerRecord record : PLAYERS.values()) {
             if (record.name().equalsIgnoreCase(target)) {
                 PLAYERS.put(record.uuid(), new PlayerRecord(record.uuid(), record.name(),
-                        0, 0, 0, 0, 0, 0, 0, 0, 0));
+                        0, 0, 0, 0, 0, 0, 0, 0));
                 save(server);
                 return true;
             }
