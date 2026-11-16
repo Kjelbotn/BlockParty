@@ -1688,7 +1688,6 @@ public final class Arena {
         panicModePlayers.clear();
 
         scannerTicks.clear();
-        luckyLanding.clear();
         leapFallProtection.clear();
         // LEAP BOOST feathers intentionally remain in inventory for a later round.
     }
@@ -3710,6 +3709,9 @@ public final class Arena {
             }
         }
         clearActivePowerUps(level.getServer());
+        // Lucky Landing must survive the FALL phase so it can rescue a player who drops
+        // below the arena. Any unused rescue expires once that fall window has resolved.
+        luckyLanding.clear();
         removeActiveBeacon();
 
         // Restore the next floor right away, then show WAITING FOR COLOR for one second.
