@@ -237,7 +237,7 @@ public final class Arena {
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
-    private Objective lobbyStatsObjective;
+    private final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
@@ -3011,13 +3011,16 @@ public final class Arena {
     private void showLobbyStatsSidebar(ServerPlayer player) {
         if (player == null || level == null || player.getServer() == null) return;
         Scoreboard scoreboard = player.getServer().getScoreboard();
-        if (lobbyStatsObjective == null) {
-            lobbyStatsObjective = scoreboard.getObjective("bp_lobby_stats");
-            if (lobbyStatsObjective == null) {
-                lobbyStatsObjective = scoreboard.addObjective("bp_lobby_stats", ObjectiveCriteria.DUMMY,
+        Objective objective = lobbyStatsObjectives.get(player.getUUID());
+        if (objective == null) {
+            String objectiveId = "bp_ls_" + player.getUUID().toString().replace("-", "").substring(0, 8);
+            objective = scoreboard.getObjective(objectiveId);
+            if (objective == null) {
+                objective = scoreboard.addObjective(objectiveId, ObjectiveCriteria.DUMMY,
                         Component.literal("Statistikk").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
                         ObjectiveCriteria.RenderType.INTEGER, false, null);
             }
+            lobbyStatsObjectives.put(player.getUUID(), objective);
         }
         PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
@@ -3038,16 +3041,13 @@ public final class Arena {
         };
         for (int i = 0; i < names.length; i++) {
             ScoreHolder holder = ScoreHolder.forNameOnly(names[i]);
-            ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, lobbyStatsObjective);
-            score.set(i + 1);
+            ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, objective);
+            score.set(names.length - i);
             score.displayName(rows[i]);
         }
-        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, lobbyStatsObjective);
-        for (ServerPlayer online : player.getServer().getPlayerList().getPlayers()) {
-            if (!online.getUUID().equals(player.getUUID())) {
-                online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
-            }
-        }
+        // Every player gets a distinct objective, so their personal values never overwrite
+        // another player's sidebar. Send the display packet only to this player.
+        player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
     }
 
     private void hideLobbyStatsSidebar(MinecraftServer server) {
@@ -3055,7 +3055,6 @@ public final class Arena {
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
             online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
         }
-        if (lobbyStatsObjective != null) server.getScoreboard().setDisplayObjective(DisplaySlot.SIDEBAR, null);
     }
 
     private void showScoreboard(MinecraftServer server) {
