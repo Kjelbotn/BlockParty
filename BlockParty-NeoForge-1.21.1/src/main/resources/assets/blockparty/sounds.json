@@ -61,5 +61,14 @@
         "volume": 0.52
       }
     ]
+  },
+  "round_survived": {
+    "subtitle": "subtitles.blockparty.round_survived",
+    "sounds": [
+      {
+        "name": "blockparty:effects/yay",
+        "volume": 0.72
+      }
+    ]
   }
 }

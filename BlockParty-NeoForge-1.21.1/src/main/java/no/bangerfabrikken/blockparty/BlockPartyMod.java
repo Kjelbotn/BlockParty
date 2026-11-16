@@ -144,12 +144,14 @@ public final class BlockPartyMod {
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
         ChatFormatting rankColor = PlayerStatsManager.getRankColor(rank);
 
-        // The opening bracket, rank title and closing bracket deliberately share
-        // one style so the complete rank tag is coloured consistently.
-        Component formattedMessage = Component.literal("[" + rank.name() + "] ")
-                .withStyle(rankColor)
-                .append(Component.literal(player.getGameProfile().getName()).withStyle(rankColor))
-                .append(Component.literal(": ").withStyle(ChatFormatting.WHITE))
+        ChatFormatting usernameColor = player.getTeam() == null ? ChatFormatting.WHITE : player.getTeam().getColor();
+        Component formattedMessage = Component.literal(Integer.toString(record.points()))
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                .append(Component.literal(" | ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(rank.name()).withStyle(rankColor))
+                .append(Component.literal(" "))
+                .append(Component.literal(player.getGameProfile().getName()).withStyle(usernameColor))
+                .append(Component.literal(" ≫ ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(Component.literal(event.getRawText()).withStyle(ChatFormatting.WHITE));
 
         // Replace vanilla's <name> message rendering with the requested BlockParty

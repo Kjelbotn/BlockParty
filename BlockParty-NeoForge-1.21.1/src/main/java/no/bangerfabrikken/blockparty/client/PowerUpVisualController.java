@@ -37,10 +37,10 @@ public final class PowerUpVisualController {
     public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         if (cameraShakeTicks <= 0 || Minecraft.getInstance().player == null) return;
         double time = elapsedTicks + event.getPartialTick();
-        // Subtle, quick movement: enough to feel disorienting without hiding the floor.
-        event.setYaw(event.getYaw() + (float) Math.sin(time * 0.82D) * 0.18F);
-        event.setPitch(event.getPitch() + (float) Math.sin(time * 1.07D) * 0.14F);
-        event.setRoll(event.getRoll() + (float) Math.sin(time * 0.69D) * 0.42F);
+        // Stronger layered camera shake: clearly noticeable without obscuring the floor.
+        event.setYaw(event.getYaw() + (float) Math.sin(time * 1.15D) * 0.65F + (float) Math.sin(time * 2.40D) * 0.22F);
+        event.setPitch(event.getPitch() + (float) Math.sin(time * 1.43D) * 0.55F + (float) Math.sin(time * 2.05D) * 0.18F);
+        event.setRoll(event.getRoll() + (float) Math.sin(time * 0.95D) * 1.65F + (float) Math.sin(time * 1.80D) * 0.55F);
     }
 
     @SubscribeEvent

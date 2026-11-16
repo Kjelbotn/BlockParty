@@ -7,6 +7,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,6 +21,8 @@ import no.bangerfabrikken.blockparty.network.PowerUpVisualPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.world.item.DyeColor;
@@ -73,6 +76,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -85,7 +89,7 @@ public final class Arena {
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
-        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE
+        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -217,6 +221,7 @@ public final class Arena {
     private final List<String> lastPodium = new ArrayList<>();
     /** Player UUIDs in podium order: first (gold), second (iron), third (copper). */
     private final List<UUID> lastPodiumPlayers = new ArrayList<>();
+    private final Map<UUID, Integer> finalPlacements = new HashMap<>();
     private final Map<UUID, Integer> podiumFreezeTicks = new HashMap<>();
     private final Map<UUID, BlockPos> podiumFreezePositions = new HashMap<>();
     /** Original lobby floor blocks temporarily replaced by winner podium columns. */
@@ -237,6 +242,8 @@ public final class Arena {
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
+    private final Map<UUID, Scoreboard> lobbyStatsBoards = new HashMap<>();
+    private final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
@@ -472,6 +479,7 @@ public final class Arena {
         player.sendSystemMessage(Component.literal("Velkommen til BlockParty! Trykk på Nether Star for å bli med!")
                 .withStyle(ChatFormatting.GREEN));
         if (firstLobbyEntry) announceLobbyJoin(player);
+        updateLobbyStatsSidebar(player);
     }
 
     /** Announce a first-time lobby entry, identifying which map lobby the player joined. */
@@ -535,6 +543,7 @@ public final class Arena {
                 || originalHeldItems.containsKey(uuid) || originalGameModes.containsKey(uuid)
                 || originalFoodStates.containsKey(uuid)
                 || canLocatePlayerForLeave(player);
+        if (wasMember) hideLobbyStatsSidebar(player);
         if (wasMember && activeMusicId != null) {
             PacketDistributor.sendToPlayer(player,
                     new MusicControlPayload(activeMusicId, MusicControlPayload.STOP));
@@ -1367,7 +1376,8 @@ public final class Arena {
                 : powerRoll < 88 ? PowerUp.COLOR_RAIN
                 : powerRoll < 91 ? PowerUp.BLACKOUT
                 : powerRoll < 94 ? PowerUp.FAKE_COLOR
-                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : PowerUp.PANIC_MODE;
+                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION
+                : powerRoll < 98 ? PowerUp.PANIC_MODE : PowerUp.FULL_SOM_FAEN;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1386,6 +1396,7 @@ public final class Arena {
             case FAKE_COLOR -> label = "FAKE COLOR";
             case PUMPKIN_VISION -> label = "PUMPKIN VISION";
             case PANIC_MODE -> label = "PANIC MODE";
+            case FULL_SOM_FAEN -> { effect = MobEffects.NAUSEA; label = "FULL SOM FAEN!"; }
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -1486,7 +1497,8 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.")
                     .withStyle(ChatFormatting.YELLOW));
         } else {
-            int durationTicks = powerUp == PowerUp.NIGHT_VISION ? 20 * 10
+            int durationTicks = powerUp == PowerUp.FULL_SOM_FAEN ? 20 * 12
+                    : powerUp == PowerUp.NIGHT_VISION ? 20 * 10
                     : powerUp == PowerUp.BLACKOUT ? 20 * 5 : 20 * 60;
             player.addEffect(new MobEffectInstance(effect, durationTicks, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(effect);
@@ -1500,7 +1512,7 @@ public final class Arena {
             powerupsCollected.merge(uuid, 1, Integer::sum);
             DailyChallengeManager.recordPowerup(level.getServer(), player);
             boolean penalty = switch (powerUp) {
-                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE -> true;
+                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN -> true;
                 default -> false;
             };
             // Positive pickups get a personal confirmation. Penalties already have
@@ -1511,8 +1523,18 @@ public final class Arena {
             }
             broadcast(Component.literal(penalty ? player.getName().getString() + " fikk " + label + " som straff!" : player.getName().getString() + " plukket opp " + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.GREEN, ChatFormatting.BOLD));
+            var pickupParticle = switch (powerUp) {
+                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN -> ParticleTypes.ANGRY_VILLAGER;
+                case SPEED_UPGRADE -> ParticleTypes.CLOUD;
+                case NIGHT_VISION, COLOR_SCANNER -> ParticleTypes.END_ROD;
+                case SUPER_JUMP, LEAP -> ParticleTypes.CRIT;
+                case COLOR_TELEPORTER -> ParticleTypes.PORTAL;
+                case LUCKY_LANDING -> ParticleTypes.HAPPY_VILLAGER;
+                case COLOR_RAIN -> ParticleTypes.NOTE;
+            };
+            level.sendParticles(player, pickupParticle, false, player.getX(), player.getY() + 1.0D, player.getZ(), 14, 0.28D, 0.42D, 0.28D, 0.02D);
+            playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
         }
-        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
         updateScoreboard(level.getServer());
         return true;
     }
@@ -2514,6 +2536,7 @@ public final class Arena {
         }
         if (phase == Phase.PREPARE || phase == Phase.FALL || phase == Phase.MEMORY_FIND) recordTargetContacts(server);
         if (phase == Phase.WAITING && scoreboardTick % 100 == 0) refreshLobbyLeaderboard();
+        if (scoreboardTick % 20 == 0) updateLobbyStatsSidebars(server);
         // Xmas arena text is event-driven only; never poll/refresh it on a timer.
         tickMusicEffects();
         tickSpecialSongScreen();
@@ -2596,7 +2619,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.63F;
+                        default -> 0.5946F
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2667,7 +2690,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.63F;
+                        default -> 0.5946F
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2766,6 +2789,13 @@ public final class Arena {
         clearActivePowerUps(server);
         removeActiveBeacon();
         round++;
+        if (round > 1) {
+            int currentDuration = getRoundDurationTicks(round);
+            if (currentDuration < getRoundDurationTicks(round - 1)) {
+                broadcast(Component.literal("Farten øker! Nå varer rundene i " + formatSeconds(currentDuration) + " sekunder.")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            }
+        }
         lastTargetContactTick.clear();
         lastTargetContactPos.clear();
         Set<DyeColor> roundColors = randomizeFloorForRound();
@@ -2978,6 +3008,7 @@ public final class Arena {
     }
 
     private void showScoreboard(MinecraftServer server) {
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) hideLobbyStatsSidebar(online);
         Scoreboard scoreboard = server.getScoreboard();
         Objective current = scoreboard.getObjective("bp_match");
         if (current == null) {
@@ -3076,6 +3107,48 @@ public final class Arena {
         }
     }
 
+    private void updateLobbyStatsSidebar(ServerPlayer player) {
+        if (player == null || !returnLocations.containsKey(player.getUUID())) return;
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
+        UUID uuid = player.getUUID();
+        Scoreboard clientBoard = lobbyStatsBoards.get(uuid);
+        Objective objective = lobbyStatsObjectives.get(uuid);
+        if (clientBoard == null || objective == null) {
+            clientBoard = new Scoreboard();
+            objective = clientBoard.addObjective("bp_lobby", ObjectiveCriteria.DUMMY,
+                    Component.literal("STATISTIKK").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
+                    ObjectiveCriteria.RenderType.INTEGER, false, null);
+            lobbyStatsBoards.put(uuid, clientBoard);
+            lobbyStatsObjectives.put(uuid, objective);
+            player.connection.send(new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_ADD));
+            player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
+        }
+        PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(uuid);
+        Component[] rows = {
+                Component.literal("Poeng: ").withStyle(ChatFormatting.GRAY).append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)),
+                Component.literal("Kamper spilt: ").withStyle(ChatFormatting.GRAY).append(Component.literal(Integer.toString(record.gamesPlayed())).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)),
+                Component.literal("Pallplasser: ").withStyle(ChatFormatting.GRAY).append(Component.literal(Integer.toString(record.placings())).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)),
+                Component.literal("Seire: ").withStyle(ChatFormatting.GRAY).append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+        };
+        for (int i = 0; i < rows.length; i++) player.connection.send(new ClientboundSetScorePacket("bp_lobby_line_" + i, objective.getName(), rows.length - i, Optional.of(rows[i]), Optional.of(BlankFormat.INSTANCE)));
+    }
+    private void updateLobbyStatsSidebars(MinecraftServer server) {
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
+        for (UUID uuid : new HashSet<>(returnLocations.keySet())) {
+            ServerPlayer visitor = server.getPlayerList().getPlayer(uuid);
+            if (visitor != null) updateLobbyStatsSidebar(visitor);
+        }
+    }
+    private void hideLobbyStatsSidebar(ServerPlayer player) {
+        if (player == null) return;
+        UUID uuid = player.getUUID();
+        Objective objective = lobbyStatsObjectives.remove(uuid);
+        lobbyStatsBoards.remove(uuid);
+        if (objective != null) {
+            player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+            player.connection.send(new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_REMOVE));
+        }
+    }
     private void hideScoreboard(MinecraftServer server) {
         if (sidebarObjective == null) return;
         Scoreboard scoreboard = server.getScoreboard();
@@ -3695,8 +3768,7 @@ public final class Arena {
         player.setNoGravity(false);
         player.setDeltaMovement(0.0, 0.0, 0.0);
         player.fallDistance = 0.0F;
-        player.sendSystemMessage(Component.literal("Du tapte konkurransen. Sett deg godt til rette og følg med på de andre!")
-                .withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Du er nå en spectator!").withStyle(ChatFormatting.YELLOW));
         playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.55F, 1.0F);
     }
 
@@ -3773,6 +3845,13 @@ public final class Arena {
             return Integer.compare(powerupsCollected.getOrDefault(second, 0),
                     powerupsCollected.getOrDefault(first, 0));
         });
+        finalPlacements.clear();
+        for (int i = 0; i < podiumOrder.size(); i++) {
+            UUID participantId = podiumOrder.get(i);
+            finalPlacements.put(participantId, i + 1);
+            ServerPlayer participant = level.getServer().getPlayerList().getPlayer(participantId);
+            if (participant != null) PlayerStatsManager.recordMatchPlayed(level.getServer(), participant, i < 3);
+        }
         for (int i = 0; i < Math.min(3, podiumOrder.size()); i++) {
             UUID uuid = podiumOrder.get(i);
             lastPodiumPlayers.add(uuid);
@@ -3830,18 +3909,37 @@ public final class Arena {
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         }
 
-        for (UUID uuid : players) {
-            ServerPlayer participant = level.getServer().getPlayerList().getPlayer(uuid);
-            if (participant != null) participant.sendSystemMessage(Component.literal("STATISTIKK  •  "
-                    + points.getOrDefault(uuid, 0) + " runder overlevd  •  "
-                    + powerupsCollected.getOrDefault(uuid, 0) + " Power-Ups  •  "
-                    + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
-                    .withStyle(ChatFormatting.YELLOW));
-        }
         phase = Phase.FINISHING;
         timerTicks = 120;
     }
 
+    private void sendMatchSummary(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        int rounds = points.getOrDefault(uuid, 0);
+        int powerups = powerupsCollected.getOrDefault(uuid, 0);
+        int place = finalPlacements.getOrDefault(uuid, Math.max(1, players.size()));
+        String playerName = player.getGameProfile().getName();
+        String placement = place + ". plass";
+        String roundsLabel = "Runder overlevd: " + rounds;
+        String powerupsLabel = "Power-Ups samlet: " + powerups;
+        String placementLabel = "Plassering: " + placement;
+        int width = Math.max(30, Math.max(playerName.length(), Math.max(roundsLabel.length(), Math.max(powerupsLabel.length(), placementLabel.length()))));
+        sendCenteredSummaryLine(player, Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), 10, width);
+        String result = uuid.equals(matchWinnerId) ? "VICTORY!" : "MATCH COMPLETE";
+        sendCenteredSummaryLine(player, Component.literal(result).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), result.length(), width);
+        sendCenteredSummaryLine(player, Component.literal(playerName).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD), playerName.length(), width);
+        player.sendSystemMessage(Component.literal("-".repeat(width)).withStyle(ChatFormatting.DARK_GRAY));
+        Component roundsLine = Component.literal("Runder overlevd: ").withStyle(ChatFormatting.GRAY).append(Component.literal(Integer.toString(rounds)).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+        sendCenteredSummaryLine(player, roundsLine, roundsLabel.length(), width);
+        Component powerupsLine = Component.literal("Power-Ups samlet: ").withStyle(ChatFormatting.GRAY).append(Component.literal(Integer.toString(powerups)).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        sendCenteredSummaryLine(player, powerupsLine, powerupsLabel.length(), width);
+        Component placeLine = Component.literal("Plassering: ").withStyle(ChatFormatting.GRAY).append(Component.literal(placement).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        sendCenteredSummaryLine(player, placeLine, placementLabel.length(), width);
+        player.sendSystemMessage(Component.literal("-".repeat(width)).withStyle(ChatFormatting.DARK_GRAY));
+    }
+    private static void sendCenteredSummaryLine(ServerPlayer player, Component content, int length, int width) {
+        player.sendSystemMessage(Component.literal(" ".repeat(Math.max(0, (width - length) / 2))).append(content));
+    }
     public void stop(MinecraftServer server) {
         if (phase == Phase.WAITING && players.isEmpty()) return;
         broadcast(Component.literal("BlockParty ble stoppet av en administrator.").withStyle(ChatFormatting.RED));
@@ -3893,6 +3991,7 @@ public final class Arena {
             player.inventoryMenu.broadcastChanges();
             player.sendSystemMessage(Component.literal("Takk for at du spilte BlockParty. Spillet er over. Trykk på Nether Star for å spille mer eller Redstone Dust for å dra dit du kom fra!")
                     .withStyle(ChatFormatting.GREEN));
+            sendMatchSummary(player);
         }
 
         // Start the 20-second podium display window only after all participants have returned.
@@ -3903,6 +4002,7 @@ public final class Arena {
         eliminatedPlayers.clear();
         pendingEliminations.clear();
         players.clear();
+        finalPlacements.clear();
         musicVotingUnlocked.clear();
         musicVotes.clear();
         // Song-vote attempt limits belong to one match only. Reset for everyone

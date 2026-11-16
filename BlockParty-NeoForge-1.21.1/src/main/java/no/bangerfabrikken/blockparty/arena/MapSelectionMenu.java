@@ -29,7 +29,7 @@ public final class MapSelectionMenu extends ChestMenu {
         this.viewer = viewer;
         setMapIcon(2, Items.GREEN_CONCRETE, "CLASSIC", ChatFormatting.GREEN,
                 "Gå til Classic-lobbyen");
-        setMapIcon(6, Items.YELLOW_CONCRETE, "XMAS", ChatFormatting.YELLOW,
+        setMapIcon(6, Items.RED_CONCRETE, "XMAS", ChatFormatting.RED,
                 "Gå til Xmas-lobbyen");
     }
 

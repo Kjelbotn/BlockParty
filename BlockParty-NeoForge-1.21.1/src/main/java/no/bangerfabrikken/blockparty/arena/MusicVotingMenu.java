@@ -22,7 +22,7 @@ import java.util.UUID;
 
 /** Server-authoritative, non-transferable chest GUI with a horizontal row of song choices. */
 final class MusicVotingMenu extends ChestMenu {
-    private static final int ROWS = 6;
+    private static final int ROWS = 5;
     private static final int FIRST_ROW = 2;
     private static final int MAX_COLUMNS = 9;
     private static final int MAX_VISIBLE_TRACKS = 27;
@@ -36,7 +36,7 @@ final class MusicVotingMenu extends ChestMenu {
     }
 
     private MusicVotingMenu(int containerId, Inventory inventory, Arena arena, UUID viewerId, SimpleContainer container) {
-        super(MenuType.GENERIC_9x6, containerId, inventory, container, ROWS);
+        super(MenuType.GENERIC_9x5, containerId, inventory, container, ROWS);
         this.arena = arena;
         this.viewerId = viewerId;
         this.songContainer = container;
@@ -67,7 +67,15 @@ final class MusicVotingMenu extends ChestMenu {
             int slot = (FIRST_ROW + row) * 9 + firstColumn + column;
             trackBySlot.put(slot, track.id());
 
-            ItemStack icon = new ItemStack(i % 2 == 0 ? Items.YELLOW_CONCRETE : Items.LIME_CONCRETE);
+            ItemStack icon = new ItemStack(switch (i % 7) {
+                case 0 -> Items.RED_CONCRETE;
+                case 1 -> Items.BLUE_CONCRETE;
+                case 2 -> Items.LIME_CONCRETE;
+                case 3 -> Items.PURPLE_CONCRETE;
+                case 4 -> Items.ORANGE_CONCRETE;
+                case 5 -> Items.CYAN_CONCRETE;
+                default -> Items.YELLOW_CONCRETE;
+            });
             boolean selected = track.id().equals(selectedTrack);
             MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
                     .append(MusicTrackManager.displayNameComponent(track.name()));
@@ -87,33 +95,7 @@ final class MusicVotingMenu extends ChestMenu {
             songContainer.setItem(slot, icon);
         }
 
-        // Game-mode voting lives in the same GUI as song voting, on the bottom row.
-        Arena.GameMode selectedMode = arena.getPreferredGameMode(viewerId);
-        boolean hasModeVote = arena.hasGameModeVote(viewerId);
-        ItemStack classic = new ItemStack(Items.NETHER_STAR);
-        classic.set(DataComponents.CUSTOM_NAME, Component.literal(
-                (hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC")
-                .withStyle(hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
-        classic.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.CLASSIC)).withStyle(ChatFormatting.YELLOW),
-                Component.literal("Klikk for å stemme på Classic").withStyle(ChatFormatting.YELLOW))));
-        songContainer.setItem(48, classic);
 
-        ItemStack memory = new ItemStack(Items.BOOK);
-        memory.set(DataComponents.CUSTOM_NAME, Component.literal(
-                (hasModeVote && selectedMode == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE")
-                .withStyle(hasModeVote && selectedMode == Arena.GameMode.MEMORY ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
-        memory.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.MEMORY)).withStyle(ChatFormatting.YELLOW),
-                Component.literal("Klikk for å stemme på Memory Mode").withStyle(ChatFormatting.YELLOW))));
-        songContainer.setItem(50, memory);
-
-        ItemStack heading = new ItemStack(Items.COMPASS);
-        heading.set(DataComponents.CUSTOM_NAME, Component.literal("STEM PÅ SPILLMODUS")
-                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-        heading.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Velg Classic eller Memory Mode").withStyle(ChatFormatting.GRAY))));
-        songContainer.setItem(49, heading);
     }
 
     @Override
@@ -121,13 +103,6 @@ final class MusicVotingMenu extends ChestMenu {
         // Never delegate to ChestMenu: voting icons must not be picked up, moved, or shift-clicked.
         if (!(player instanceof ServerPlayer serverPlayer)) return;
         if (clickType != ClickType.PICKUP || button != 0) return;
-        if (slotId == 48 || slotId == 50) {
-            arena.setPreferredGameMode(serverPlayer,
-                    slotId == 48 ? Arena.GameMode.CLASSIC : Arena.GameMode.MEMORY);
-            refreshContents();
-            broadcastChanges();
-            return;
-        }
         String trackId = trackBySlot.get(slotId);
         if (trackId == null) return;
         if (!arena.voteMusic(serverPlayer, trackId)) {
