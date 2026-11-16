@@ -2939,6 +2939,7 @@ public final class Arena {
             declareWinner();
             return;
         }
+        // The new floor has been repainted above; play YAY only now, to active survivors.
         playSoundToAlive(ModSounds.YAY, 0.75F, 1.0F);
 
         // Apply any queued COLOR RAIN only now, on the freshly generated next-round floor.
@@ -3966,8 +3967,6 @@ public final class Arena {
     }
 
     private void finishRound() {
-        // Play the bundled YAY cue once to every player who survived the round.
-        playSoundToAlive(ModSounds.YAY, 0.72F, 1.0F);
         // Each player who survives this round earns one permanent world-wide point.
         for (UUID uuid : alive) {
             points.merge(uuid, 1, Integer::sum);

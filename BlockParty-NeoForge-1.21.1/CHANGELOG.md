@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.49
+- Convert the supplied YAY sound from Opus to Minecraft-compatible Vorbis during release builds.
+- Trigger YAY only after the next floor has been repainted, and only for players still alive.
+
 ## 1.4.48
 - Fixed the TNT penalty sound event reference so the mod compiles on NeoForge 1.21.1.
 

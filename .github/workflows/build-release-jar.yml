@@ -115,6 +115,24 @@ jobs:
             echo "Validated $track_id.ogg ($codec, $mean dB)"
           done
 
+      - name: Normalize YAY effect audio for Minecraft
+        shell: bash
+        run: |
+          set -euo pipefail
+          yay_file="BlockParty-NeoForge-1.21.1/src/main/resources/assets/blockparty/sounds/yay.ogg"
+          test -s "$yay_file"
+          codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$yay_file")"
+          if [[ "$codec" != "vorbis" ]]; then
+            normalized="${RUNNER_TEMP}/yay-vorbis.ogg"
+            ffmpeg -hide_banner -loglevel error -y -i "$yay_file" \
+              -map 0:a:0 -vn -map_metadata -1 -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "$normalized"
+            test -s "$normalized"
+            mv "$normalized" "$yay_file"
+          fi
+          codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$yay_file")"
+          [[ "$codec" == "vorbis,44100,2" ]] || { echo "Invalid YAY audio format: $codec" >&2; exit 1; }
+          echo "Validated yay.ogg ($codec)"
+
       - name: Build BlockParty
         working-directory: BlockParty-NeoForge-1.21.1
         run: gradle build --no-daemon
