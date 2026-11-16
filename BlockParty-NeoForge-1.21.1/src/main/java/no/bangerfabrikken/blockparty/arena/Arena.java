@@ -348,7 +348,7 @@ public final class Arena {
         return arenaArea || lobbyArea;
     }
 
-    /** Stops a vanilla fall/void death if the active player crossed the elimination threshold. */
+    /** Stops a vanilla fall/void death; eliminate() also covers every other elimination route. */
     public boolean handleOutOfBoundsDeath(ServerPlayer player) {
         if (player == null || level == null || player.serverLevel() != level || !alive.contains(player.getUUID())
                 || !isGameInProgress() || pos1 == null) return false;
@@ -3959,9 +3959,10 @@ public final class Arena {
             pendingEliminations.remove(uuid);
             return;
         }
-        // Power-ups do not cancel normal game eliminations. Lucky Landing is
-        // handled exclusively by handleOutOfBoundsDeath when the player is falling.
-        if (!alive.contains(uuid)) return;
+        // Lucky Landing protects against EVERY normal elimination route, not
+        // only void/fall damage. This check must happen before clearPlayerRoundPowerUps,
+        // because that cleanup consumes the stored one-use rescue.
+        if (rescueWithLuckyLanding(player)) return;
         clearPlayerRoundPowerUps(player);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.52
+- Lucky Landing now intercepts every normal elimination path, including wrong-colour/floor-drop eliminations and leaving the playable floor; the rescue runs before power-up cleanup.
+
+
 ## 1.4.51
 - Lucky Landing now activates only when the player has actually fallen below the arena's elimination height. It no longer intercepts normal round eliminations or other elimination paths.
 
