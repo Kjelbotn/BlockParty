@@ -67,7 +67,11 @@ final class MusicVotingMenu extends ChestMenu {
             int slot = (FIRST_ROW + row) * 9 + firstColumn + column;
             trackBySlot.put(slot, track.id());
 
-            ItemStack icon = new ItemStack(i % 2 == 0 ? Items.YELLOW_CONCRETE : Items.LIME_CONCRETE);
+            ItemStack icon = new ItemStack(switch (i % 3) {
+                case 0 -> Items.RED_CONCRETE;
+                case 1 -> Items.GREEN_CONCRETE;
+                default -> Items.WHITE_CONCRETE;
+            });
             boolean selected = track.id().equals(selectedTrack);
             MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
                     .append(MusicTrackManager.displayNameComponent(track.name()));
