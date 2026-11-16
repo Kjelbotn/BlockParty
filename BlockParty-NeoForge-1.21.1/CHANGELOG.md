@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.46
+- Keep the player statistics sidebar visible only while physically inside a configured BlockParty lobby; hide it after leaving the lobby area.
+
 ## 1.4.45
 - Added FREEZE: locks the collector in place for 2 seconds.
 - Made Lucky Landing a persistent one-use rescue with a safe-floor fallback.

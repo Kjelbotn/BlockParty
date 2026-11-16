@@ -3134,7 +3134,18 @@ public final class Arena {
         if (server == null || ACTIVE_LOBBY_STATS_VIEWERS.isEmpty()) return;
         for (UUID uuid : new HashSet<>(ACTIVE_LOBBY_STATS_VIEWERS)) {
             ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
-            if (viewer != null && !players.contains(uuid)) showLobbyStatsSidebar(viewer);
+            if (viewer == null || players.contains(uuid)) continue;
+
+            // Lobby statistics are strictly location-scoped. Check every configured
+            // arena so visiting another BlockParty lobby does not hide its sidebar.
+            boolean insideAnyLobby = ArenaManager.get().getAll().stream()
+                    .anyMatch(arena -> arena.isInsideLobbyArea(viewer));
+            if (insideAnyLobby) {
+                showLobbyStatsSidebar(viewer);
+            } else {
+                ACTIVE_LOBBY_STATS_VIEWERS.remove(uuid);
+                viewer.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+            }
         }
     }
 
