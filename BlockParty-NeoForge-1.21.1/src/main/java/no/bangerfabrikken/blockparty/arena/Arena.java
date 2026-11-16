@@ -3061,7 +3061,7 @@ public final class Arena {
         for (int i = 0; i < rows.length; i++) {
             // Formatting-only holder names render no visible text; each player's entries are unique.
             StringBuilder hiddenEntry = new StringBuilder();
-            String uuidHex = player.getUUID().toString().replace("-", "");
+            String uuidHex = player.getUUID().toString().replace("-", "").substring(0, 16);
             for (int n = 0; n < uuidHex.length(); n++) {
                 hiddenEntry.append('\u00A7').append(uuidHex.charAt(n));
             }
@@ -3976,10 +3976,9 @@ public final class Arena {
             if (participant == null) continue;
             boolean isWinner = winner != null && uuid.equals(winner.getUUID());
             int placement = lastPodiumPlayers.indexOf(uuid) + 1;
-            String placeText = placement == 1 ? "1st plass" : placement == 2 ? "2nd plass"
-                    : placement == 3 ? "3rd plass" : (placement > 3 ? placement + ". plass" : "Fullført");
+            String placeText = placement > 0 ? placement + ". plass" : "Fullført";
             String divider = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-            sendCenteredSystemMessage(participant, Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW), "BLOCKPARTY");
+            sendCenteredSystemMessage(participant, blockPartyBrand(), "BlockParty");
             sendCenteredSystemMessage(participant, Component.literal(isWinner ? "SEIER!" : "MATCH FERDIG")
                     .withStyle(isWinner ? ChatFormatting.GREEN : ChatFormatting.YELLOW), isWinner ? "SEIER!" : "MATCH FERDIG");
             sendCenteredSystemMessage(participant, Component.literal(participant.getGameProfile().getName())
@@ -4440,6 +4439,15 @@ public final class Arena {
     private static String formatSeconds(int ticks) {
         if (ticks % 20 == 0) return Integer.toString(ticks / 20);
         return String.format(Locale.ROOT, "%.1f", ticks / 20.0);
+    }
+
+    private static MutableComponent blockPartyBrand() {
+        return Component.literal("B").withStyle(ChatFormatting.AQUA)
+                .append(Component.literal("l").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("o").withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("c").withStyle(ChatFormatting.GOLD))
+                .append(Component.literal("k").withStyle(ChatFormatting.RED))
+                .append(Component.literal("Party").withStyle(ChatFormatting.DARK_AQUA));
     }
 
     private static MutableComponent blockPartyPrefix() {
