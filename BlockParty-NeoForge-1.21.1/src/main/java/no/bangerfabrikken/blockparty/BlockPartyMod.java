@@ -151,13 +151,12 @@ public final class BlockPartyMod {
                 ? ChatFormatting.WHITE : player.getTeam().getColor();
         if (survivalNameColor == ChatFormatting.RESET) survivalNameColor = ChatFormatting.WHITE;
         Component playerName = Component.literal(player.getGameProfile().getName()).withStyle(survivalNameColor);
-        Component formattedMessage = Component.literal(Integer.toString(record.points()))
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                .append(Component.literal(" | ").withStyle(ChatFormatting.DARK_GRAY))
-                .append(rankTag)
+        Component formattedMessage = rankTag
                 .append(Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(playerName)
-                .append(Component.literal(" ≫ ").withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" » ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(Component.literal(event.getRawText()).withStyle(ChatFormatting.WHITE));
 
         // Replace vanilla's <name> message rendering with the requested BlockParty
