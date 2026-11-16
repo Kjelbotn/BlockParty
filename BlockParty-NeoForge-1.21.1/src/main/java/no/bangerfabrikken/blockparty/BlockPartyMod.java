@@ -21,6 +21,7 @@ import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -146,7 +147,7 @@ public final class BlockPartyMod {
 
         // The opening bracket, rank title and closing bracket deliberately share
         // one style so the complete rank tag is coloured consistently.
-        Component rankTag = Component.literal(rank.name()).withStyle(rankColor);
+        MutableComponent rankTag = Component.literal(rank.name()).withStyle(rankColor);
         ChatFormatting survivalNameColor = player.getTeam() == null
                 ? ChatFormatting.WHITE : player.getTeam().getColor();
         if (survivalNameColor == ChatFormatting.RESET) survivalNameColor = ChatFormatting.WHITE;
