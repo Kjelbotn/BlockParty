@@ -65,6 +65,9 @@ public final class SchematicArenaGenerator {
         }
 
         FloorRegion floor = findDanceFloor(schematic);
+        // Xmas starts and ends every match with the same festive 40x40 concrete mosaic.
+        // Arena captures this as its original floor, restoring it between rounds and after a match.
+        buildXmasBlockPartyFloor(level, origin, floor);
         // The dance floor must be a true fall-through platform when its concrete is
         // removed. Clear only snow directly beneath the 40x40 playable tiles; preserve
         // all natural terrain and non-snow supports below the map.
@@ -100,6 +103,99 @@ public final class SchematicArenaGenerator {
                 90.0F, 0.0F);
     }
 
+
+
+    private static void buildXmasBlockPartyFloor(ServerLevel level, BlockPos origin, FloorRegion floor) {
+        Block[][] tiles = new Block[FLOOR_SIZE][FLOOR_SIZE];
+        for (int x = 0; x < FLOOR_SIZE; x++) java.util.Arrays.fill(tiles[x], Blocks.BLACK_CONCRETE);
+        for (int i = 0; i < FLOOR_SIZE; i++) {
+            tiles[i][0] = tiles[i][FLOOR_SIZE - 1] = Blocks.LIGHT_GRAY_CONCRETE;
+            tiles[0][i] = tiles[FLOOR_SIZE - 1][i] = Blocks.LIGHT_GRAY_CONCRETE;
+            Block stripe = (i / 2) % 2 == 0 ? Blocks.RED_CONCRETE : Blocks.WHITE_CONCRETE;
+            tiles[i][1] = tiles[i][FLOOR_SIZE - 2] = stripe;
+            tiles[1][i] = tiles[FLOOR_SIZE - 2][i] = stripe;
+        }
+        for (int baseX : new int[]{2, 32}) {
+            for (int[] p : new int[][]{{0,0},{1,0},{0,1},{1,1},{2,2},{3,2},{2,3},{4,3},{3,4}})
+                paint(tiles, baseX + p[0], 3 + p[1], Blocks.GREEN_CONCRETE);
+            paint(tiles, baseX + 2, 5, Blocks.RED_CONCRETE);
+            paint(tiles, baseX + 3, 4, Blocks.RED_CONCRETE);
+            paint(tiles, baseX + 4, 5, Blocks.RED_CONCRETE);
+        }
+        drawSnowflake(tiles, 19, 6);
+        drawSnowflake(tiles, 19, 31);
+        for (int[] p : new int[][]{{8,5},{27,6},{5,9},{29,10},{14,14},{31,25},{8,29},{25,29},{13,33},{30,33}})
+            paint(tiles, p[0], p[1], Blocks.WHITE_CONCRETE);
+        drawWord(tiles, "BLOCK", 4, 12, new Block[]{Blocks.LIGHT_BLUE_CONCRETE, Blocks.LIME_CONCRETE,
+                Blocks.YELLOW_CONCRETE, Blocks.ORANGE_CONCRETE, Blocks.RED_CONCRETE});
+        drawWord(tiles, "PARTY", 4, 20, new Block[]{Blocks.CYAN_CONCRETE, Blocks.CYAN_CONCRETE,
+                Blocks.CYAN_CONCRETE, Blocks.CYAN_CONCRETE, Blocks.CYAN_CONCRETE});
+        for (int x = 30; x <= 34; x++) paint(tiles, x, 10, Blocks.RED_CONCRETE);
+        for (int x = 31; x <= 34; x++) paint(tiles, x, 9, Blocks.RED_CONCRETE);
+        for (int x = 32; x <= 34; x++) paint(tiles, x, 8, Blocks.RED_CONCRETE);
+        for (int x = 33; x <= 34; x++) paint(tiles, x, 7, Blocks.RED_CONCRETE);
+        for (int x = 29; x <= 35; x++) paint(tiles, x, 11, Blocks.WHITE_CONCRETE);
+        paint(tiles, 35, 10, Blocks.WHITE_CONCRETE);
+        paint(tiles, 36, 11, Blocks.WHITE_CONCRETE);
+        drawGift(tiles, 5, 31, Blocks.RED_CONCRETE, Blocks.YELLOW_CONCRETE);
+        drawGift(tiles, 28, 31, Blocks.GREEN_CONCRETE, Blocks.RED_CONCRETE);
+        for (int x = 2; x <= 37; x++) {
+            if (tiles[x][36] == Blocks.BLACK_CONCRETE) tiles[x][36] = Blocks.WHITE_CONCRETE;
+            if (x % 4 == 0 && tiles[x][37] == Blocks.BLACK_CONCRETE) tiles[x][37] = Blocks.WHITE_CONCRETE;
+        }
+        for (int x = 0; x < FLOOR_SIZE; x++) for (int z = 0; z < FLOOR_SIZE; z++)
+            level.setBlock(origin.offset(floor.minX + x, floor.y, floor.minZ + z), tiles[x][z].defaultBlockState(), 3);
+    }
+
+    private static void paint(Block[][] tiles, int x, int z, Block block) {
+        if (x >= 2 && x < FLOOR_SIZE - 2 && z >= 2 && z < FLOOR_SIZE - 2) tiles[x][z] = block;
+    }
+
+    private static void drawSnowflake(Block[][] tiles, int cx, int cz) {
+        for (int d = -3; d <= 3; d++) {
+            paint(tiles, cx + d, cz, Blocks.WHITE_CONCRETE);
+            paint(tiles, cx, cz + d, Blocks.WHITE_CONCRETE);
+        }
+        for (int d : new int[]{-2, 2}) {
+            paint(tiles, cx + d, cz + d, Blocks.WHITE_CONCRETE);
+            paint(tiles, cx + d, cz - d, Blocks.WHITE_CONCRETE);
+        }
+    }
+
+    private static void drawGift(Block[][] tiles, int x, int z, Block box, Block ribbon) {
+        for (int dx = 0; dx < 6; dx++) {
+            for (int dz = 1; dz < 6; dz++) paint(tiles, x + dx, z + dz, box);
+            paint(tiles, x + dx, z, ribbon);
+        }
+        for (int dz = 0; dz < 6; dz++) paint(tiles, x + 2, z + dz, ribbon);
+        paint(tiles, x + 1, z - 1, ribbon);
+        paint(tiles, x + 3, z - 1, ribbon);
+        paint(tiles, x + 4, z - 1, ribbon);
+    }
+
+    private static void drawWord(Block[][] tiles, String word, int startX, int startZ, Block[] colours) {
+        for (int i = 0; i < word.length(); i++) {
+            String[] glyph = glyph(word.charAt(i));
+            for (int row = 0; row < 7; row++) for (int col = 0; col < 5; col++)
+                if (glyph[row].charAt(col) == '1') paint(tiles, startX + i * 6 + col, startZ + row, colours[i]);
+        }
+    }
+
+    private static String[] glyph(char c) {
+        return switch (c) {
+            case 'B' -> new String[]{"11110","10001","10001","11110","10001","10001","11110"};
+            case 'L' -> new String[]{"10000","10000","10000","10000","10000","10000","11111"};
+            case 'O' -> new String[]{"01110","10001","10001","10001","10001","10001","01110"};
+            case 'C' -> new String[]{"01111","10000","10000","10000","10000","10000","01111"};
+            case 'K' -> new String[]{"10001","10010","10100","11000","10100","10010","10001"};
+            case 'P' -> new String[]{"11110","10001","10001","11110","10000","10000","10000"};
+            case 'A' -> new String[]{"01110","10001","10001","11111","10001","10001","10001"};
+            case 'R' -> new String[]{"11110","10001","10001","11110","10100","10010","10001"};
+            case 'T' -> new String[]{"11111","00100","00100","00100","00100","00100","00100"};
+            case 'Y' -> new String[]{"10001","10001","01010","00100","00100","00100","00100"};
+            default -> new String[]{"00000","00000","00000","00000","00000","00000","00000"};
+        };
+    }
 
     private static BlockPos findLobbySpawn(ServerLevel level, BlockPos origin) throws IOException {
         int preferredX = origin.getX() + 32, preferredZ = origin.getZ() + 95;

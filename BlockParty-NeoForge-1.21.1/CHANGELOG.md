@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.53
+- Added a fixed Christmas-themed 40x40 concrete BlockParty logo floor to the Xmas arena, including candy-cane edging, snowflakes, holly, Santa hat and presents.
+- The festive layout is captured as the arena's original floor and returns between rounds and after matches.
+
+
 ## 1.4.52
 - Lucky Landing now intercepts every normal elimination path, including wrong-colour/floor-drop eliminations and leaving the playable floor; the rescue runs before power-up cleanup.
 
