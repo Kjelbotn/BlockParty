@@ -547,6 +547,9 @@ public final class Arena {
             sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.STOP);
         }
         clearPlayerRoundPowerUps(player);
+        if (ACTIVE_LOBBY_STATS_VIEWERS.remove(uuid)) {
+            player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+        }
         players.remove(uuid);
         preferredGameModes.remove(uuid);
         alive.remove(uuid);
