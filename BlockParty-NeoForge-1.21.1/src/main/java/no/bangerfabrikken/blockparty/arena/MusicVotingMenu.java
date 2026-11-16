@@ -67,11 +67,13 @@ final class MusicVotingMenu extends ChestMenu {
             int slot = (FIRST_ROW + row) * 9 + firstColumn + column;
             trackBySlot.put(slot, track.id());
 
-            ItemStack icon = new ItemStack(switch (i % 3) {
-                case 0 -> Items.RED_CONCRETE;
-                case 1 -> Items.GREEN_CONCRETE;
-                default -> Items.WHITE_CONCRETE;
-            });
+            ItemStack icon = new ItemStack("xmas".equals(arena.getId())
+                    ? switch (i % 3) {
+                        case 0 -> Items.RED_CONCRETE;
+                        case 1 -> Items.GREEN_CONCRETE;
+                        default -> Items.WHITE_CONCRETE;
+                    }
+                    : (i % 2 == 0 ? Items.YELLOW_CONCRETE : Items.LIME_CONCRETE));
             boolean selected = track.id().equals(selectedTrack);
             MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
                     .append(MusicTrackManager.displayNameComponent(track.name()));
@@ -80,13 +82,16 @@ final class MusicVotingMenu extends ChestMenu {
 
             long votes = arena.getTrackVoteCount(track.id());
             int matchSeconds = getDisplayedMatchSeconds(track);
+            boolean xmasMenu = "xmas".equals(arena.getId());
             icon.set(DataComponents.LORE, new ItemLore(List.of(
-                    Component.literal("Artist: " + track.artist()).withStyle(ChatFormatting.GRAY),
+                    Component.literal("Artist: " + track.artist())
+                            .withStyle(xmasMenu ? ChatFormatting.AQUA : ChatFormatting.GRAY),
                     Component.literal(formatDuration(matchSeconds))
-                            .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
-                    Component.literal("Stemmer: " + votes).withStyle(ChatFormatting.YELLOW),
+                            .withStyle(xmasMenu ? ChatFormatting.WHITE : ChatFormatting.YELLOW),
+                    Component.literal("Stemmer: " + votes)
+                            .withStyle(xmasMenu ? ChatFormatting.RED : ChatFormatting.YELLOW),
                     Component.literal(selected ? "DITT NÅVÆRENDE VALG" : "Klikk for å stemme eller bytte valg")
-                            .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW)
+                            .withStyle(selected ? ChatFormatting.GREEN : (xmasMenu ? ChatFormatting.GREEN : ChatFormatting.YELLOW))
             )));
             songContainer.setItem(slot, icon);
         }
@@ -114,7 +119,7 @@ final class MusicVotingMenu extends ChestMenu {
 
         ItemStack heading = new ItemStack(Items.COMPASS);
         heading.set(DataComponents.CUSTOM_NAME, Component.literal("STEM PÅ SPILLMODUS")
-                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+                .withStyle(ChatFormatting.YELLOW));
         heading.set(DataComponents.LORE, new ItemLore(List.of(
                 Component.literal("Velg Classic eller Memory Mode").withStyle(ChatFormatting.GRAY))));
         songContainer.setItem(49, heading);
