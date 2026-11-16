@@ -3083,10 +3083,13 @@ public final class Arena {
 
     private void hideLobbyStatsSidebar(MinecraftServer server) {
         if (server == null) return;
-        for (UUID uuid : lobbyStatsObjectives.keySet()) {
+        // Only hide lobby statistics for players who are actually entering this match.
+        // Other visitors must keep their private lobby sidebar, including visitors in
+        // the other arena's lobby.
+        for (UUID uuid : players) {
+            if (!ACTIVE_LOBBY_STATS_VIEWERS.remove(uuid)) continue;
             ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
             if (viewer != null) {
-                ACTIVE_LOBBY_STATS_VIEWERS.remove(uuid);
                 viewer.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
             }
         }
