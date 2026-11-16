@@ -1882,9 +1882,9 @@ public final class Arena {
     /** True when a player is physically inside this lobby, regardless of match phase. */
     public boolean isInsideLobbyArea(ServerPlayer player) {
         if (player == null || !lobbySet || level == null || player.serverLevel() != level) return false;
-        return Math.abs(player.getX() - lobbyX) <= 36.0
-                && Math.abs(player.getZ() - lobbyZ) <= 40.0
-                && Math.abs(player.getY() - lobbyY) <= 22.0;
+        return Math.abs(player.getX() - lobbyX) <= 40.0
+                && player.getZ() >= lobbyZ - 26 && player.getZ() <= lobbyZ + 44
+                && player.getY() >= lobbyY - 5 && player.getY() <= lobbyY + 30;
     }
 
     /** True only while this player is physically inside this arena's lobby area and it is open. */
@@ -1892,9 +1892,9 @@ public final class Arena {
         if (!lobbySet || level == null || player.serverLevel() != level) return false;
         // Lobby controls must never be refreshed after participants have been teleported.
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return false;
-        return Math.abs(player.getX() - lobbyX) <= 36.0
-                && Math.abs(player.getZ() - lobbyZ) <= 40.0
-                && Math.abs(player.getY() - lobbyY) <= 22.0;
+        return Math.abs(player.getX() - lobbyX) <= 40.0
+                && player.getZ() >= lobbyZ - 26 && player.getZ() <= lobbyZ + 44
+                && player.getY() >= lobbyY - 5 && player.getY() <= lobbyY + 30;
     }
 
     /** Give the non-interactive wall instructions' matching inventory items to lobby visitors. */
@@ -3031,6 +3031,7 @@ public final class Arena {
         if (player == null || level == null || player.getServer() == null) return;
         Scoreboard scoreboard = player.getServer().getScoreboard();
         Objective objective = lobbyStatsObjectives.get(player.getUUID());
+        boolean objectiveCreated = false;
         if (objective == null) {
             String objectiveId = "bp_ls_" + player.getUUID().toString().replace("-", "").substring(0, 8);
             objective = scoreboard.getObjective(objectiveId);
@@ -3038,6 +3039,7 @@ public final class Arena {
                 objective = scoreboard.addObjective(objectiveId, ObjectiveCriteria.DUMMY,
                         Component.literal("Statistics").withStyle(ChatFormatting.AQUA),
                         ObjectiveCriteria.RenderType.INTEGER, false, null);
+                objectiveCreated = true;
             }
             lobbyStatsObjectives.put(player.getUUID(), objective);
         }
@@ -3055,13 +3057,13 @@ public final class Arena {
                         .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.RED))
         };
         boolean objectiveAlreadyKnown = lobbyStatsObjectivesKnownByClient.contains(player.getUUID());
-        if (!objectiveAlreadyKnown) {
+        if (!objectiveAlreadyKnown && !objectiveCreated) {
             // A reconnecting client does not retain private objectives from its previous connection.
             player.connection.send(new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_ADD));
-            lobbyStatsObjectivesKnownByClient.add(player.getUUID());
-        } else {
+        } else if (objectiveAlreadyKnown) {
             player.connection.send(new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_CHANGE));
         }
+        lobbyStatsObjectivesKnownByClient.add(player.getUUID());
         String uuidHex = player.getUUID().toString().replace("-", "").substring(0, 16);
         for (int i = 0; i < rows.length; i++) {
             // Formatting-only holder names render no visible text; each player's entries are unique.
