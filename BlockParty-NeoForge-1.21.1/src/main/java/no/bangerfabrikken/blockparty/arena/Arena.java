@@ -1754,6 +1754,18 @@ public final class Arena {
         }
     }
 
+    /** Play the floor-reveal cue only for players who are still alive in the match. */
+    private void playSoundToAlive(Holder<SoundEvent> sound, float volume, float pitch) {
+        if (level == null) return;
+        for (UUID uuid : alive) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                player.connection.send(new ClientboundSoundPacket(sound, SoundSource.PLAYERS,
+                        player.getX(), player.getY(), player.getZ(), volume, pitch, random.nextLong()));
+            }
+        }
+    }
+
     private String selectWinningSong() {
         List<Track> tracks = MusicTrackManager.getTracks(id);
         if (tracks.isEmpty()) return null;
@@ -2805,6 +2817,7 @@ public final class Arena {
             declareWinner();
             return;
         }
+        playSoundToAlive(ModSounds.YAY, 0.75F, 1.0F);
 
         // Apply any queued COLOR RAIN only now, on the freshly generated next-round floor.
         prepareColorRainForNextRound();
