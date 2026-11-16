@@ -3068,6 +3068,7 @@ public final class Arena {
             String entryName = hiddenEntry.toString();
             ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(entryName), objective);
             score.set(rows.length - i);
+            score.numberFormatOverride(BlankFormat.INSTANCE);
             String teamId = "bpls" + uuidKey + i;
             PlayerTeam team = scoreboard.getPlayerTeam(teamId);
             if (team == null) team = scoreboard.addPlayerTeam(teamId);
