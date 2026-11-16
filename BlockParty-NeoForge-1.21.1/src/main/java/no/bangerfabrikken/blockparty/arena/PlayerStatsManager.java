@@ -131,6 +131,18 @@ public final class PlayerStatsManager {
         return points;
     }
 
+    /** Atomically spends progression points; returns false when the balance is insufficient. */
+    public static synchronized boolean spendPoints(MinecraftServer server, ServerPlayer player, int amount) {
+        if (amount <= 0) return false;
+        PlayerRecord old = getOrCreate(player);
+        if (old.points() < amount) return false;
+        PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
+                old.points() - amount, old.currentStreak(), old.bestStreak(), old.personalBest(),
+                old.wins(), old.mvpAwards(), old.gamesPlayed(), old.podiums()));
+        save(server);
+        return true;
+    }
+
     public static synchronized void addPoints(MinecraftServer server, ServerPlayer player, int amount) {
         if (amount <= 0) return;
         PlayerRecord old = getOrCreate(player);

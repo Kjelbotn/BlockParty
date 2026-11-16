@@ -2218,8 +2218,7 @@ public final class Arena {
             case 12 -> openMusicVoting(player);
             case 14 -> PlayerStatsManager.sendLeaderboard(player);
             case 30 -> openDailyChallenges(player);
-            case 32 -> sendSystemMessage(player, Component.literal("Kosmetikk kommer senere.")
-                    .withStyle(ChatFormatting.YELLOW));
+            case 32 -> CosmeticsManager.openShop(player);
             case 34 -> openGameModeMenu(player);
             case 49 -> registerForGame(player);
             default -> { }

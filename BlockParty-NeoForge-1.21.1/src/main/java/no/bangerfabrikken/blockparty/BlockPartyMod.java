@@ -31,6 +31,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
 import no.bangerfabrikken.blockparty.arena.DailyChallengeManager;
 import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
+import no.bangerfabrikken.blockparty.arena.CosmeticsManager;
 import no.bangerfabrikken.blockparty.arena.MusicTrackManager;
 import no.bangerfabrikken.blockparty.command.BlockPartyCommands;
 import no.bangerfabrikken.blockparty.sound.ModSounds;
@@ -182,10 +183,12 @@ public final class BlockPartyMod {
 
     private void onServerTick(ServerTickEvent.Post event) {
         ArenaManager.get().tick(event.getServer());
+        CosmeticsManager.tick(event.getServer());
     }
 
     private void onServerStarted(ServerStartedEvent event) {
         PlayerStatsManager.load(event.getServer());
+        CosmeticsManager.load(event.getServer());
         DailyChallengeManager.load(event.getServer());
         ArenaManager.get().load(event.getServer());
         MusicTrackManager.load(event.getServer());
@@ -196,6 +199,7 @@ public final class BlockPartyMod {
         ArenaManager.get().save(event.getServer());
         ArenaManager.get().shutdown(event.getServer());
         PlayerStatsManager.save(event.getServer());
+        CosmeticsManager.save(event.getServer());
         DailyChallengeManager.save();
     }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.54
+- Added a persistent points-based cosmetics shop with five visual particle auras.
+- Players can buy, equip and clear cosmetic auras with /bp cosmetics; purchases and equipped effects persist across restarts.
+- Added atomic point spending and connected the cosmetics entry in the lobby hub.
+
+
 ## 1.4.53
 - Added a fixed Christmas-themed 40x40 concrete BlockParty logo floor to the Xmas arena, including candy-cane edging, snowflakes, holly, Santa hat and presents.
 - The festive layout is captured as the arena's original floor and returns between rounds and after matches.
