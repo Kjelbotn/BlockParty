@@ -48,7 +48,7 @@ final class DailyChallengeMenu extends ChestMenu {
 
     private ItemStack named(net.minecraft.world.item.Item item, String name, List<Component> lore) {
         ItemStack stack = new ItemStack(item);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         if (!lore.isEmpty()) stack.set(DataComponents.LORE, new ItemLore(lore));
         return stack;
     }

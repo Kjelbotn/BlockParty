@@ -51,22 +51,6 @@ final class MusicVotingMenu extends ChestMenu {
         return String.format(java.util.Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
     }
 
-    private static String getDifficulty(int matchSeconds) {
-        if (matchSeconds >= 180) return "LETT";
-        if (matchSeconds >= 120) return "MIDDELS";
-        if (matchSeconds >= 90) return "VANSKELIG";
-        return "EKSPERT";
-    }
-
-    private static ChatFormatting getDifficultyColor(String difficulty) {
-        return switch (difficulty) {
-            case "LETT" -> ChatFormatting.GREEN;
-            case "MIDDELS" -> ChatFormatting.AQUA;
-            case "VANSKELIG" -> ChatFormatting.GOLD;
-            default -> ChatFormatting.RED;
-        };
-    }
-
     void refreshContents() {
         songContainer.clearContent();
         trackBySlot.clear();
@@ -83,29 +67,19 @@ final class MusicVotingMenu extends ChestMenu {
             int slot = (FIRST_ROW + row) * 9 + firstColumn + column;
             trackBySlot.put(slot, track.id());
 
-            ItemStack icon = new ItemStack(switch (i % 7) {
-                case 0 -> Items.RED_CONCRETE;
-                case 1 -> Items.BLUE_CONCRETE;
-                case 2 -> Items.LIME_CONCRETE;
-                case 3 -> Items.PURPLE_CONCRETE;
-                case 4 -> Items.ORANGE_CONCRETE;
-                case 5 -> Items.CYAN_CONCRETE;
-                default -> Items.YELLOW_CONCRETE;
-            });
+            ItemStack icon = new ItemStack(i % 2 == 0 ? Items.YELLOW_CONCRETE : Items.LIME_CONCRETE);
             boolean selected = track.id().equals(selectedTrack);
             MutableComponent trackTitle = Component.literal(selected ? "✓ " : "")
                     .append(MusicTrackManager.displayNameComponent(track.name()));
             icon.set(DataComponents.CUSTOM_NAME, trackTitle
-                    .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.AQUA));
+                    .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
 
             long votes = arena.getTrackVoteCount(track.id());
             int matchSeconds = getDisplayedMatchSeconds(track);
-            String difficulty = getDifficulty(matchSeconds);
             icon.set(DataComponents.LORE, new ItemLore(List.of(
                     Component.literal("Artist: " + track.artist()).withStyle(ChatFormatting.GRAY),
-                    Component.literal(Arena.getTrackRoundLimit(track) + " RUNDER"
-                            + "  •  " + difficulty + "  •  " + formatDuration(matchSeconds))
-                            .withStyle(getDifficultyColor(difficulty), ChatFormatting.BOLD),
+                    Component.literal(formatDuration(matchSeconds))
+                            .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
                     Component.literal("Stemmer: " + votes).withStyle(ChatFormatting.YELLOW),
                     Component.literal(selected ? "DITT NÅVÆRENDE VALG" : "Klikk for å stemme eller bytte valg")
                             .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW)
@@ -119,24 +93,24 @@ final class MusicVotingMenu extends ChestMenu {
         ItemStack classic = new ItemStack(Items.NETHER_STAR);
         classic.set(DataComponents.CUSTOM_NAME, Component.literal(
                 (hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC")
-                .withStyle(hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? ChatFormatting.GREEN : ChatFormatting.GOLD));
+                .withStyle(hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
         classic.set(DataComponents.LORE, new ItemLore(List.of(
                 Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.CLASSIC)).withStyle(ChatFormatting.YELLOW),
-                Component.literal("Klikk for å stemme på Classic").withStyle(ChatFormatting.GRAY))));
+                Component.literal("Klikk for å stemme på Classic").withStyle(ChatFormatting.YELLOW))));
         songContainer.setItem(48, classic);
 
         ItemStack memory = new ItemStack(Items.BOOK);
         memory.set(DataComponents.CUSTOM_NAME, Component.literal(
                 (hasModeVote && selectedMode == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE")
-                .withStyle(hasModeVote && selectedMode == Arena.GameMode.MEMORY ? ChatFormatting.GREEN : ChatFormatting.LIGHT_PURPLE));
+                .withStyle(hasModeVote && selectedMode == Arena.GameMode.MEMORY ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
         memory.set(DataComponents.LORE, new ItemLore(List.of(
                 Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.MEMORY)).withStyle(ChatFormatting.YELLOW),
-                Component.literal("Klikk for å stemme på Memory Mode").withStyle(ChatFormatting.GRAY))));
+                Component.literal("Klikk for å stemme på Memory Mode").withStyle(ChatFormatting.YELLOW))));
         songContainer.setItem(50, memory);
 
         ItemStack heading = new ItemStack(Items.COMPASS);
         heading.set(DataComponents.CUSTOM_NAME, Component.literal("STEM PÅ SPILLMODUS")
-                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         heading.set(DataComponents.LORE, new ItemLore(List.of(
                 Component.literal("Velg Classic eller Memory Mode").withStyle(ChatFormatting.GRAY))));
         songContainer.setItem(49, heading);

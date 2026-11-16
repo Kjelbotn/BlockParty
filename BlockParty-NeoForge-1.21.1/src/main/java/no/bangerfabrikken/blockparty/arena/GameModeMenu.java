@@ -59,7 +59,7 @@ final class GameModeMenu extends ChestMenu {
     private void add(int slot, net.minecraft.world.item.Item item, String name, String description) {
         ItemStack stack = new ItemStack(item);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name)
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                .withStyle(name.startsWith("✓ ") ? ChatFormatting.GREEN : ChatFormatting.YELLOW, ChatFormatting.BOLD));
         stack.set(DataComponents.LORE, new ItemLore(List.of(
                 Component.literal(description).withStyle(ChatFormatting.GRAY))));
         contents.setItem(slot, stack);

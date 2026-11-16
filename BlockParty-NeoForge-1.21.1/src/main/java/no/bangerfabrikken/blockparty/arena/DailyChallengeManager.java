@@ -161,7 +161,7 @@ public final class DailyChallengeManager {
             d.bonusClaimed = true;
             PlayerStatsManager.addPoints(minecraftServer, player, COMPLETION_BONUS);
             player.sendSystemMessage(Component.literal("Alle dagens utfordringer er fullført! Bonus: +50 poeng!")
-                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         }
         if (changed) save();
     }
@@ -174,7 +174,7 @@ public final class DailyChallengeManager {
         Progress d = get(player);
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal("DAGLIGE UTFORDRINGER  •  " + LocalDate.parse(d.date).format(DATE_FORMAT))
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         lines.add(Component.literal("Fullfør alle tre for +50 bonuspoeng.").withStyle(ChatFormatting.GRAY));
         for (String id : d.ids) {
             Challenge c = find(id);
@@ -182,11 +182,13 @@ public final class DailyChallengeManager {
             boolean done = d.claimed.contains(id);
             lines.add(Component.literal((done ? "✔ " : "▸ ") + c.title + " — " + c.description)
                     .withStyle(done ? ChatFormatting.GREEN : ChatFormatting.WHITE));
-            lines.add(Component.literal("   " + progress + "/" + c.target + "   •   +" + c.reward + " poeng")
-                    .withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal("   " + progress + "/" + c.target)
+                    .withStyle(done ? ChatFormatting.GREEN : ChatFormatting.YELLOW)
+                    .append(Component.literal("   •   +" + c.reward + " poeng")
+                            .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
         }
         long completed = d.claimed.size();
-        lines.add(Component.literal("Fullført: " + completed + "/3").withStyle(ChatFormatting.AQUA));
+        lines.add(Component.literal("Fullført: " + completed + "/3").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         lines.add(Component.literal("Fullføringsbonus: " + (d.bonusClaimed ? "MOTTATT" : "+50 poeng"))
                 .withStyle(d.bonusClaimed ? ChatFormatting.GREEN : ChatFormatting.GOLD));
         return lines;

@@ -29,7 +29,7 @@ public final class MapSelectionMenu extends ChestMenu {
         this.viewer = viewer;
         setMapIcon(2, Items.GREEN_CONCRETE, "CLASSIC", ChatFormatting.GREEN,
                 "Gå til Classic-lobbyen");
-        setMapIcon(6, Items.RED_CONCRETE, "XMAS", ChatFormatting.RED,
+        setMapIcon(6, Items.YELLOW_CONCRETE, "XMAS", ChatFormatting.YELLOW,
                 "Gå til Xmas-lobbyen");
     }
 
@@ -39,7 +39,7 @@ public final class MapSelectionMenu extends ChestMenu {
         icon.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(color, ChatFormatting.BOLD));
         icon.set(DataComponents.LORE, new ItemLore(java.util.List.of(
                 Component.literal(description).withStyle(ChatFormatting.GRAY),
-                Component.literal("Klikk for å velge").withStyle(ChatFormatting.YELLOW))));
+                Component.literal("Klikk for å velge").withStyle(ChatFormatting.GREEN))));
         mapContainer.setItem(slot, icon);
     }
 

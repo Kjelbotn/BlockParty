@@ -31,7 +31,7 @@ final class BlockPartyHubMenu extends ChestMenu {
         this.contents = contents;
         // Dark frame and subtle purple accents make the menu read as one intentional GUI.
         ItemStack frame = pane(Items.BLACK_STAINED_GLASS_PANE);
-        ItemStack accent = pane(Items.PURPLE_STAINED_GLASS_PANE);
+        ItemStack accent = pane(Items.LIME_STAINED_GLASS_PANE);
         for (int slot = 0; slot < 54; slot++) {
             int row = slot / 9;
             int col = slot % 9;
@@ -57,7 +57,8 @@ final class BlockPartyHubMenu extends ChestMenu {
 
     private void add(int slot, net.minecraft.world.item.Item item, String name, String lore) {
         ItemStack stack = new ItemStack(item);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name)
+                .withStyle(slot == 49 ? ChatFormatting.GREEN : ChatFormatting.YELLOW, ChatFormatting.BOLD));
         stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal(lore).withStyle(ChatFormatting.GRAY))));
         contents.setItem(slot, stack);
     }
