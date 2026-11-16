@@ -23,7 +23,7 @@ import java.util.UUID;
 /** Persistent per-world BlockParty progression and player records. */
 public final class PlayerStatsManager {
     private static final String FILE_NAME = "blockparty-player-stats.properties";
-    private static final int STATS_SCHEMA_VERSION = 2;
+    private static final int STATS_SCHEMA_VERSION = 3;
     private static final Map<UUID, PlayerRecord> PLAYERS = new HashMap<>();
     private static final int[] RANK_THRESHOLDS = {
             0, 100, 250, 500, 1_000, 2_000, 3_500, 5_000, 7_500,
@@ -39,7 +39,8 @@ public final class PlayerStatsManager {
     private PlayerStatsManager() { }
 
     public record PlayerRecord(UUID uuid, String name, int points, int currentStreak,
-                               int bestStreak, int personalBest, int wins, int mvpAwards) { }
+                               int bestStreak, int personalBest, int wins, int mvpAwards,
+                               int gamesPlayed, int podiums) { }
     public record Rank(String name, int threshold, int nextThreshold) {
         public boolean isMaxRank() { return nextThreshold < 0; }
         public int pointsToNext(int points) { return isMaxRank() ? 0 : Math.max(0, nextThreshold - points); }
@@ -66,7 +67,9 @@ public final class PlayerStatsManager {
                         migrateLegacyRoundStreaks ? 0 : number(properties, prefix + "best_streak"),
                         number(properties, prefix + "personal_best"),
                         number(properties, prefix + "wins"),
-                        number(properties, prefix + "mvp")));
+                        number(properties, prefix + "mvp"),
+                        number(properties, prefix + "games_played"),
+                        number(properties, prefix + "podiums")));
             }
         } catch (Exception exception) {
             BlockPartyMod.LOGGER.error("Could not load BlockParty player stats from {}", file, exception);
@@ -98,6 +101,8 @@ public final class PlayerStatsManager {
             properties.setProperty(prefix + "personal_best", Integer.toString(record.personalBest()));
             properties.setProperty(prefix + "wins", Integer.toString(record.wins()));
             properties.setProperty(prefix + "mvp", Integer.toString(record.mvpAwards()));
+            properties.setProperty(prefix + "games_played", Integer.toString(record.gamesPlayed()));
+            properties.setProperty(prefix + "podiums", Integer.toString(record.podiums()));
         }
         properties.setProperty("schema.version", Integer.toString(STATS_SCHEMA_VERSION));
         properties.setProperty("player.ids", ids.toString());
@@ -121,7 +126,7 @@ public final class PlayerStatsManager {
         int points = old.points() + 1;
         int personalBest = Math.max(old.personalBest(), round);
         PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
-                points, old.currentStreak(), old.bestStreak(), personalBest, old.wins(), old.mvpAwards()));
+                points, old.currentStreak(), old.bestStreak(), personalBest, old.wins(), old.mvpAwards(), old.gamesPlayed(), old.podiums()));
         save(server);
         return points;
     }
@@ -130,7 +135,7 @@ public final class PlayerStatsManager {
         if (amount <= 0) return;
         PlayerRecord old = getOrCreate(player);
         PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
-                old.points() + amount, old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards()));
+                old.points() + amount, old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards(), old.gamesPlayed(), old.podiums()));
         save(server);
     }
 
@@ -138,7 +143,7 @@ public final class PlayerStatsManager {
         PlayerRecord old = PLAYERS.get(uuid);
         if (old == null || old.currentStreak() == 0) return;
         PLAYERS.put(uuid, new PlayerRecord(uuid, old.name(), old.points(), 0, old.bestStreak(),
-                old.personalBest(), old.wins(), old.mvpAwards()));
+                old.personalBest(), old.wins(), old.mvpAwards(), old.gamesPlayed(), old.podiums()));
         save(server);
     }
 
@@ -148,20 +153,20 @@ public final class PlayerStatsManager {
         int winStreak = old.currentStreak() + 1;
         int bestWinStreak = Math.max(old.bestStreak(), winStreak);
         PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
-                old.points(), winStreak, bestWinStreak, old.personalBest(), old.wins() + 1, old.mvpAwards()));
+                old.points(), winStreak, bestWinStreak, old.personalBest(), old.wins() + 1, old.mvpAwards(), old.gamesPlayed(), old.podiums()));
         save(server);
     }
 
     public static synchronized void recordMvp(MinecraftServer server, ServerPlayer player) {
         PlayerRecord old = getOrCreate(player);
         PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(),
-                old.points(), old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards() + 1));
+                old.points(), old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards() + 1, old.gamesPlayed(), old.podiums()));
         save(server);
     }
 
     private static PlayerRecord getOrCreate(ServerPlayer player) {
         return PLAYERS.computeIfAbsent(player.getUUID(), uuid -> new PlayerRecord(uuid,
-                player.getGameProfile().getName(), 0, 0, 0, 0, 0, 0));
+                player.getGameProfile().getName(), 0, 0, 0, 0, 0, 0, 0, 0));
     }
 
     /**
@@ -174,7 +179,7 @@ public final class PlayerStatsManager {
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
             if (online.getGameProfile().getName().equalsIgnoreCase(target)) {
                 PLAYERS.put(online.getUUID(), new PlayerRecord(online.getUUID(), online.getGameProfile().getName(),
-                        0, 0, 0, 0, 0, 0));
+                        0, 0, 0, 0, 0, 0, 0, 0, 0));
                 save(server);
                 return true;
             }
@@ -182,7 +187,7 @@ public final class PlayerStatsManager {
         for (PlayerRecord record : PLAYERS.values()) {
             if (record.name().equalsIgnoreCase(target)) {
                 PLAYERS.put(record.uuid(), new PlayerRecord(record.uuid(), record.name(),
-                        0, 0, 0, 0, 0, 0));
+                        0, 0, 0, 0, 0, 0, 0, 0, 0));
                 save(server);
                 return true;
             }
@@ -190,8 +195,14 @@ public final class PlayerStatsManager {
         return false;
     }
 
+    public static synchronized void recordMatchPlayed(MinecraftServer server, ServerPlayer player, boolean podium) {
+        PlayerRecord old = getOrCreate(player);
+        PLAYERS.put(player.getUUID(), new PlayerRecord(player.getUUID(), player.getGameProfile().getName(), old.points(), old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards(), old.gamesPlayed() + 1, old.podiums() + (podium ? 1 : 0)));
+        save(server);
+    }
+
     public static synchronized int getPoints(UUID uuid) { PlayerRecord r = PLAYERS.get(uuid); return r == null ? 0 : r.points(); }
-    public static synchronized PlayerRecord getRecord(UUID uuid) { return PLAYERS.getOrDefault(uuid, new PlayerRecord(uuid, "Unknown", 0, 0, 0, 0, 0, 0)); }
+    public static synchronized PlayerRecord getRecord(UUID uuid) { return PLAYERS.getOrDefault(uuid, new PlayerRecord(uuid, "Unknown", 0, 0, 0, 0, 0, 0, 0, 0)); }
     public static synchronized String getPlayerName(UUID uuid) { PlayerRecord r = PLAYERS.get(uuid); return r == null ? "Unknown" : r.name(); }
 
     public static Rank getRank(int points) {
