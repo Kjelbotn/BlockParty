@@ -96,6 +96,7 @@ public final class BlockPartyMod {
 
     private void onLivingDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (event.getSource().getEntity() instanceof ServerPlayer killer && killer != player) CosmeticsManager.playKillSound(killer);
         if (ArenaManager.get().handleOutOfBoundsDeath(player)) event.setCanceled(true);
     }
 

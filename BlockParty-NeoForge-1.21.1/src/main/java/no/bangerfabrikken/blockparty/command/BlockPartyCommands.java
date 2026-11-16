@@ -14,7 +14,6 @@ import no.bangerfabrikken.blockparty.arena.Arena;
 import no.bangerfabrikken.blockparty.arena.ArenaGenerator;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
 import no.bangerfabrikken.blockparty.arena.PlayerStatsManager;
-import no.bangerfabrikken.blockparty.arena.CosmeticsManager;
 import no.bangerfabrikken.blockparty.arena.MusicTrackManager;
 import no.bangerfabrikken.blockparty.arena.SchematicArenaGenerator;
 
@@ -97,13 +96,6 @@ public final class BlockPartyCommands {
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(context -> resetStats(context.getSource(),
                                         StringArgumentType.getString(context, "player")))))
-                .then(Commands.literal("cosmetics")
-                        .executes(context -> cosmetics(context.getSource(), null, null))
-                        .then(Commands.literal("buy").then(Commands.argument("id", StringArgumentType.word())
-                                .executes(context -> cosmetics(context.getSource(), "buy", StringArgumentType.getString(context, "id")))))
-                        .then(Commands.literal("equip").then(Commands.argument("id", StringArgumentType.word())
-                                .executes(context -> cosmetics(context.getSource(), "equip", StringArgumentType.getString(context, "id")))))
-                        .then(Commands.literal("clear").executes(context -> cosmetics(context.getSource(), "clear", null))))
                 .then(Commands.literal("rank").executes(context -> rank(context.getSource()))
                 .then(Commands.literal("ranklist").executes(context -> rankList(context.getSource())))
                 .then(Commands.literal("profile").executes(context -> rank(context.getSource())))
@@ -393,28 +385,6 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("BlockParty-statistikken til " + playerName
                 + " er nullstilt: poeng, win streak, best win streak, personlig rekord, seire og MVP-priser.")
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
-        return 1;
-    }
-
-    private static int cosmetics(CommandSourceStack source, String action, String id) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
-        if (action == null) { CosmeticsManager.openShop(player); return 1; }
-        switch (action) {
-            case "buy" -> {
-                if (!CosmeticsManager.buy(source.getServer(), player, id)) {
-                    source.sendFailure(Component.literal("Ukjent kosmetikk. Bruk /bp cosmetics for å se utvalget."));
-                    return 0;
-                }
-            }
-            case "equip" -> {
-                if (!CosmeticsManager.equip(source.getServer(), player, id)) {
-                    source.sendFailure(Component.literal("Ukjent kosmetikk. Bruk /bp cosmetics for å se utvalget."));
-                    return 0;
-                }
-            }
-            case "clear" -> CosmeticsManager.clear(source.getServer(), player);
-            default -> { return 0; }
-        }
         return 1;
     }
 

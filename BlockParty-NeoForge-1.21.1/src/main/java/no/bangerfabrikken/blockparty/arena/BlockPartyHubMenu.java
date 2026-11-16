@@ -45,7 +45,7 @@ final class BlockPartyHubMenu extends ChestMenu {
         add(15, Items.GOLDEN_HELMET, "TOPPLISTE", "Se de 5 beste spillerne i BlockParty.");
         add(29, Items.CLOCK, "DAGLIGE UTFORDRINGER", "Tre daglige oppgaver med personlige poengbelønninger.");
         add(31, Items.COMPASS, "SPILLMODUS", "Velg Classic eller Memory Mode for neste match.");
-        add(33, Items.GOLDEN_BOOTS, "KOSMETIKK", "Kjøp og utstyr auraer med opptjente BlockParty-poeng.");
+        add(33, Items.CHEST, "KOSMETIKK", "Trails, armor, kill sounds, footsteps og dine kosmetikk.");
         add(49, Items.LIME_CONCRETE, "MELD DEG PÅ NESTE MATCH", "Registrer deg til neste BlockParty-match.");
     }
 
