@@ -2607,9 +2607,9 @@ public final class Arena {
                 if (timerTicks <= 0) {
                     Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
-                        broadcast(Component.literal("Nå spilles").withStyle(ChatFormatting.AQUA));
+                        broadcast(Component.literal("Sangtittel:").withStyle(ChatFormatting.AQUA));
                         broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW));
-                        broadcast(Component.literal("Artist").withStyle(ChatFormatting.AQUA));
+                        broadcast(Component.literal("Artist:").withStyle(ChatFormatting.AQUA));
                         broadcast(Component.literal(nowPlaying.artist()).withStyle(ChatFormatting.YELLOW));
                     }
                     beginRound(server);
