@@ -175,6 +175,7 @@ public final class ArenaManager {
 
     /** Cancels fall/void deaths for active players once they cross the arena elimination line. */
     public boolean handleOutOfBoundsDeath(ServerPlayer player) {
+        // Handle death before the normal tick-based bounds elimination can run.
         Arena arena = findArena(player.getUUID());
         return arena != null && arena.handleOutOfBoundsDeath(player);
     }

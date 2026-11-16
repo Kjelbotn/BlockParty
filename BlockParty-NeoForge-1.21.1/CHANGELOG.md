@@ -1,3 +1,11 @@
+# Changelog
+
+## 1.4.44
+- Fixed lobby statistics sidebar refresh on dedicated multiplayer servers.
+- Added a strong camera sway to FULL SOM FAEN alongside vanilla nausea.
+- Kept Pumpkin Vision at exactly 10 seconds.
+- Fixed Lucky Landing being cleared before the fall phase and added a void-death rescue path.
+
 # BlockParty 1.4.36 — Match feedback and lobby profile stats
 
 - Lobby stats include rank, personal record, podium finishes, matches played, wins and points.

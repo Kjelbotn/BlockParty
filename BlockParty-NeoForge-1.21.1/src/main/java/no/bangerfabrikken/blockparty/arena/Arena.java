@@ -350,6 +350,7 @@ public final class Arena {
                 || !isGameInProgress() || pos1 == null) return false;
         double eliminationY = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
         if (player.getY() > eliminationY) return false;
+        if (rescueWithLuckyLanding(player)) return true;
         // A fall/void death event can arrive before the regular arena tick. Revive the
         // player just enough for the normal elimination teleport to complete cleanly.
         if (player.getHealth() <= 0.0F) player.setHealth(1.0F);
@@ -358,10 +359,45 @@ public final class Arena {
         return true;
     }
 
-    /** Fall damage is disabled for active Jump Boost and the one-use LEAP BOOST jump. */
+    /** A single authoritative rescue path shared by void checks and normal eliminations. */
+    private boolean rescueWithLuckyLanding(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        if (!luckyLanding.contains(uuid) || targetColor == null || level == null || floorSnapshot.isEmpty()) {
+            return false;
+        }
+        List<BlockPos> safeTiles = floorSnapshot.entrySet().stream()
+                .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
+                .map(Map.Entry::getKey)
+                .filter(pos -> level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
+                .toList();
+        if (safeTiles.isEmpty()) {
+            safeTiles = floorSnapshot.entrySet().stream()
+                    .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
+                    .map(Map.Entry::getKey)
+                    .toList();
+        }
+        BlockPos rescue = safeTiles.isEmpty() ? lastTargetContactPos.get(uuid)
+                : safeTiles.get(random.nextInt(safeTiles.size()));
+        if (rescue == null) return false;
+
+        luckyLanding.remove(uuid);
+        pendingEliminations.remove(uuid);
+        player.teleportTo(level, rescue.getX() + 0.5D, rescue.getY() + 1.05D,
+                rescue.getZ() + 0.5D, player.getYRot(), player.getXRot());
+        player.fallDistance = 0.0F;
+        player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        if (player.getHealth() <= 0.0F) player.setHealth(1.0F);
+        sendSystemMessage(player, Component.literal("LUCKY LANDING reddet deg!")
+                .withStyle(ChatFormatting.GREEN));
+        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
+        return true;
+    }
+
+    /** Fall damage is disabled for jump power-ups; Lucky Landing rescues on actual elimination. */
     public boolean shouldCancelFallDamage(ServerPlayer player) {
         if (player == null || !alive.contains(player.getUUID()) || !isGameInProgress()) return false;
-        return player.hasEffect(MobEffects.JUMP) || leapFallProtection.contains(player.getUUID());
+        return player.hasEffect(MobEffects.JUMP) || leapFallProtection.contains(player.getUUID())
+                || luckyLanding.contains(player.getUUID());
     }
 
     /** Consume one-use Leap protection after the landing event has been handled. */
@@ -1487,23 +1523,28 @@ public final class Arena {
             ItemStack pumpkinHelmet = new ItemStack(Items.CARVED_PUMPKIN);
             pumpkinHelmet.set(DataComponents.CUSTOM_NAME, Component.literal("PUMPKIN VISION")
                     .withStyle(ChatFormatting.YELLOW));
+            pumpkinHelmet.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
             player.getInventory().armor.set(3, pumpkinHelmet);
             player.getInventory().setChanged();
             player.inventoryMenu.broadcastChanges();
             pumpkinVisionPlayers.add(uuid);
-            pumpkinVisionExpiryTicks.put(uuid, level.getGameTime() + 200L);
+            pumpkinVisionExpiryTicks.put(uuid, level.getGameTime() + 20L * 10L);
         } else if (powerUp == PowerUp.PANIC_MODE) {
             panicModePlayers.add(uuid);
             PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
                     PowerUpVisualPayload.START_CAMERA_SHAKE, 80));
+        } else if (powerUp == PowerUp.FULL_SOM_FAEN) {
+            player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 20 * 12, 0, false, true, true));
+            roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(MobEffects.CONFUSION);
+            PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
+                    PowerUpVisualPayload.START_INTENSE_CAMERA_SHAKE, 20 * 12));
         } else if (player.hasEffect(effect)) {
             activated = false;
             sendSystemMessage(player, Component.literal("Du har allerede denne effekten. Beaconen er brukt opp.")
                     .withStyle(ChatFormatting.YELLOW));
         } else {
             int durationTicks = powerUp == PowerUp.NIGHT_VISION ? 20 * 10
-                    : powerUp == PowerUp.BLACKOUT ? 20 * 5
-                    : powerUp == PowerUp.FULL_SOM_FAEN ? 20 * 12 : 20 * 60;
+                    : powerUp == PowerUp.BLACKOUT ? 20 * 5 : 20 * 60;
             player.addEffect(new MobEffectInstance(effect, durationTicks, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(effect);
             if (powerUp == PowerUp.SPEED_UPGRADE || powerUp == PowerUp.SUPER_JUMP) {
@@ -1721,6 +1762,7 @@ public final class Arena {
 
         scannerTicks.clear();
         leapFallProtection.clear();
+        // Lucky Landing is intentionally retained until the FALL phase resolves.
         // LEAP BOOST feathers intentionally remain in inventory for a later round.
     }
 
@@ -2520,6 +2562,7 @@ public final class Arena {
         if (scoreboardTick % 20 == 0) {
             tickLobbyDanceFloor();
             refreshActiveLobbyStatsSidebars(server);
+            refreshLobbyStatsSidebarForNearbyVisitors(server);
         }
         if ("xmas".equals(id) && lobbySet && scoreboardTick % 4 == 0) tickXmasSnow(server);
         enforceBlockPartyNeeds(server);
@@ -3055,6 +3098,21 @@ public final class Arena {
         for (UUID uuid : new HashSet<>(ACTIVE_LOBBY_STATS_VIEWERS)) {
             ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
             if (viewer != null && !players.contains(uuid)) showLobbyStatsSidebar(viewer);
+        }
+    }
+
+    private void refreshLobbyStatsSidebarForNearbyVisitors(MinecraftServer server) {
+        if (server == null || !lobbySet) return;
+        for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
+            if (players.contains(viewer.getUUID()) || !isInsideLobbyArea(viewer)) continue;
+            if (!ACTIVE_LOBBY_STATS_VIEWERS.contains(viewer.getUUID())) {
+                showLobbyStatsSidebar(viewer);
+            } else {
+                Objective objective = lobbyStatsObjectives.get(viewer.getUUID());
+                if (objective != null) {
+                    viewer.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
+                }
+            }
         }
     }
 
@@ -3801,35 +3859,7 @@ public final class Arena {
             pendingEliminations.remove(uuid);
             return;
         }
-        if (luckyLanding.remove(uuid)) {
-            pendingEliminations.remove(uuid);
-            if (targetColor != null) {
-                List<BlockPos> safe = floorSnapshot.entrySet().stream()
-                        .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
-                        .map(Map.Entry::getKey).filter(pos -> level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
-                        .toList();
-                // If the floor is crowded or another mod temporarily occupies the landing
-                // space, still rescue onto a target tile rather than consuming the power-up.
-                if (safe.isEmpty()) {
-                    safe = floorSnapshot.entrySet().stream()
-                            .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
-                            .map(Map.Entry::getKey).toList();
-                }
-                BlockPos rescue = safe.isEmpty() ? lastTargetContactPos.get(uuid)
-                        : safe.get(random.nextInt(safe.size()));
-                if (rescue != null) {
-                    player.teleportTo(level, rescue.getX() + 0.5, rescue.getY() + 1.05, rescue.getZ() + 0.5,
-                            player.getYRot(), player.getXRot());
-                    player.fallDistance = 0.0F;
-                    player.setDeltaMovement(0.0D, 0.0D, 0.0D);
-                    pendingEliminations.remove(uuid);
-                    sendSystemMessage(player, Component.literal("LUCKY LANDING reddet deg!")
-                            .withStyle(ChatFormatting.GREEN));
-                    playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
-                    return;
-                }
-            }
-        }
+        if (rescueWithLuckyLanding(player)) return;
         if (!alive.contains(uuid)) return;
         clearPlayerRoundPowerUps(player);
         alive.remove(uuid);
