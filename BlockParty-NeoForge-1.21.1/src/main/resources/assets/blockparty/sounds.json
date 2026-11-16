@@ -61,5 +61,14 @@
         "volume": 0.52
       }
     ]
+  },
+  "yay": {
+    "subtitle": "subtitles.blockparty.yay",
+    "sounds": [
+      {
+        "name": "blockparty:yay",
+        "volume": 0.75
+      }
+    ]
   }
 }

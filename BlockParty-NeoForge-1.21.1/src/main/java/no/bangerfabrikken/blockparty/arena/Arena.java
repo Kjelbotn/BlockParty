@@ -49,6 +49,7 @@ import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.minecraft.world.scores.ScoreAccess;
 import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RedstoneLampBlock;
@@ -85,7 +86,7 @@ public final class Arena {
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
-        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE
+        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -237,6 +238,7 @@ public final class Arena {
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
+    private final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
@@ -466,6 +468,7 @@ public final class Arena {
         applyVisualUpgrade();
         teleportToLobby(player);
         ensureLobbyItems(player);
+        showLobbyStatsSidebar(player);
         if (firstLobbyEntry && "xmas".equals(id)) {
             sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
         }
@@ -673,6 +676,7 @@ public final class Arena {
         phase = Phase.COUNTDOWN;
         timerTicks = START_COUNTDOWN_TICKS;
         hideLobbyLeaderboard();
+        hideLobbyStatsSidebar(server);
         broadcast(Component.literal("BlockParty starter om 10 sekunder!").withStyle(ChatFormatting.GREEN));
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
     }
@@ -1367,7 +1371,7 @@ public final class Arena {
                 : powerRoll < 88 ? PowerUp.COLOR_RAIN
                 : powerRoll < 91 ? PowerUp.BLACKOUT
                 : powerRoll < 94 ? PowerUp.FAKE_COLOR
-                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : PowerUp.PANIC_MODE;
+                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : powerRoll < 99 ? PowerUp.PANIC_MODE : PowerUp.FULL_SOM_FAEN;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1386,6 +1390,7 @@ public final class Arena {
             case FAKE_COLOR -> label = "FAKE COLOR";
             case PUMPKIN_VISION -> label = "PUMPKIN VISION";
             case PANIC_MODE -> label = "PANIC MODE";
+            case FULL_SOM_FAEN -> { effect = MobEffects.CONFUSION; label = "FULL SOM FAEN!"; }
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -1487,7 +1492,8 @@ public final class Arena {
                     .withStyle(ChatFormatting.YELLOW));
         } else {
             int durationTicks = powerUp == PowerUp.NIGHT_VISION ? 20 * 10
-                    : powerUp == PowerUp.BLACKOUT ? 20 * 5 : 20 * 60;
+                    : powerUp == PowerUp.BLACKOUT ? 20 * 5
+                    : powerUp == PowerUp.FULL_SOM_FAEN ? 20 * 12 : 20 * 60;
             player.addEffect(new MobEffectInstance(effect, durationTicks, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(effect);
             if (powerUp == PowerUp.SPEED_UPGRADE || powerUp == PowerUp.SUPER_JUMP) {
@@ -1500,7 +1506,7 @@ public final class Arena {
             powerupsCollected.merge(uuid, 1, Integer::sum);
             DailyChallengeManager.recordPowerup(level.getServer(), player);
             boolean penalty = switch (powerUp) {
-                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE -> true;
+                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN -> true;
                 default -> false;
             };
             // Positive pickups get a personal confirmation. Penalties already have
@@ -1512,7 +1518,13 @@ public final class Arena {
             broadcast(Component.literal(penalty ? player.getName().getString() + " fikk " + label + " som straff!" : player.getName().getString() + " plukket opp " + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.GREEN, ChatFormatting.BOLD));
         }
-        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
+        if (activated) {
+            level.sendParticles(player, ParticleTypes.HAPPY_VILLAGER, false,
+                    player.getX(), player.getY() + 1.0D, player.getZ(), 10, 0.28D, 0.35D, 0.28D, 0.02D);
+            level.sendParticles(player, ParticleTypes.END_ROD, false,
+                    player.getX(), player.getY() + 1.1D, player.getZ(), 5, 0.22D, 0.28D, 0.22D, 0.015D);
+            playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.75F, 1.12F);
+        }
         updateScoreboard(level.getServer());
         return true;
     }
@@ -1738,6 +1750,18 @@ public final class Arena {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) {
                 player.connection.send(new ClientboundSoundPacket(sound, source, player.getX(), player.getY(), player.getZ(), volume, pitch, random.nextLong()));
+            }
+        }
+    }
+
+    /** Play the floor-reveal cue only for players who are still alive in the match. */
+    private void playSoundToAlive(Holder<SoundEvent> sound, float volume, float pitch) {
+        if (level == null) return;
+        for (UUID uuid : alive) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                player.connection.send(new ClientboundSoundPacket(sound, SoundSource.PLAYERS,
+                        player.getX(), player.getY(), player.getZ(), volume, pitch, random.nextLong()));
             }
         }
     }
@@ -2418,8 +2442,10 @@ public final class Arena {
     /** Colourful firework-like particle bursts around podium finishers for five seconds. */
     private void tickPodiumFireworks() {
         if (podiumFireworksTicks <= 0 || level == null || podiumFreezePositions.isEmpty()) return;
-        if (podiumFireworksTicks % 5 == 0) {
+        if (podiumFireworksTicks % 20 == 0) {
             for (BlockPos spawn : new ArrayList<>(podiumFreezePositions.values())) {
+                level.playSound(null, spawn, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.AMBIENT, 0.8F, 0.9F + random.nextFloat() * 0.25F);
+                level.playSound(null, spawn, SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.AMBIENT, 0.65F, 0.85F + random.nextFloat() * 0.3F);
                 for (int burst = 0; burst < 3; burst++) {
                     double angle = random.nextDouble() * Math.PI * 2.0;
                     double radius = 0.8 + random.nextDouble() * 1.5;
@@ -2581,8 +2607,9 @@ public final class Arena {
                 if (timerTicks <= 0) {
                     Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
-                        broadcast(Component.literal("Nå spilles: " + nowPlaying.name() + " av " + nowPlaying.artist() + "!")
-                                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+                        broadcast(Component.literal("♫ NÅ SPILLES ♫").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                        broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                                .append(Component.literal(" — " + nowPlaying.artist()).withStyle(ChatFormatting.GRAY)));
                     }
                     beginRound(server);
                 }
@@ -2596,7 +2623,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.63F;
+                        default -> 0.5946F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2667,7 +2694,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.63F;
+                        default -> 0.5946F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2766,6 +2793,23 @@ public final class Arena {
         clearActivePowerUps(server);
         removeActiveBeacon();
         round++;
+        String milestone = switch (round) {
+            case 5 -> "Godt i gang!";
+            case 10 -> "Halvveis til mål!";
+            case 15 -> "Nå begynner det å bli alvor!";
+            case 20 -> "Det lukter finale!";
+            default -> null;
+        };
+        if (milestone != null) {
+            Component notice = Component.literal(milestone).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
+            for (UUID uuid : alive) {
+                ServerPlayer dancer = server.getPlayerList().getPlayer(uuid);
+                if (dancer != null) dancer.displayClientMessage(notice, true);
+            }
+        }
+        int currentRoundTicks = getRoundDurationTicks(round);
+        int previousRoundTicks = round > 1 ? getRoundDurationTicks(round - 1) : currentRoundTicks;
+        if (currentRoundTicks < previousRoundTicks) broadcast(Component.literal("FARTEN ØKER! Neste runde varer " + formatSeconds(currentRoundTicks) + " sekunder.").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         lastTargetContactTick.clear();
         lastTargetContactPos.clear();
         Set<DyeColor> roundColors = randomizeFloorForRound();
@@ -2773,6 +2817,7 @@ public final class Arena {
             declareWinner();
             return;
         }
+        playSoundToAlive(ModSounds.YAY, 0.75F, 1.0F);
 
         // Apply any queued COLOR RAIN only now, on the freshly generated next-round floor.
         prepareColorRainForNextRound();
@@ -2974,6 +3019,59 @@ public final class Arena {
         for (UUID uuid : players) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) player.displayClientMessage(hud, true);
+        }
+    }
+
+    private void showLobbyStatsSidebar(ServerPlayer player) {
+        if (player == null || level == null || player.getServer() == null) return;
+        Scoreboard scoreboard = player.getServer().getScoreboard();
+        Objective objective = lobbyStatsObjectives.get(player.getUUID());
+        if (objective == null) {
+            String objectiveId = "bp_ls_" + player.getUUID().toString().replace("-", "").substring(0, 8);
+            objective = scoreboard.getObjective(objectiveId);
+            if (objective == null) {
+                objective = scoreboard.addObjective(objectiveId, ObjectiveCriteria.DUMMY,
+                        Component.literal("Statistikk").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
+                        ObjectiveCriteria.RenderType.INTEGER, false, null);
+            }
+            lobbyStatsObjectives.put(player.getUUID(), objective);
+        }
+        PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
+        PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
+        String[] names = {"bp_lobby_rank", "bp_lobby_best", "bp_lobby_podium", "bp_lobby_games", "bp_lobby_wins", "bp_lobby_points"};
+        Component[] rows = {
+                Component.literal("Rank: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(rank.name()).withStyle(PlayerStatsManager.getRankColor(rank))),
+                Component.literal("Rekord: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(record.personalBest() + "/" + MAX_ROUNDS).withStyle(ChatFormatting.AQUA)),
+                Component.literal("Pallplasser: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.podiums())).withStyle(ChatFormatting.GOLD)),
+                Component.literal("Kamper: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.gamesPlayed())).withStyle(ChatFormatting.AQUA)),
+                Component.literal("Seire: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.YELLOW)),
+                Component.literal("Poeng: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.GREEN))
+        };
+        for (int i = 0; i < names.length; i++) {
+            ScoreHolder holder = ScoreHolder.forNameOnly(names[i]);
+            ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, objective);
+            score.set(names.length - i);
+            String teamId = "bp" + player.getUUID().toString().replace("-", "").substring(0, 8) + i;
+            PlayerTeam team = scoreboard.getPlayerTeam(teamId);
+            if (team == null) team = scoreboard.addPlayerTeam(teamId);
+            team.setPlayerPrefix(rows[i]);
+            scoreboard.addPlayerToTeam(names[i], team);
+        }
+        // Every player gets a distinct objective, so their personal values never overwrite
+        // another player's sidebar. Send the display packet only to this player.
+        player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
+    }
+
+    private void hideLobbyStatsSidebar(MinecraftServer server) {
+        if (server == null) return;
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
         }
     }
 
@@ -3695,14 +3793,19 @@ public final class Arena {
         player.setNoGravity(false);
         player.setDeltaMovement(0.0, 0.0, 0.0);
         player.fallDistance = 0.0F;
-        player.sendSystemMessage(Component.literal("Du tapte konkurransen. Sett deg godt til rette og følg med på de andre!")
-                .withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Du er nå en spectator!")
+                .withStyle(ChatFormatting.AQUA));
         playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.55F, 1.0F);
     }
 
     private void finishRound() {
         // Each player who survives this round earns one permanent world-wide point.
         for (UUID uuid : alive) {
+            ServerPlayer survivor = level.getServer().getPlayerList().getPlayer(uuid);
+            if (survivor != null) {
+                // The supplied yay.ogg is absent from repository assets; use a vanilla positive cue until it is added.
+                level.playSound(null, survivor.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.72F, 1.18F);
+            }
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) {
@@ -3783,6 +3886,8 @@ public final class Arena {
         // A win streak counts consecutive match victories, never rounds survived.
         // Every participant other than the declared winner has lost this match.
         for (UUID participantId : players) {
+            ServerPlayer participant = level.getServer().getPlayerList().getPlayer(participantId);
+            if (participant != null) PlayerStatsManager.recordMatchPlayed(level.getServer(), participant, lastPodiumPlayers.contains(participantId));
             if (winner == null || !participantId.equals(winner.getUUID())) {
                 PlayerStatsManager.breakStreak(level.getServer(), participantId);
             }
@@ -3832,11 +3937,28 @@ public final class Arena {
 
         for (UUID uuid : players) {
             ServerPlayer participant = level.getServer().getPlayerList().getPlayer(uuid);
-            if (participant != null) participant.sendSystemMessage(Component.literal("STATISTIKK  •  "
-                    + points.getOrDefault(uuid, 0) + " runder overlevd  •  "
-                    + powerupsCollected.getOrDefault(uuid, 0) + " Power-Ups  •  "
-                    + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
-                    .withStyle(ChatFormatting.YELLOW));
+            if (participant == null) continue;
+            boolean isWinner = winner != null && uuid.equals(winner.getUUID());
+            int placement = lastPodiumPlayers.indexOf(uuid) + 1;
+            String placeText = placement == 1 ? "1st plass" : placement == 2 ? "2nd plass"
+                    : placement == 3 ? "3rd plass" : (placement > 3 ? placement + ". plass" : "Fullført");
+            participant.sendSystemMessage(Component.literal("━━━━━━━━━━  ").withStyle(ChatFormatting.DARK_GRAY)
+                    .append(Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                    .append(Component.literal("  ━━━━━━━━━━").withStyle(ChatFormatting.DARK_GRAY)));
+            participant.sendSystemMessage(Component.literal(isWinner ? "SEIER!" : "MATCH FERDIG")
+                    .withStyle(isWinner ? ChatFormatting.GREEN : ChatFormatting.YELLOW, ChatFormatting.BOLD));
+            participant.sendSystemMessage(Component.literal(participant.getGameProfile().getName())
+                    .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+            participant.sendSystemMessage(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY));
+            participant.sendSystemMessage(Component.literal("Runder overlevd: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(Integer.toString(points.getOrDefault(uuid, 0))).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)));
+            participant.sendSystemMessage(Component.literal("Power-Ups samlet: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(Integer.toString(powerupsCollected.getOrDefault(uuid, 0))).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+            participant.sendSystemMessage(Component.literal("Plassering: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(placeText).withStyle(placement == 1 ? ChatFormatting.GOLD : ChatFormatting.YELLOW, ChatFormatting.BOLD)));
+            participant.sendSystemMessage(Component.literal("Tid: " + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
+                    .withStyle(ChatFormatting.GRAY));
+            participant.sendSystemMessage(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY));
         }
         phase = Phase.FINISHING;
         timerTicks = 120;
@@ -3880,6 +4002,7 @@ public final class Arena {
             player.getInventory().setItem(0, createJoinGameItem());
             player.getInventory().setItem(6, createHubItem());
             teleportToLobby(player);
+            showLobbyStatsSidebar(player);
             if ("xmas".equals(id)) {
                 sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
             }
@@ -3897,7 +4020,7 @@ public final class Arena {
 
         // Start the 20-second podium display window only after all participants have returned.
         podiumDisplayTicks = matchWinnerId != null && !"xmas".equals(id) && !lastPodiumPlayers.isEmpty() ? 20 * 20 : 0;
-        podiumFireworksTicks = matchWinnerId != null && !"xmas".equals(id) && !podiumFreezePositions.isEmpty() ? 100 : 0;
+        podiumFireworksTicks = matchWinnerId != null && !"xmas".equals(id) && !podiumFreezePositions.isEmpty() ? 200 : 0;
 
         alive.clear();
         eliminatedPlayers.clear();
