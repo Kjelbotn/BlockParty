@@ -85,7 +85,7 @@ public final class Arena {
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
-        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE
+        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -237,6 +237,7 @@ public final class Arena {
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
+    private Objective lobbyStatsObjective;
     private int scoreboardTick;
     private int djBeatTicks;
     private int djPulseTicks;
@@ -466,6 +467,7 @@ public final class Arena {
         applyVisualUpgrade();
         teleportToLobby(player);
         ensureLobbyItems(player);
+        showLobbyStatsSidebar(player);
         if (firstLobbyEntry && "xmas".equals(id)) {
             sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
         }
@@ -673,6 +675,7 @@ public final class Arena {
         phase = Phase.COUNTDOWN;
         timerTicks = START_COUNTDOWN_TICKS;
         hideLobbyLeaderboard();
+        hideLobbyStatsSidebar(server);
         broadcast(Component.literal("BlockParty starter om 10 sekunder!").withStyle(ChatFormatting.GREEN));
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
     }
@@ -1367,7 +1370,7 @@ public final class Arena {
                 : powerRoll < 88 ? PowerUp.COLOR_RAIN
                 : powerRoll < 91 ? PowerUp.BLACKOUT
                 : powerRoll < 94 ? PowerUp.FAKE_COLOR
-                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : PowerUp.PANIC_MODE;
+                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : powerRoll < 99 ? PowerUp.PANIC_MODE : PowerUp.FULL_SOM_FAEN;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1386,6 +1389,7 @@ public final class Arena {
             case FAKE_COLOR -> label = "FAKE COLOR";
             case PUMPKIN_VISION -> label = "PUMPKIN VISION";
             case PANIC_MODE -> label = "PANIC MODE";
+            case FULL_SOM_FAEN -> { effect = MobEffects.NAUSEA; label = "FULL SOM FAEN!"; }
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -1487,7 +1491,8 @@ public final class Arena {
                     .withStyle(ChatFormatting.YELLOW));
         } else {
             int durationTicks = powerUp == PowerUp.NIGHT_VISION ? 20 * 10
-                    : powerUp == PowerUp.BLACKOUT ? 20 * 5 : 20 * 60;
+                    : powerUp == PowerUp.BLACKOUT ? 20 * 5
+                    : powerUp == PowerUp.FULL_SOM_FAEN ? 20 * 12 : 20 * 60;
             player.addEffect(new MobEffectInstance(effect, durationTicks, amplifier, false, true, true));
             roundPowerupEffects.computeIfAbsent(uuid, ignored -> new HashSet<>()).add(effect);
             if (powerUp == PowerUp.SPEED_UPGRADE || powerUp == PowerUp.SUPER_JUMP) {
@@ -1500,7 +1505,7 @@ public final class Arena {
             powerupsCollected.merge(uuid, 1, Integer::sum);
             DailyChallengeManager.recordPowerup(level.getServer(), player);
             boolean penalty = switch (powerUp) {
-                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE -> true;
+                case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN -> true;
                 default -> false;
             };
             // Positive pickups get a personal confirmation. Penalties already have
@@ -1512,7 +1517,13 @@ public final class Arena {
             broadcast(Component.literal(penalty ? player.getName().getString() + " fikk " + label + " som straff!" : player.getName().getString() + " plukket opp " + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.GREEN, ChatFormatting.BOLD));
         }
-        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.65F, 1.0F);
+        if (activated) {
+            level.sendParticles(player, ParticleTypes.HAPPY_VILLAGER, false,
+                    player.getX(), player.getY() + 1.0D, player.getZ(), 10, 0.28D, 0.35D, 0.28D, 0.02D);
+            level.sendParticles(player, ParticleTypes.END_ROD, false,
+                    player.getX(), player.getY() + 1.1D, player.getZ(), 5, 0.22D, 0.28D, 0.22D, 0.015D);
+            playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.75F, 1.12F);
+        }
         updateScoreboard(level.getServer());
         return true;
     }
@@ -2766,6 +2777,20 @@ public final class Arena {
         clearActivePowerUps(server);
         removeActiveBeacon();
         round++;
+        String milestone = switch (round) {
+            case 5 -> "Godt i gang!";
+            case 10 -> "Halvveis til mål!";
+            case 15 -> "Nå begynner det å bli alvor!";
+            case 20 -> "Det lukter finale!";
+            default -> null;
+        };
+        if (milestone != null) {
+            Component notice = Component.literal(milestone).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
+            for (UUID uuid : alive) {
+                ServerPlayer dancer = server.getPlayerList().getPlayer(uuid);
+                if (dancer != null) dancer.displayClientMessage(notice, true);
+            }
+        }
         lastTargetContactTick.clear();
         lastTargetContactPos.clear();
         Set<DyeColor> roundColors = randomizeFloorForRound();
@@ -2975,6 +3000,52 @@ public final class Arena {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) player.displayClientMessage(hud, true);
         }
+    }
+
+    private void showLobbyStatsSidebar(ServerPlayer player) {
+        if (player == null || level == null || player.getServer() == null) return;
+        Scoreboard scoreboard = player.getServer().getScoreboard();
+        if (lobbyStatsObjective == null) {
+            lobbyStatsObjective = scoreboard.getObjective("bp_lobby_stats");
+            if (lobbyStatsObjective == null) {
+                lobbyStatsObjective = scoreboard.addObjective("bp_lobby_stats", ObjectiveCriteria.DUMMY,
+                        Component.literal("Statistikk").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
+                        ObjectiveCriteria.RenderType.INTEGER, false, null);
+            }
+        }
+        PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
+        PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
+        String[] names = {"bp_lobby_rank", "bp_lobby_best", "bp_lobby_wins", "bp_lobby_points"};
+        Component[] rows = {
+                Component.literal("Rank: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(rank.name()).withStyle(PlayerStatsManager.getRankColor(rank))),
+                Component.literal("Rekord: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(record.personalBest() + "/" + MAX_ROUNDS).withStyle(ChatFormatting.AQUA)),
+                Component.literal("Seire: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.YELLOW)),
+                Component.literal("Poeng: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.GREEN))
+        };
+        for (int i = 0; i < names.length; i++) {
+            ScoreHolder holder = ScoreHolder.forNameOnly(names[i]);
+            ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, lobbyStatsObjective);
+            score.set(i + 1);
+            score.displayName(rows[i]);
+        }
+        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, lobbyStatsObjective);
+        for (ServerPlayer online : player.getServer().getPlayerList().getPlayers()) {
+            if (!online.getUUID().equals(player.getUUID())) {
+                online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+            }
+        }
+    }
+
+    private void hideLobbyStatsSidebar(MinecraftServer server) {
+        if (server == null) return;
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+        }
+        if (lobbyStatsObjective != null) server.getScoreboard().setDisplayObjective(DisplaySlot.SIDEBAR, null);
     }
 
     private void showScoreboard(MinecraftServer server) {
@@ -3695,14 +3766,19 @@ public final class Arena {
         player.setNoGravity(false);
         player.setDeltaMovement(0.0, 0.0, 0.0);
         player.fallDistance = 0.0F;
-        player.sendSystemMessage(Component.literal("Du tapte konkurransen. Sett deg godt til rette og følg med på de andre!")
-                .withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("Du er nå en spectator!")
+                .withStyle(ChatFormatting.AQUA));
         playSound(ModSounds.ELIMINATION, SoundSource.PLAYERS, 0.55F, 1.0F);
     }
 
     private void finishRound() {
         // Each player who survives this round earns one permanent world-wide point.
         for (UUID uuid : alive) {
+            ServerPlayer survivor = level.getServer().getPlayerList().getPlayer(uuid);
+            if (survivor != null) {
+                level.playSound(null, survivor.blockPosition(), ModSounds.YAY.get(),
+                        SoundSource.PLAYERS, 0.72F, 1.0F);
+            }
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) {
@@ -3832,11 +3908,28 @@ public final class Arena {
 
         for (UUID uuid : players) {
             ServerPlayer participant = level.getServer().getPlayerList().getPlayer(uuid);
-            if (participant != null) participant.sendSystemMessage(Component.literal("STATISTIKK  •  "
-                    + points.getOrDefault(uuid, 0) + " runder overlevd  •  "
-                    + powerupsCollected.getOrDefault(uuid, 0) + " Power-Ups  •  "
-                    + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
-                    .withStyle(ChatFormatting.YELLOW));
+            if (participant == null) continue;
+            boolean isWinner = winner != null && uuid.equals(winner.getUUID());
+            int placement = lastPodiumPlayers.indexOf(uuid) + 1;
+            String placeText = placement == 1 ? "1st plass" : placement == 2 ? "2nd plass"
+                    : placement == 3 ? "3rd plass" : (placement > 3 ? placement + ". plass" : "Fullført");
+            participant.sendSystemMessage(Component.literal("━━━━━━━━━━  ").withStyle(ChatFormatting.DARK_GRAY)
+                    .append(Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                    .append(Component.literal("  ━━━━━━━━━━").withStyle(ChatFormatting.DARK_GRAY)));
+            participant.sendSystemMessage(Component.literal(isWinner ? "SEIER!" : "MATCH FERDIG")
+                    .withStyle(isWinner ? ChatFormatting.GREEN : ChatFormatting.YELLOW, ChatFormatting.BOLD));
+            participant.sendSystemMessage(Component.literal(participant.getGameProfile().getName())
+                    .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+            participant.sendSystemMessage(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY));
+            participant.sendSystemMessage(Component.literal("Runder overlevd: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(Integer.toString(points.getOrDefault(uuid, 0))).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)));
+            participant.sendSystemMessage(Component.literal("Power-Ups samlet: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(Integer.toString(powerupsCollected.getOrDefault(uuid, 0))).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+            participant.sendSystemMessage(Component.literal("Plassering: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(placeText).withStyle(placement == 1 ? ChatFormatting.GOLD : ChatFormatting.YELLOW, ChatFormatting.BOLD)));
+            participant.sendSystemMessage(Component.literal("Tid: " + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
+                    .withStyle(ChatFormatting.GRAY));
+            participant.sendSystemMessage(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY));
         }
         phase = Phase.FINISHING;
         timerTicks = 120;
