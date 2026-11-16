@@ -2619,7 +2619,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.5946F
+                        default -> 0.5946F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
@@ -2690,7 +2690,7 @@ public final class Arena {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
-                        default -> 0.5946F
+                        default -> 0.5946F;
                     };
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, pitch);
                 }
