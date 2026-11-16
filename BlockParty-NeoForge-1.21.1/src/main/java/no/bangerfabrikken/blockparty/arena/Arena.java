@@ -49,6 +49,7 @@ import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.minecraft.world.scores.ScoreAccess;
 import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RedstoneLampBlock;
@@ -1389,7 +1390,7 @@ public final class Arena {
             case FAKE_COLOR -> label = "FAKE COLOR";
             case PUMPKIN_VISION -> label = "PUMPKIN VISION";
             case PANIC_MODE -> label = "PANIC MODE";
-            case FULL_SOM_FAEN -> { effect = MobEffects.NAUSEA; label = "FULL SOM FAEN!"; }
+            case FULL_SOM_FAEN -> { effect = MobEffects.CONFUSION; label = "FULL SOM FAEN!"; }
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -3043,7 +3044,11 @@ public final class Arena {
             ScoreHolder holder = ScoreHolder.forNameOnly(names[i]);
             ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, objective);
             score.set(names.length - i);
-            score.displayName(rows[i]);
+            String teamId = "bp" + player.getUUID().toString().replace("-", "").substring(0, 8) + i;
+            PlayerTeam team = scoreboard.getPlayerTeam(teamId);
+            if (team == null) team = scoreboard.addPlayerTeam(teamId);
+            team.setPlayerPrefix(rows[i]);
+            scoreboard.addPlayerToTeam(names[i], team);
         }
         // Every player gets a distinct objective, so their personal values never overwrite
         // another player's sidebar. Send the display packet only to this player.
