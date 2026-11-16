@@ -3876,10 +3876,10 @@ public final class Arena {
                 || player.serverLevel() != level) return null;
         AABB bounds = player.getBoundingBox();
         if (bounds.minY < pos1.getY() + 0.55D || bounds.minY > pos1.getY() + 2.5D) return null;
-        int minX = Mth.floor(bounds.minX + 1.0E-5D);
-        int maxX = Mth.floor(bounds.maxX - 1.0E-5D);
-        int minZ = Mth.floor(bounds.minZ + 1.0E-5D);
-        int maxZ = Mth.floor(bounds.maxZ - 1.0E-5D);
+        int minX = (int) Math.floor(bounds.minX + 1.0E-5D);
+        int maxX = (int) Math.floor(bounds.maxX - 1.0E-5D);
+        int minZ = (int) Math.floor(bounds.minZ + 1.0E-5D);
+        int maxZ = (int) Math.floor(bounds.maxZ - 1.0E-5D);
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 BlockPos tile = new BlockPos(x, pos1.getY(), z);
