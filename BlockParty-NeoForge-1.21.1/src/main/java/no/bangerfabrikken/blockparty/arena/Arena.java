@@ -239,7 +239,7 @@ public final class Arena {
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
-    private final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
+    private static final Map<UUID, Objective> lobbyStatsObjectives = new HashMap<>();
     private static final Set<UUID> ACTIVE_LOBBY_STATS_VIEWERS = new HashSet<>();
     private int scoreboardTick;
     private int djBeatTicks;
@@ -3198,9 +3198,16 @@ public final class Arena {
         if (scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR) == sidebarObjective) {
             scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, null);
         }
-        // No player should retain a sidebar after the match ends.
+        // Clear the match sidebar, then restore private lobby sidebars for visitors
+        // who were not participants in this arena's match.
         for (ServerPlayer online : server.getPlayerList().getPlayers()) {
             online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+            if (ACTIVE_LOBBY_STATS_VIEWERS.contains(online.getUUID())) {
+                Objective lobbyObjective = lobbyStatsObjectives.get(online.getUUID());
+                if (lobbyObjective != null) {
+                    online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, lobbyObjective));
+                }
+            }
         }
         sidebarObjective = null;
         previousSidebarObjective = null;
