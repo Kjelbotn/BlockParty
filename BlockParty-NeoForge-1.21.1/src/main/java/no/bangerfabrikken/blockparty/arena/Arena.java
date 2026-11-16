@@ -2607,9 +2607,10 @@ public final class Arena {
                 if (timerTicks <= 0) {
                     Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
-                        broadcast(Component.literal("♫ NÅ SPILLES ♫").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-                        broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
-                                .append(Component.literal(" — " + nowPlaying.artist()).withStyle(ChatFormatting.GRAY)));
+                        broadcast(Component.literal("Nå spilles").withStyle(ChatFormatting.AQUA));
+                        broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW));
+                        broadcast(Component.literal("Artist").withStyle(ChatFormatting.AQUA));
+                        broadcast(Component.literal(nowPlaying.artist()).withStyle(ChatFormatting.YELLOW));
                     }
                     beginRound(server);
                 }
@@ -3031,7 +3032,7 @@ public final class Arena {
             objective = scoreboard.getObjective(objectiveId);
             if (objective == null) {
                 objective = scoreboard.addObjective(objectiveId, ObjectiveCriteria.DUMMY,
-                        Component.literal("Statistikk").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD),
+                        Component.literal("Statistics").withStyle(ChatFormatting.AQUA),
                         ObjectiveCriteria.RenderType.INTEGER, false, null);
             }
             lobbyStatsObjectives.put(player.getUUID(), objective);
@@ -3054,14 +3055,12 @@ public final class Arena {
                         .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.GREEN))
         };
         for (int i = 0; i < names.length; i++) {
-            ScoreHolder holder = ScoreHolder.forNameOnly(names[i]);
-            ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, objective);
+            ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(names[i]), objective);
             score.set(names.length - i);
-            String teamId = "bp" + player.getUUID().toString().replace("-", "").substring(0, 8) + i;
-            PlayerTeam team = scoreboard.getPlayerTeam(teamId);
-            if (team == null) team = scoreboard.addPlayerTeam(teamId);
-            team.setPlayerPrefix(rows[i]);
-            scoreboard.addPlayerToTeam(names[i], team);
+            // Render the complete Component as the row itself. Team prefixes leave
+            // the fake score-holder key visible on some clients and can corrupt the sidebar.
+            score.display(rows[i]);
+            score.numberFormatOverride(BlankFormat.INSTANCE);
         }
         // Every player gets a distinct objective, so their personal values never overwrite
         // another player's sidebar. Send the display packet only to this player.
