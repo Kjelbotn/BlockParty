@@ -25,7 +25,6 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> BEACON_SPAWN = sound("beacon_spawn");
     public static final DeferredHolder<SoundEvent, SoundEvent> POWERUP_PICKUP = sound("powerup_pickup");
     public static final DeferredHolder<SoundEvent, SoundEvent> VICTORY = sound("victory");
-    public static final DeferredHolder<SoundEvent, SoundEvent> YAY = sound("yay");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_BANGERFABRIKKEN = musicSound("music_bangerfabrikken");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ODIN_MOON = musicSound("music_odin_moon");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_STILLE_ANDERS = musicSound("music_stille_anders");
