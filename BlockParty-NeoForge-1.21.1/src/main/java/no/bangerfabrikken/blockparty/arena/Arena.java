@@ -1466,7 +1466,7 @@ public final class Arena {
             player.fallDistance = 0.0F;
             level.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY() + 0.2D,
                     player.getZ(), 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            player.playNotifySound(SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 1.0F);
+            player.playNotifySound(SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8F, 1.0F);
             sendSystemMessage(player, Component.literal("TNT! BOOM! Du ble sendt til himmels!")
                     .withStyle(ChatFormatting.RED));
         } else if (powerUp == PowerUp.LEAP) {

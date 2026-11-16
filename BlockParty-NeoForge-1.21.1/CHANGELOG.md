@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.48
+- Fixed the TNT penalty sound event reference so the mod compiles on NeoForge 1.21.1.
+
 ## 1.4.47
 - Replaced the generic survivor cue with the bundled YAY.ogg for players still alive when the floor returns.
 - Added TNT penalty power-up: launches the player high into the air with an explosion effect.
