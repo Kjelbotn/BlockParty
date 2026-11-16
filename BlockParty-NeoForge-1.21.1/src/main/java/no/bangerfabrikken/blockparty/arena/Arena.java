@@ -677,7 +677,6 @@ public final class Arena {
         phase = Phase.COUNTDOWN;
         timerTicks = START_COUNTDOWN_TICKS;
         hideLobbyLeaderboard();
-        hideLobbyStatsSidebar(server);
         broadcast(Component.literal("BlockParty starter om 10 sekunder!").withStyle(ChatFormatting.GREEN));
         playSound(ModSounds.ROUND_START, SoundSource.PLAYERS, 0.7F, 1.0F);
     }
@@ -729,6 +728,7 @@ public final class Arena {
         }
 
         hideLobbyLeaderboard();
+        hideLobbyStatsSidebar(server);
         showScoreboard(server);
         phase = Phase.TELEPORT_COUNTDOWN;
         timerTicks = TELEPORT_COUNTDOWN_TICKS;
