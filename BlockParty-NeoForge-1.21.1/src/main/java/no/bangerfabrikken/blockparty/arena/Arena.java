@@ -2517,7 +2517,10 @@ public final class Arena {
             clearWinnerPodiumAtDjBooth();
             refreshLobbyDisplays();
         }
-        if (scoreboardTick % 20 == 0) tickLobbyDanceFloor();
+        if (scoreboardTick % 20 == 0) {
+            tickLobbyDanceFloor();
+            refreshActiveLobbyStatsSidebars(server);
+        }
         if ("xmas".equals(id) && lobbySet && scoreboardTick % 4 == 0) tickXmasSnow(server);
         enforceBlockPartyNeeds(server);
         if (scoreboardTick % 5 == 0) {
@@ -3044,6 +3047,14 @@ public final class Arena {
         for (UUID uuid : players) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) player.displayClientMessage(hud, true);
+        }
+    }
+
+    private void refreshActiveLobbyStatsSidebars(MinecraftServer server) {
+        if (server == null || ACTIVE_LOBBY_STATS_VIEWERS.isEmpty()) return;
+        for (UUID uuid : new HashSet<>(ACTIVE_LOBBY_STATS_VIEWERS)) {
+            ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
+            if (viewer != null && !players.contains(uuid)) showLobbyStatsSidebar(viewer);
         }
     }
 
@@ -4118,6 +4129,7 @@ public final class Arena {
         extendedPowerupExpiryRounds.clear();
         fakeDisplayedColors.clear();
         pumpkinVisionPlayers.clear();
+        pumpkinVisionExpiryTicks.clear();
         panicModePlayers.clear();
         gameMode = GameMode.CLASSIC;
         matchStartTick = 0L;
