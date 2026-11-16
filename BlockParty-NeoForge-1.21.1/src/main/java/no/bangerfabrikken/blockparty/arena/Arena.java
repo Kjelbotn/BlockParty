@@ -3984,6 +3984,7 @@ public final class Arena {
             player.getInventory().setItem(0, createJoinGameItem());
             player.getInventory().setItem(6, createHubItem());
             teleportToLobby(player);
+            showLobbyStatsSidebar(player);
             if ("xmas".equals(id)) {
                 sendMusicControl(player, XMAS_AMBIENT_SOUND, MusicControlPayload.LOOP);
             }
