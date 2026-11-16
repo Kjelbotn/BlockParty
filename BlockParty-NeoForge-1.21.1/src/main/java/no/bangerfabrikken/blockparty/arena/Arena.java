@@ -90,7 +90,7 @@ public final class Arena {
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
-        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN, FREEZE
+        LUCKY_LANDING, COLOR_RAIN, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE, FULL_SOM_FAEN, FREEZE, TNT
     }
 
     private static final ResourceLocation XMAS_AMBIENT_SOUND = ResourceLocation.fromNamespaceAndPath("blockparty_music", "ambient_christmas");
@@ -1410,19 +1410,20 @@ public final class Arena {
         level.setBlock(clickedPos, restore == null ? Blocks.AIR.defaultBlockState() : restore, 3);
         int powerRoll = random.nextInt(100);
         PowerUp powerUp = powerRoll < 2 ? PowerUp.FREEZE
-                : powerRoll < 6 ? PowerUp.SLOWNESS
-                : powerRoll < 16 ? PowerUp.LEAP
-                : powerRoll < 26 ? PowerUp.COLOR_TELEPORTER
-                : powerRoll < 36 ? PowerUp.COLOR_SCANNER
-                : powerRoll < 46 ? PowerUp.LUCKY_LANDING
-                : powerRoll < 56 ? PowerUp.SPEED_UPGRADE
-                : powerRoll < 66 ? PowerUp.SUPER_JUMP
-                : powerRoll < 74 ? PowerUp.NIGHT_VISION
-                : powerRoll < 80 ? PowerUp.COTTON_PICKER
-                : powerRoll < 88 ? PowerUp.COLOR_RAIN
-                : powerRoll < 91 ? PowerUp.BLACKOUT
-                : powerRoll < 94 ? PowerUp.FAKE_COLOR
-                : powerRoll < 97 ? PowerUp.PUMPKIN_VISION : powerRoll < 99 ? PowerUp.PANIC_MODE : PowerUp.FULL_SOM_FAEN;
+                : powerRoll < 4 ? PowerUp.TNT
+                : powerRoll < 7 ? PowerUp.SLOWNESS
+                : powerRoll < 17 ? PowerUp.LEAP
+                : powerRoll < 27 ? PowerUp.COLOR_TELEPORTER
+                : powerRoll < 37 ? PowerUp.COLOR_SCANNER
+                : powerRoll < 47 ? PowerUp.LUCKY_LANDING
+                : powerRoll < 57 ? PowerUp.SPEED_UPGRADE
+                : powerRoll < 67 ? PowerUp.SUPER_JUMP
+                : powerRoll < 75 ? PowerUp.NIGHT_VISION
+                : powerRoll < 81 ? PowerUp.COTTON_PICKER
+                : powerRoll < 89 ? PowerUp.COLOR_RAIN
+                : powerRoll < 92 ? PowerUp.BLACKOUT
+                : powerRoll < 95 ? PowerUp.FAKE_COLOR
+                : powerRoll < 98 ? PowerUp.PUMPKIN_VISION : powerRoll < 99 ? PowerUp.PANIC_MODE : PowerUp.FULL_SOM_FAEN;
         Holder<MobEffect> effect = null;
         int amplifier = 0;
         String label;
@@ -1443,6 +1444,7 @@ public final class Arena {
             case PANIC_MODE -> label = "PANIC MODE";
             case FULL_SOM_FAEN -> { effect = MobEffects.CONFUSION; label = "FULL SOM FAEN!"; }
             case FREEZE -> label = "FREEZE";
+            case TNT -> label = "TNT";
             default -> throw new IllegalStateException("Unknown power-up");
         }
 
@@ -1454,6 +1456,19 @@ public final class Arena {
             player.setDeltaMovement(0.0D, 0.0D, 0.0D);
             sendSystemMessage(player, Component.literal("FREEZE! Du er låst fast i 2 sekunder.")
                     .withStyle(ChatFormatting.AQUA));
+        } else if (powerUp == PowerUp.TNT) {
+            // TNT launches the player sharply upward, making the landing and next
+            // target-color positioning much harder without dealing direct damage.
+            double blastX = (random.nextDouble() - 0.5D) * 0.36D;
+            double blastZ = (random.nextDouble() - 0.5D) * 0.36D;
+            player.setDeltaMovement(blastX, 1.85D, blastZ);
+            player.hurtMarked = true;
+            player.fallDistance = 0.0F;
+            level.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY() + 0.2D,
+                    player.getZ(), 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            player.playNotifySound(SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F, 1.0F);
+            sendSystemMessage(player, Component.literal("TNT! BOOM! Du ble sendt til himmels!")
+                    .withStyle(ChatFormatting.RED));
         } else if (powerUp == PowerUp.LEAP) {
             ItemStack feather = new ItemStack(Items.FEATHER);
             feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
@@ -3955,8 +3970,8 @@ public final class Arena {
         for (UUID uuid : alive) {
             ServerPlayer survivor = level.getServer().getPlayerList().getPlayer(uuid);
             if (survivor != null) {
-                // The supplied yay.ogg is absent from repository assets; use a vanilla positive cue until it is added.
-                level.playSound(null, survivor.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.72F, 1.18F);
+                // Play the bundled YAY cue only to players who survived the round.
+                playSoundToAlive(ModSounds.YAY, 0.72F, 1.0F);
             }
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);

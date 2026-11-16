@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.47
+- Replaced the generic survivor cue with the bundled YAY.ogg for players still alive when the floor returns.
+- Added TNT penalty power-up: launches the player high into the air with an explosion effect.
+
 ## 1.4.46
 - Keep the player statistics sidebar visible only while physically inside a configured BlockParty lobby; hide it after leaving the lobby area.
 
