@@ -3069,13 +3069,11 @@ public final class Arena {
             String entryName = hiddenEntry.toString();
             ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(entryName), objective);
             score.set(rows.length - i);
+            // Put the visible row directly on the score itself. Relying on team
+            // prefixes for the text can leave a blank sidebar on clients when the
+            // private objective is sent separately from the shared scoreboard.
+            score.display(rows[i]);
             score.numberFormatOverride(BlankFormat.INSTANCE);
-            String teamId = "bpls" + uuidKey + i;
-            PlayerTeam team = scoreboard.getPlayerTeam(teamId);
-            if (team == null) team = scoreboard.addPlayerTeam(teamId);
-            team.setPlayerPrefix(rows[i]);
-            team.setPlayerSuffix(Component.empty());
-            scoreboard.addPlayerToTeam(entryName, team);
         }
         // Each player receives a private objective and uniquely hidden score entries.
         player.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, objective));
@@ -4473,7 +4471,8 @@ public final class Arena {
         if (level == null) return;
         for (UUID uuid : players) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-            if (player != null) player.displayClientMessage(withBlockPartyPrefix(message), true);
+            // Action-bar/HUD notices must not carry the chat-only BlockParty prefix.
+            if (player != null) player.displayClientMessage(message, true);
         }
     }
 
