@@ -185,6 +185,7 @@ public final class Arena {
     /** Fake hotbar colours are local to one player and never alter the authoritative target. */
     private final Map<UUID, DyeColor> fakeDisplayedColors = new HashMap<>();
     private final Set<UUID> pumpkinVisionPlayers = new HashSet<>();
+    private final Map<UUID, Long> pumpkinVisionExpiryTicks = new HashMap<>();
     private final Set<UUID> panicModePlayers = new HashSet<>();
     private final Map<UUID, Integer> points = new HashMap<>();
     private final Map<UUID, Integer> powerupsCollected = new HashMap<>();
@@ -656,6 +657,7 @@ public final class Arena {
         extendedPowerupExpiryRounds.clear();
         fakeDisplayedColors.clear();
         pumpkinVisionPlayers.clear();
+        pumpkinVisionExpiryTicks.clear();
         panicModePlayers.clear();
         for (UUID uuid : players) {
             points.put(uuid, 0);
@@ -1489,6 +1491,7 @@ public final class Arena {
             player.getInventory().setChanged();
             player.inventoryMenu.broadcastChanges();
             pumpkinVisionPlayers.add(uuid);
+            pumpkinVisionExpiryTicks.put(uuid, level.getGameTime() + 200L);
         } else if (powerUp == PowerUp.PANIC_MODE) {
             panicModePlayers.add(uuid);
             PacketDistributor.sendToPlayer(player, new PowerUpVisualPayload(
@@ -1638,6 +1641,23 @@ public final class Arena {
         }
     }
 
+    private void tickPumpkinVision(MinecraftServer server) {
+        if (pumpkinVisionExpiryTicks.isEmpty() || level == null) return;
+        long now = level.getGameTime();
+        for (Map.Entry<UUID, Long> entry : new HashMap<>(pumpkinVisionExpiryTicks).entrySet()) {
+            if (now < entry.getValue()) continue;
+            UUID uuid = entry.getKey();
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null && isPumpkinVisionHelmet(player.getInventory().armor.get(3))) {
+                player.getInventory().armor.set(3, ItemStack.EMPTY);
+                player.getInventory().setChanged();
+                player.inventoryMenu.broadcastChanges();
+            }
+            pumpkinVisionExpiryTicks.remove(uuid);
+            pumpkinVisionPlayers.remove(uuid);
+        }
+    }
+
     private void clearActivePowerUps(MinecraftServer server) {
         // Restore each affected player's private Cotton Picker floor view.
         for (UUID uuid : new HashSet<>(cottonPickerPlayers)) {
@@ -1656,7 +1676,8 @@ public final class Arena {
             for (Holder<MobEffect> effect : entry.getValue()) {
                 boolean keepForFollowingRound = expiry.containsKey(effect)
                         && round < expiry.get(effect);
-                if (!keepForFollowingRound && !effect.equals(MobEffects.NIGHT_VISION)) {
+                if (!keepForFollowingRound && !effect.equals(MobEffects.NIGHT_VISION)
+                        && !effect.equals(MobEffects.CONFUSION)) {
                     player.removeEffect(effect);
                 }
             }
@@ -1687,16 +1708,8 @@ public final class Arena {
         }
         fakeDisplayedColors.clear();
 
-        // Remove the temporary pumpkin helmet and end client-side camera effects.
-        for (UUID uuid : new HashSet<>(pumpkinVisionPlayers)) {
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null && isPumpkinVisionHelmet(player.getInventory().armor.get(3))) {
-                player.getInventory().armor.set(3, ItemStack.EMPTY);
-                player.getInventory().setChanged();
-                player.inventoryMenu.broadcastChanges();
-            }
-        }
-        pumpkinVisionPlayers.clear();
+        // PUMPKIN VISION is timed independently and remains active for its full 10 seconds.
+        // Panic Mode is round-scoped and is cleared here.
         for (UUID uuid : new HashSet<>(panicModePlayers)) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
@@ -1722,6 +1735,7 @@ public final class Arena {
         if (carried != null) for (Holder<MobEffect> effect : carried.keySet()) player.removeEffect(effect);
 
         fakeDisplayedColors.remove(uuid);
+        pumpkinVisionExpiryTicks.remove(uuid);
         if (pumpkinVisionPlayers.remove(uuid)
                 && isPumpkinVisionHelmet(player.getInventory().armor.get(3))) {
             player.getInventory().armor.set(3, ItemStack.EMPTY);
@@ -2550,6 +2564,7 @@ public final class Arena {
         tickMusicEffects();
         tickSpecialSongScreen();
         tickColorScanners(server);
+        tickPumpkinVision(server);
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
             case COUNTDOWN -> {
@@ -3782,11 +3797,21 @@ public final class Arena {
                         .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
                         .map(Map.Entry::getKey).filter(pos -> level.isEmptyBlock(pos.above()) && level.isEmptyBlock(pos.above(2)))
                         .toList();
-                if (!safe.isEmpty()) {
-                    BlockPos rescue = safe.get(random.nextInt(safe.size()));
+                // If the floor is crowded or another mod temporarily occupies the landing
+                // space, still rescue onto a target tile rather than consuming the power-up.
+                if (safe.isEmpty()) {
+                    safe = floorSnapshot.entrySet().stream()
+                            .filter(entry -> BlockPartyColors.getColor(entry.getValue()) == targetColor)
+                            .map(Map.Entry::getKey).toList();
+                }
+                BlockPos rescue = safe.isEmpty() ? lastTargetContactPos.get(uuid)
+                        : safe.get(random.nextInt(safe.size()));
+                if (rescue != null) {
                     player.teleportTo(level, rescue.getX() + 0.5, rescue.getY() + 1.05, rescue.getZ() + 0.5,
                             player.getYRot(), player.getXRot());
                     player.fallDistance = 0.0F;
+                    player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+                    pendingEliminations.remove(uuid);
                     sendSystemMessage(player, Component.literal("LUCKY LANDING reddet deg!")
                             .withStyle(ChatFormatting.GREEN));
                     playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.2F);
