@@ -7,6 +7,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -4433,7 +4434,7 @@ public final class Arena {
         return String.format(Locale.ROOT, "%.1f", ticks / 20.0);
     }
 
-    private static Component blockPartyPrefix() {
+    private static MutableComponent blockPartyPrefix() {
         return Component.literal("B").withStyle(ChatFormatting.AQUA)
                 .append(Component.literal("l").withStyle(ChatFormatting.GREEN))
                 .append(Component.literal("o").withStyle(ChatFormatting.YELLOW))
