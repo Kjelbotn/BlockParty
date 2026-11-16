@@ -353,8 +353,9 @@ public final class Arena {
         if (player == null || level == null || player.serverLevel() != level || !alive.contains(player.getUUID())
                 || !isGameInProgress() || pos1 == null) return false;
         double eliminationY = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
-        if (player.getY() > eliminationY && !luckyLanding.contains(player.getUUID())
-                && !isOutsidePlayableFloor(player)) return false;
+        // Lucky Landing is strictly a fall rescue: never consume it for ordinary
+        // eliminations, wrong-colour tiles, or death checks while still above the pit.
+        if (player.getY() > eliminationY) return false;
         if (rescueWithLuckyLanding(player)) return true;
         // A fall/void death event can arrive before the regular arena tick. Revive the
         // player just enough for the normal elimination teleport to complete cleanly.
@@ -3958,7 +3959,8 @@ public final class Arena {
             pendingEliminations.remove(uuid);
             return;
         }
-        if (rescueWithLuckyLanding(player)) return;
+        // Power-ups do not cancel normal game eliminations. Lucky Landing is
+        // handled exclusively by handleOutOfBoundsDeath when the player is falling.
         if (!alive.contains(uuid)) return;
         clearPlayerRoundPowerUps(player);
         alive.remove(uuid);

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.51
+- Lucky Landing now activates only when the player has actually fallen below the arena's elimination height. It no longer intercepts normal round eliminations or other elimination paths.
+
 ## 1.4.50
 - Lowered the YAY floor-return cue and removed it from match start.
 - Preserve the captured original dance-floor layout for round 1; generated patterns begin in round 2.
