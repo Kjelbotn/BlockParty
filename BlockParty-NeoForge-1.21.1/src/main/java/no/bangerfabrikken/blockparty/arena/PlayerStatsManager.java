@@ -55,7 +55,7 @@ public final class PlayerStatsManager {
         try (InputStream input = Files.newInputStream(file)) {
             properties.load(input);
             int schemaVersion = number(properties, "schema.version");
-            migrateLegacyRoundStreaks = schemaVersion < STATS_SCHEMA_VERSION;
+            migrateLegacyRoundStreaks = schemaVersion < 2;
             for (String raw : properties.getProperty("player.ids", "").split(",")) {
                 if (raw.isBlank()) continue;
                 UUID uuid = UUID.fromString(raw.trim());
