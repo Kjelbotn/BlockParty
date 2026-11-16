@@ -275,13 +275,13 @@ public final class PlayerStatsManager {
         }
         if (shown == 0) {
             player.sendSystemMessage(Component.literal("Du har nådd den høyeste ranken!")
-                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         } else if (currentIndex + shown + 1 < RANK_NAMES.length) {
             player.sendSystemMessage(Component.literal("Fortsett å samle poeng for å oppdage flere ranker!")
                     .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
         player.sendSystemMessage(Component.literal("Bruk /bp rank for å se din nåværende rank.")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
+                .withStyle(ChatFormatting.YELLOW));
     }
 
     public static void sendProfile(ServerPlayer player) { sendPlayerRank(player); }
