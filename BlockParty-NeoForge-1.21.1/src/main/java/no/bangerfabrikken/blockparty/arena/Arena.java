@@ -1503,8 +1503,12 @@ public final class Arena {
                 case SLOWNESS, COTTON_PICKER, BLACKOUT, FAKE_COLOR, PUMPKIN_VISION, PANIC_MODE -> true;
                 default -> false;
             };
-            player.sendSystemMessage(Component.literal((penalty ? "STRAFF: " : "POWER-UP: ") + label + "!")
-                    .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE));
+            // Positive pickups get a personal confirmation. Penalties already have
+            // their own effect message (when applicable) and a global announcement.
+            if (!penalty) {
+                player.sendSystemMessage(Component.literal("POWER-UP: " + label + "!")
+                        .withStyle(ChatFormatting.LIGHT_PURPLE));
+            }
             broadcast(Component.literal(penalty ? player.getName().getString() + " fikk " + label + " som straff!" : player.getName().getString() + " plukket opp " + label + "!")
                     .withStyle(penalty ? ChatFormatting.RED : ChatFormatting.AQUA));
         }
