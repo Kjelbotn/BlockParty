@@ -3839,6 +3839,17 @@ public final class Arena {
         updateScoreboard(level.getServer());
     }
 
+    /** Approximate vanilla chat centering for the fixed-width 320px chat area. */
+    private static Component centeredChatLine(Component line, String plainText) {
+        int pixelWidth = 0;
+        for (int i = 0; i < plainText.length(); i++) {
+            char ch = plainText.charAt(i);
+            pixelWidth += (ch == ' ' ? 4 : "ilI.,:;'!|".indexOf(ch) >= 0 ? 2 : "mwMW@#%&".indexOf(ch) >= 0 ? 7 : 6);
+        }
+        int spaces = Math.max(0, (320 - pixelWidth) / 8);
+        return Component.literal(" ".repeat(spaces)).append(line);
+    }
+
     private void declareWinner() {
         if (phase == Phase.FINISHING) return;
         stopMusic();
@@ -3945,22 +3956,27 @@ public final class Arena {
             int placement = lastPodiumPlayers.indexOf(uuid) + 1;
             String placeText = placement == 1 ? "1st plass" : placement == 2 ? "2nd plass"
                     : placement == 3 ? "3rd plass" : (placement > 3 ? placement + ". plass" : "Fullført");
-            participant.sendSystemMessage(Component.literal("━━━━━━━━━━  ").withStyle(ChatFormatting.DARK_GRAY)
+            participant.sendSystemMessage(centeredChatLine(Component.literal("━━━━━━━━━━  ").withStyle(ChatFormatting.DARK_GRAY)
                     .append(Component.literal("BLOCKPARTY").withStyle(ChatFormatting.YELLOW))
-                    .append(Component.literal("  ━━━━━━━━━━").withStyle(ChatFormatting.DARK_GRAY)));
-            participant.sendSystemMessage(Component.literal(isWinner ? "SEIER!" : "MATCH FERDIG")
-                    .withStyle(isWinner ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
-            participant.sendSystemMessage(Component.literal(participant.getGameProfile().getName())
-                    .withStyle(ChatFormatting.WHITE));
-            participant.sendSystemMessage(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY));
-            participant.sendSystemMessage(Component.literal("Runder overlevd: ").withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal(Integer.toString(points.getOrDefault(uuid, 0))).withStyle(ChatFormatting.WHITE)));
-            participant.sendSystemMessage(Component.literal("Power-Ups samlet: ").withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal(Integer.toString(powerupsCollected.getOrDefault(uuid, 0))).withStyle(ChatFormatting.GREEN)));
-            participant.sendSystemMessage(Component.literal("Plassering: ").withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal(placeText).withStyle(placement == 1 ? ChatFormatting.GOLD : ChatFormatting.YELLOW)));
-            participant.sendSystemMessage(Component.literal("Tid: " + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
-                    .withStyle(ChatFormatting.GRAY));
+                    .append(Component.literal("  ━━━━━━━━━━").withStyle(ChatFormatting.DARK_GRAY)),
+                    "━━━━━━━━━━  BLOCKPARTY  ━━━━━━━━━━"));
+            participant.sendSystemMessage(centeredChatLine(Component.literal(isWinner ? "SEIER!" : "MATCH FERDIG")
+                    .withStyle(isWinner ? ChatFormatting.GREEN : ChatFormatting.YELLOW), isWinner ? "SEIER!" : "MATCH FERDIG"));
+            participant.sendSystemMessage(centeredChatLine(Component.literal(participant.getGameProfile().getName())
+                    .withStyle(ChatFormatting.WHITE), participant.getGameProfile().getName()));
+            participant.sendSystemMessage(centeredChatLine(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY), "────────────────────────"));
+            String roundsText = "Rounds Survived: " + points.getOrDefault(uuid, 0);
+            participant.sendSystemMessage(centeredChatLine(Component.literal("Runder overlevd: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(Integer.toString(points.getOrDefault(uuid, 0))).withStyle(ChatFormatting.WHITE)), roundsText));
+            String powerupsText = "Power-Ups: " + powerupsCollected.getOrDefault(uuid, 0);
+            participant.sendSystemMessage(centeredChatLine(Component.literal("Power-Ups samlet: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(Integer.toString(powerupsCollected.getOrDefault(uuid, 0))).withStyle(ChatFormatting.GREEN)), powerupsText));
+            String placementText = "Placement: " + placeText;
+            participant.sendSystemMessage(centeredChatLine(Component.literal("Plassering: ").withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(placeText).withStyle(placement == 1 ? ChatFormatting.GOLD : ChatFormatting.YELLOW)), placementText));
+            String timeText = "Time: " + formatSeconds((int) lastMatchDurationTicks) + " seconds";
+            participant.sendSystemMessage(centeredChatLine(Component.literal("Tid: " + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
+                    .withStyle(ChatFormatting.GRAY), timeText));
             participant.sendSystemMessage(Component.literal("────────────────────────").withStyle(ChatFormatting.DARK_GRAY));
         }
         phase = Phase.FINISHING;
