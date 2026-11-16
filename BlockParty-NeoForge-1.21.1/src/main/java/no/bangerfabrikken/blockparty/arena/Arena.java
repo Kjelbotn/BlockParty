@@ -3832,7 +3832,7 @@ public final class Arena {
             ServerPlayer participant = level.getServer().getPlayerList().getPlayer(uuid);
             if (participant != null) participant.sendSystemMessage(Component.literal("STATISTIKK  •  "
                     + points.getOrDefault(uuid, 0) + " runder overlevd  •  "
-                    + powerupsCollected.getOrDefault(uuid, 0) + " Power-Ups  •  
+                    + powerupsCollected.getOrDefault(uuid, 0) + " Power-Ups  •  "
                     + formatSeconds((int) lastMatchDurationTicks) + " sekunder")
                     .withStyle(ChatFormatting.AQUA));
         }
@@ -4178,7 +4178,7 @@ public final class Arena {
 
         // LEADERBOARD PANEL — keep a constant vertical centre regardless of list length.
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("BLOCKPARTY TOPPLISTE").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+        lines.add(Component.literal("TOPPLISTE").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         lines.add(Component.literal("TOPP 5 DANSERE").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
         List<PlayerStatsManager.PlayerRecord> top = PlayerStatsManager.topPlayers(5);
         if (top.isEmpty()) {
@@ -4191,7 +4191,7 @@ public final class Arena {
                         : i == 2 ? ChatFormatting.RED : ChatFormatting.GRAY;
                 lines.add(Component.literal("#" + (i + 1) + "  ").withStyle(placeColor, ChatFormatting.BOLD)
                         .append(Component.literal(record.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                        .append(Component.literal("   " + record.points() + " poeng   ).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                        .append(Component.literal("   " + record.points() + " poeng   ").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
                         .append(Component.literal(rank.name()).withStyle(ChatFormatting.AQUA)));
             }
         }
