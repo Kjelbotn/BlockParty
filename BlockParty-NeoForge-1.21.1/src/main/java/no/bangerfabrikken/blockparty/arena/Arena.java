@@ -3966,13 +3966,10 @@ public final class Arena {
     }
 
     private void finishRound() {
+        // Play the bundled YAY cue once to every player who survived the round.
+        playSoundToAlive(ModSounds.YAY, 0.72F, 1.0F);
         // Each player who survives this round earns one permanent world-wide point.
         for (UUID uuid : alive) {
-            ServerPlayer survivor = level.getServer().getPlayerList().getPlayer(uuid);
-            if (survivor != null) {
-                // Play the bundled YAY cue only to players who survived the round.
-                playSoundToAlive(ModSounds.YAY, 0.72F, 1.0F);
-            }
             points.merge(uuid, 1, Integer::sum);
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) {
