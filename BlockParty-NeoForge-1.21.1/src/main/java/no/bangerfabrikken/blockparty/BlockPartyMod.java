@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 
 @Mod(BlockPartyMod.MOD_ID)
 public final class BlockPartyMod {
-    private static Component blockPartySystemPrefix() {
+    private static MutableComponent blockPartySystemPrefix() {
         return Component.literal("B").withStyle(net.minecraft.ChatFormatting.AQUA)
                 .append(Component.literal("l").withStyle(net.minecraft.ChatFormatting.GREEN))
                 .append(Component.literal("o").withStyle(net.minecraft.ChatFormatting.YELLOW))
