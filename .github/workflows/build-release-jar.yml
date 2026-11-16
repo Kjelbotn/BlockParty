@@ -3,7 +3,7 @@ name: Build BlockParty Release JAR
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [main, release/1.4.26]
   push:
     branches:
       - feature/xmas-arena
