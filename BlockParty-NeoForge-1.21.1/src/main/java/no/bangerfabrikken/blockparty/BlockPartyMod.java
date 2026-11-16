@@ -21,6 +21,7 @@ import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -151,13 +152,12 @@ public final class BlockPartyMod {
                 ? ChatFormatting.WHITE : player.getTeam().getColor();
         if (survivalNameColor == ChatFormatting.RESET) survivalNameColor = ChatFormatting.WHITE;
         Component playerName = Component.literal(player.getGameProfile().getName()).withStyle(survivalNameColor);
-        Component formattedMessage = Component.literal(Integer.toString(record.points()))
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                .append(Component.literal(" | ").withStyle(ChatFormatting.DARK_GRAY))
-                .append(rankTag)
+        MutableComponent formattedMessage = rankTag.copy()
                 .append(Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(playerName)
-                .append(Component.literal(" ≫ ").withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" » ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(Component.literal(event.getRawText()).withStyle(ChatFormatting.WHITE));
 
         // Replace vanilla's <name> message rendering with the requested BlockParty
