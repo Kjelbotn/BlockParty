@@ -1760,8 +1760,7 @@ public final class Arena {
         for (UUID uuid : alive) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
             if (player != null) {
-                player.connection.send(new ClientboundSoundPacket(sound, SoundSource.PLAYERS,
-                        player.getX(), player.getY(), player.getZ(), volume, pitch, random.nextLong()));
+                player.playNotifySound(sound.value(), SoundSource.PLAYERS, volume, pitch);
             }
         }
     }
@@ -2607,9 +2606,10 @@ public final class Arena {
                 if (timerTicks <= 0) {
                     Track nowPlaying = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
                     if (nowPlaying != null) {
-                        broadcast(Component.literal("♫ NÅ SPILLES ♫").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-                        broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
-                                .append(Component.literal(" — " + nowPlaying.artist()).withStyle(ChatFormatting.GRAY)));
+                        broadcast(Component.literal("Nå spilles").withStyle(ChatFormatting.AQUA));
+                        broadcast(Component.literal(nowPlaying.name()).withStyle(ChatFormatting.YELLOW));
+                        broadcast(Component.literal("Artist").withStyle(ChatFormatting.AQUA));
+                        broadcast(Component.literal(nowPlaying.artist()).withStyle(ChatFormatting.YELLOW));
                     }
                     beginRound(server);
                 }
@@ -2809,7 +2809,10 @@ public final class Arena {
         }
         int currentRoundTicks = getRoundDurationTicks(round);
         int previousRoundTicks = round > 1 ? getRoundDurationTicks(round - 1) : currentRoundTicks;
-        if (currentRoundTicks < previousRoundTicks) broadcast(Component.literal("FARTEN ØKER! Neste runde varer " + formatSeconds(currentRoundTicks) + " sekunder.").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        if (currentRoundTicks < previousRoundTicks) broadcast(
+                Component.literal("Speed Increased! ").withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(formatSeconds(currentRoundTicks) + " second rounds.")
+                                .withStyle(ChatFormatting.DARK_AQUA)));
         lastTargetContactTick.clear();
         lastTargetContactPos.clear();
         Set<DyeColor> roundColors = randomizeFloorForRound();
@@ -3038,30 +3041,22 @@ public final class Arena {
         }
         PlayerStatsManager.PlayerRecord record = PlayerStatsManager.getRecord(player.getUUID());
         PlayerStatsManager.Rank rank = PlayerStatsManager.getRank(record.points());
-        String[] names = {"bp_lobby_rank", "bp_lobby_best", "bp_lobby_podium", "bp_lobby_games", "bp_lobby_wins", "bp_lobby_points"};
+        String[] names = {"bp_lobby_points", "bp_lobby_games", "bp_lobby_placings", "bp_lobby_victories"};
         Component[] rows = {
-                Component.literal("Rank: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(rank.name()).withStyle(PlayerStatsManager.getRankColor(rank))),
-                Component.literal("Rekord: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(record.personalBest() + "/" + MAX_ROUNDS).withStyle(ChatFormatting.AQUA)),
-                Component.literal("Pallplasser: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(Integer.toString(record.podiums())).withStyle(ChatFormatting.GOLD)),
-                Component.literal("Kamper: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(Integer.toString(record.gamesPlayed())).withStyle(ChatFormatting.AQUA)),
-                Component.literal("Seire: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.YELLOW)),
-                Component.literal("Poeng: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.GREEN))
+                Component.literal("Points: ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(Integer.toString(record.points())).withStyle(ChatFormatting.RED)),
+                Component.literal("Games Played: ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(Integer.toString(record.gamesPlayed())).withStyle(ChatFormatting.RED)),
+                Component.literal("Placings: ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(Integer.toString(record.podiums())).withStyle(ChatFormatting.RED)),
+                Component.literal("Victories: ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(Integer.toString(record.wins())).withStyle(ChatFormatting.RED))
         };
         for (int i = 0; i < names.length; i++) {
-            ScoreHolder holder = ScoreHolder.forNameOnly(names[i]);
-            ScoreAccess score = scoreboard.getOrCreatePlayerScore(holder, objective);
+            ScoreAccess score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(names[i]), objective);
             score.set(names.length - i);
-            String teamId = "bp" + player.getUUID().toString().replace("-", "").substring(0, 8) + i;
-            PlayerTeam team = scoreboard.getPlayerTeam(teamId);
-            if (team == null) team = scoreboard.addPlayerTeam(teamId);
-            team.setPlayerPrefix(rows[i]);
-            scoreboard.addPlayerToTeam(names[i], team);
+            score.display(rows[i]);
+            score.numberFormatOverride(BlankFormat.INSTANCE);
         }
         // Every player gets a distinct objective, so their personal values never overwrite
         // another player's sidebar. Send the display packet only to this player.
@@ -3070,8 +3065,11 @@ public final class Arena {
 
     private void hideLobbyStatsSidebar(MinecraftServer server) {
         if (server == null) return;
-        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
-            online.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+        for (UUID uuid : lobbyStatsObjectives.keySet()) {
+            ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
+            if (viewer != null) {
+                viewer.connection.send(new ClientboundSetDisplayObjectivePacket(DisplaySlot.SIDEBAR, null));
+            }
         }
     }
 
