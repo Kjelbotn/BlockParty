@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.58
+- Replaced the Xmas dance-floor artwork with the supplied Christmas BlockParty pixel-art design. The repair command now restores this design.
+
+
 ## 1.4.57
 - Added an admin-only `/bp xmas repair-floor` command to restore the original 40x40 Christmas BlockParty floor without regenerating or modifying the surrounding arena.
 
