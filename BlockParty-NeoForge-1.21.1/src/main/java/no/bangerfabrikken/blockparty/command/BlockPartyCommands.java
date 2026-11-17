@@ -469,7 +469,6 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
         source.sendSuccess(() -> Component.literal("Alle matcher har opptil 25 runder. Rundetiden blir kortere utover i matchen."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
-        source.sendSuccess(() -> Component.literal("Kosmetikk åpnes via Kosmetikk-knappen i kompassmenyen. Kjøp og utstyr trails, rustning, kill sounds og footsteps direkte i GUI-et."), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 5 | /bp rank – spillerprofil | /bp ranklist – alle ranker og poengkrav"), false);
         source.sendSuccess(() -> Component.literal("/bp points add <antall> [spiller] | /bp points remove <antall> [spiller] – gi eller trekk fra poeng (OP)"), false);
         source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);

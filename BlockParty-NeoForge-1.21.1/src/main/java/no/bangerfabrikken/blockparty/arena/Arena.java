@@ -2218,7 +2218,6 @@ public final class Arena {
             case 12 -> openMusicVoting(player);
             case 14 -> PlayerStatsManager.sendLeaderboard(player);
             case 30 -> openDailyChallenges(player);
-            case 32 -> CosmeticsManager.openShop(player);
             case 34 -> openGameModeMenu(player);
             case 49 -> registerForGame(player);
             default -> { }
@@ -3962,9 +3961,6 @@ public final class Arena {
         // only void/fall damage. This check must happen before clearPlayerRoundPowerUps,
         // because that cleanup consumes the stored one-use rescue.
         if (rescueWithLuckyLanding(player)) return;
-        // BlockParty eliminations are handled by the arena, not vanilla player death.
-        // Play the eliminated player's equipped cosmetic sound before they become a spectator.
-        CosmeticsManager.playKillSound(player);
         clearPlayerRoundPowerUps(player);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
@@ -3997,7 +3993,6 @@ public final class Arena {
         player.getAbilities().mayfly = false;
         player.onUpdateAbilities();
         player.setGameMode(GameType.ADVENTURE);
-        CosmeticsManager.playEliminationEffects(player);
         teleportToSpectatorWalkway(player);
         player.setNoGravity(false);
         player.setDeltaMovement(0.0, 0.0, 0.0);
@@ -4109,7 +4104,6 @@ public final class Arena {
         }
         if (winner != null) {
             PlayerStatsManager.recordWin(level.getServer(), winner);
-            CosmeticsManager.playWinEffects(winner);
             DailyChallengeManager.recordWin(level.getServer(), winner);
             level.sendParticles(ParticleTypes.FIREWORK, winner.getX(), winner.getY() + 1.5, winner.getZ(),
                     90, 2.4, 2.0, 2.4, 0.18);

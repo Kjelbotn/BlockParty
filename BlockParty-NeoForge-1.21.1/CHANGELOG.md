@@ -1,15 +1,8 @@
 # Changelog
 
-## 1.4.55
-- Replaced cosmetic commands with a dedicated HUB GUI: Trails, Armor, Kill Sounds, Footsteps and My Cosmetics.
-- Capped every cosmetic at 2,000 points; purchases and equipment persist.
-- Added particle trails, cosmetic armor appearance, kill sounds and footsteps across Main and Xmas sessions.
-
-
-## 1.4.54
-- Added a persistent points-based cosmetics shop with five visual particle auras.
-- Players can buy, equip and clear cosmetic auras with /bp cosmetics; purchases and equipped effects persist across restarts.
-- Added atomic point spending and connected the cosmetics entry in the lobby hub.
+## 1.4.56
+- Cosmetics have been removed from the release candidate pending a complete redesign and proper in-game implementation/testing.
+- No cosmetic particle placeholders, cosmetic menu or cosmetic sound hooks are included in this build.
 
 
 ## 1.4.53
