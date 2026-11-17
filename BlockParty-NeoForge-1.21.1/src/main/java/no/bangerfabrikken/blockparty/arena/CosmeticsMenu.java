@@ -109,6 +109,11 @@ final class CosmeticsMenu extends ChestMenu {
             open(viewer, null);
             return;
         }
+        if (slot == 46 && category != null) {
+            CosmeticsManager.toggle(viewer, category);
+            open(viewer, category, mine);
+            return;
+        }
         if (slot == 45 && category != null) {
             CosmeticsManager.unequip(viewer, category);
             open(viewer, category, mine);

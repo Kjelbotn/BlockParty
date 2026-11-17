@@ -28,6 +28,8 @@ public final class CosmeticsManager {
     private static final Map<String, Cosmetic> SHOP = new LinkedHashMap<>();
     private static final Map<UUID, EnumMap<Category, String>> EQUIPPED = new HashMap<>();
     private static final Map<UUID, Set<String>> OWNED = new HashMap<>();
+    /** Categories explicitly disabled by each player; all newly equipped cosmetics start enabled. */
+    private static final Map<UUID, EnumSet<Category>> DISABLED = new HashMap<>();
     private static long ticks;
     public enum Category { TRAILS, ARMOR, KILL_SOUNDS, FOOTSTEPS }
     public record Cosmetic(String id, String name, int price, Category category, int icon,
@@ -73,8 +75,25 @@ public final class CosmeticsManager {
         return EQUIPPED.getOrDefault(uuid, new EnumMap<>(Category.class)).get(category);
     }
 
+    public static synchronized boolean isEnabled(UUID uuid, Category category) {
+        return !DISABLED.getOrDefault(uuid, EnumSet.noneOf(Category.class)).contains(category);
+    }
+
+    /** Toggle the selected cosmetic category without losing the player's equipped item. */
+    public static synchronized void toggle(ServerPlayer player, Category category) {
+        UUID uuid = player.getUUID();
+        EnumSet<Category> disabled = DISABLED.computeIfAbsent(uuid, ignored -> EnumSet.noneOf(Category.class));
+        boolean enabled;
+        if (disabled.remove(category)) enabled = true;
+        else { disabled.add(category); enabled = false; }
+        save(player.getServer());
+        player.sendSystemMessage(Component.literal(
+                category.name().replace('_', ' ') + (enabled ? " er slått PÅ." : " er slått AV."))
+                .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+    }
+
     public static synchronized void load(MinecraftServer server) {
-        OWNED.clear(); EQUIPPED.clear();
+        OWNED.clear(); EQUIPPED.clear(); DISABLED.clear();
         Path file = getFile(server);
         if (!Files.exists(file)) return;
         Properties properties = new Properties();
@@ -94,6 +113,13 @@ public final class CosmeticsManager {
                     if (cosmetic != null && cosmetic.category() == category && owned.contains(id)) equipped.put(category, id);
                 }
                 if (!equipped.isEmpty()) EQUIPPED.put(uuid, equipped);
+                EnumSet<Category> disabled = EnumSet.noneOf(Category.class);
+                for (Category category : Category.values()) {
+                    if (Boolean.parseBoolean(properties.getProperty(prefix + "disabled." + category.name(), "false"))) {
+                        disabled.add(category);
+                    }
+                }
+                if (!disabled.isEmpty()) DISABLED.put(uuid, disabled);
             }
         } catch (Exception exception) {
             BlockPartyMod.LOGGER.error("Could not load BlockParty cosmetics from {}", file, exception);
@@ -102,7 +128,7 @@ public final class CosmeticsManager {
 
     public static synchronized void save(MinecraftServer server) {
         Properties properties = new Properties();
-        Set<UUID> all = new HashSet<>(OWNED.keySet()); all.addAll(EQUIPPED.keySet());
+        Set<UUID> all = new HashSet<>(OWNED.keySet()); all.addAll(EQUIPPED.keySet()); all.addAll(DISABLED.keySet());
         StringJoiner ids = new StringJoiner(",");
         for (UUID uuid : all) {
             ids.add(uuid.toString());
@@ -111,6 +137,8 @@ public final class CosmeticsManager {
             for (Category category : Category.values()) {
                 String selected = equipped(uuid, category);
                 properties.setProperty(prefix + "equipped." + category.name(), selected == null ? "" : selected);
+                properties.setProperty(prefix + "disabled." + category.name(),
+                        Boolean.toString(!isEnabled(uuid, category)));
             }
         }
         properties.setProperty("player.ids", ids.toString());
@@ -140,6 +168,7 @@ public final class CosmeticsManager {
         }
         if (cosmetic.category() == Category.ARMOR && !equipArmorBoots(player, id)) return;
         EQUIPPED.computeIfAbsent(uuid, ignored -> new EnumMap<>(Category.class)).put(cosmetic.category(), id);
+        DISABLED.computeIfAbsent(uuid, ignored -> EnumSet.noneOf(Category.class)).remove(cosmetic.category());
         save(player.getServer());
         player.sendSystemMessage(Component.literal(cosmetic.name() + " er nå utstyrt.").withStyle(ChatFormatting.YELLOW));
     }
@@ -152,11 +181,15 @@ public final class CosmeticsManager {
             ItemStack worn = player.getItemBySlot(EquipmentSlot.FEET);
             if (item != null && worn.is(item)) player.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
         }
+        DISABLED.computeIfAbsent(player.getUUID(), ignored -> EnumSet.noneOf(Category.class)).add(category);
         save(player.getServer());
         player.sendSystemMessage(Component.literal("Kosmetikken er fjernet.").withStyle(ChatFormatting.GRAY));
     }
 
     public static synchronized void playKillSound(ServerPlayer killer) {
+        Arena activeArena = ArenaManager.get().findArenaForLeave(killer);
+        if (activeArena == null || !activeArena.isMatchParticipant(killer)
+                || !isEnabled(killer.getUUID(), Category.KILL_SOUNDS)) return;
         String id = equipped(killer.getUUID(), Category.KILL_SOUNDS);
         Cosmetic cosmetic = id == null ? null : SHOP.get(id);
         if (cosmetic != null && cosmetic.sound() != null) {
@@ -168,8 +201,14 @@ public final class CosmeticsManager {
     public static synchronized void tick(MinecraftServer server) {
         if (++ticks % 4 != 0) return;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            // Cosmetic particles are BlockParty-only. A saved selection never leaks
+            // into ordinary survival after /bp leave, logout, or a teleport away.
+            Arena session = ArenaManager.get().findArenaForLeave(player);
+            if (session == null || !session.hasReturnLocation(player.getUUID())) continue;
             emit(player, Category.TRAILS);
-            if (player.getDeltaMovement().horizontalDistanceSqr() > 0.0025 && !player.isCrouching()) emit(player, Category.FOOTSTEPS);
+            if (player.getDeltaMovement().horizontalDistanceSqr() > 0.0025 && !player.isCrouching()) {
+                emit(player, Category.FOOTSTEPS);
+            }
         }
     }
 
@@ -198,6 +237,7 @@ public final class CosmeticsManager {
     }
 
     private static void emit(ServerPlayer player, Category category) {
+        if (!isEnabled(player.getUUID(), category)) return;
         String id = equipped(player.getUUID(), category);
         Cosmetic cosmetic = id == null ? null : SHOP.get(id);
         if (cosmetic == null || cosmetic.particle() == null) return;
