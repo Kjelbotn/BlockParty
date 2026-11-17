@@ -32,7 +32,7 @@ public final class CosmeticsManager {
     private static final Map<UUID, EnumSet<Category>> DISABLED = new HashMap<>();
     private static long ticks;
     private static final Set<UUID> SESSION_SEEN = new HashSet<>();
-    public enum Category { TRAILS, ARMOR, KILL_SOUNDS, FOOTSTEPS }
+    public enum Category { TRAILS, ARMOR, KILL_SOUNDS, FOOTSTEPS, PETS, WIN_EFFECTS, ELIMINATION_EFFECTS, CROWNS, JOIN_EFFECTS, JOIN_SOUNDS, WIN_SOUNDS }
     public record Cosmetic(String id, String name, int price, Category category, int icon,
                            String description, ParticleOptions particle, SoundEvent sound) {}
 
@@ -49,6 +49,24 @@ public final class CosmeticsManager {
         add("step_soul", "Sjelesteg", 500, Category.FOOTSTEPS, Items.SOUL_SAND, "Sjelepartikler når du går", ParticleTypes.SOUL);
         add("step_snow", "Snøfnuggsteg", 1000, Category.FOOTSTEPS, Items.SNOWBALL, "Snøfnugg når du går", ParticleTypes.SNOWFLAKE);
         add("step_music", "Rytmesteg", 1500, Category.FOOTSTEPS, Items.JUKEBOX, "Noter når du går", ParticleTypes.NOTE);
+        add("pet_allay", "Allay-følgesvenn", 1800, Category.PETS, Items.ALLAY_SPAWN_EGG, "Svevende partikkelfølgesvenn", ParticleTypes.END_ROD);
+        add("pet_bee", "Bi-følgesvenn", 1800, Category.PETS, Items.BEE_SPAWN_EGG, "Gyllen partikkelfølgesvenn", ParticleTypes.HAPPY_VILLAGER);
+        add("pet_slime", "Slim-følgesvenn", 2000, Category.PETS, Items.SLIME_BALL, "Grønn partikkelfølgesvenn", ParticleTypes.ITEM_SLIME);
+        add("win_firework", "Fyrverkeriseier", 1500, Category.WIN_EFFECTS, Items.FIREWORK_ROCKET, "Fyrverkeri når du vinner", ParticleTypes.FIREWORK);
+        add("win_hearts", "Hjerteseier", 1200, Category.WIN_EFFECTS, Items.POPPY, "Hjerter ved seier", ParticleTypes.HEART);
+        add("win_totem", "Totemseier", 2000, Category.WIN_EFFECTS, Items.TOTEM_OF_UNDYING, "Gylden totemglød ved seier", ParticleTypes.TOTEM_OF_UNDYING);
+        add("elim_lightning", "Lynavslutning", 1500, Category.ELIMINATION_EFFECTS, Items.LIGHTNING_ROD, "Lynpartikler ved eliminering", ParticleTypes.ELECTRIC_SPARK);
+        add("elim_smoke", "Røykpuff", 900, Category.ELIMINATION_EFFECTS, Items.CAMPFIRE, "Røyk ved eliminering", ParticleTypes.CAMPFIRE_COSY_SMOKE);
+        add("elim_soul", "Sjeleeksplosjon", 1800, Category.ELIMINATION_EFFECTS, Items.SOUL_LANTERN, "Sjeleflammer ved eliminering", ParticleTypes.SOUL_FIRE_FLAME);
+        add("crown_gold", "Gullkrone", 1800, Category.CROWNS, Items.GOLD_INGOT, "Gyllen glorie i lobbyen", ParticleTypes.WAX_ON);
+        add("crown_diamond", "Diamantkrone", 2400, Category.CROWNS, Items.DIAMOND, "Glitrende glorie i lobbyen", ParticleTypes.END_ROD);
+        add("crown_flame", "Flammekrone", 2000, Category.CROWNS, Items.BLAZE_POWDER, "Flammeglorie i lobbyen", ParticleTypes.FLAME);
+        add("join_ender", "Ender-inntreden", 1000, Category.JOIN_EFFECTS, Items.ENDER_PEARL, "Enderpartikler ved inngang", ParticleTypes.PORTAL);
+        add("join_star", "Stjerneinntreden", 1200, Category.JOIN_EFFECTS, Items.NETHER_STAR, "Stjerner ved inngang", ParticleTypes.FIREWORK);
+        add("join_bell", "Lobbyklokke", 900, Category.JOIN_SOUNDS, Items.BELL, "Klokkelyd ved inngang", null, SoundEvents.NOTE_BLOCK_BELL.value());
+        add("join_chime", "Portalpling", 1200, Category.JOIN_SOUNDS, Items.AMETHYST_SHARD, "Magisk lyd ved inngang", null, SoundEvents.AMETHYST_BLOCK_CHIME);
+        add("win_chime", "Seierspling", 1000, Category.WIN_SOUNDS, Items.EXPERIENCE_BOTTLE, "Lyd når du vinner", null, SoundEvents.PLAYER_LEVELUP);
+        add("win_dragon", "Dragebrøl", 1800, Category.WIN_SOUNDS, Items.DRAGON_BREATH, "Dragebrøl når du vinner", null, SoundEvents.ENDER_DRAGON_GROWL);
     }
 
     private CosmeticsManager() {}
@@ -210,6 +228,7 @@ public final class CosmeticsManager {
             onlineInSession.add(player.getUUID());
             if (SESSION_SEEN.add(player.getUUID())) playJoinEffects(player);
             emit(player, Category.TRAILS);
+            emitPetAndCrown(player);
             if (player.getDeltaMovement().horizontalDistanceSqr() > 0.0025 && !player.isCrouching()) {
                 emit(player, Category.FOOTSTEPS);
             }
@@ -238,6 +257,64 @@ public final class CosmeticsManager {
         }
         player.setItemSlot(EquipmentSlot.FEET, new ItemStack(item));
         return true;
+    }
+
+    public static synchronized void playJoinEffects(ServerPlayer player) {
+        playParticleEffect(player, Category.JOIN_EFFECTS, 32);
+        playCosmeticSound(player, Category.JOIN_SOUNDS);
+    }
+
+    public static synchronized void playWinEffects(ServerPlayer player) {
+        playParticleEffect(player, Category.WIN_EFFECTS, 90);
+        playCosmeticSound(player, Category.WIN_SOUNDS);
+    }
+
+    public static synchronized void playEliminationEffects(ServerPlayer player) {
+        playParticleEffect(player, Category.ELIMINATION_EFFECTS, 35);
+    }
+
+    private static void playParticleEffect(ServerPlayer player, Category category, int count) {
+        if (!isEnabled(player.getUUID(), category)) return;
+        String id = equipped(player.getUUID(), category);
+        Cosmetic cosmetic = id == null ? null : SHOP.get(id);
+        if (cosmetic != null && cosmetic.particle() != null) {
+            player.serverLevel().sendParticles(cosmetic.particle(), player.getX(), player.getY() + 1.0,
+                    player.getZ(), count, 0.65, 0.8, 0.65, 0.12);
+        }
+    }
+
+    private static void playCosmeticSound(ServerPlayer player, Category category) {
+        if (!isEnabled(player.getUUID(), category)) return;
+        String id = equipped(player.getUUID(), category);
+        Cosmetic cosmetic = id == null ? null : SHOP.get(id);
+        if (cosmetic != null && cosmetic.sound() != null) {
+            player.serverLevel().playSound(null, player.blockPosition(), cosmetic.sound(),
+                    net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+        }
+    }
+
+    private static void emitPetAndCrown(ServerPlayer player) {
+        long phase = player.tickCount * 0.12;
+        if (isEnabled(player.getUUID(), Category.PETS)) {
+            String id = equipped(player.getUUID(), Category.PETS);
+            Cosmetic pet = id == null ? null : SHOP.get(id);
+            if (pet != null && pet.particle() != null) {
+                player.serverLevel().sendParticles(pet.particle(),
+                        player.getX() + Math.cos(phase) * 0.8,
+                        player.getY() + 0.9 + Math.sin(phase * 2) * 0.12,
+                        player.getZ() + Math.sin(phase) * 0.8, 1, 0, 0, 0, 0);
+            }
+        }
+        if (isEnabled(player.getUUID(), Category.CROWNS)) {
+            String id = equipped(player.getUUID(), Category.CROWNS);
+            Cosmetic crown = id == null ? null : SHOP.get(id);
+            if (crown != null && crown.particle() != null) {
+                player.serverLevel().sendParticles(crown.particle(),
+                        player.getX() + Math.cos(phase) * 0.34,
+                        player.getY() + 2.2, player.getZ() + Math.sin(phase) * 0.34,
+                        1, 0, 0, 0, 0);
+            }
+        }
     }
 
     private static void emit(ServerPlayer player, Category category) {
