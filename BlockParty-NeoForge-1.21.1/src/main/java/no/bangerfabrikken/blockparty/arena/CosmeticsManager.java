@@ -294,7 +294,7 @@ public final class CosmeticsManager {
     }
 
     private static void emitPetAndCrown(ServerPlayer player) {
-        long phase = player.tickCount * 0.12;
+        double phase = player.tickCount * 0.12;
         if (isEnabled(player.getUUID(), Category.PETS)) {
             String id = equipped(player.getUUID(), Category.PETS);
             Cosmetic pet = id == null ? null : SHOP.get(id);
