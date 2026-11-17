@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.57
+- Added an admin-only `/bp xmas repair-floor` command to restore the original 40x40 Christmas BlockParty floor without regenerating or modifying the surrounding arena.
+
+
 ## 1.4.56
 - Cosmetics have been removed from the release candidate pending a complete redesign and proper in-game implementation/testing.
 - No cosmetic particle placeholders, cosmetic menu or cosmetic sound hooks are included in this build.

@@ -105,6 +105,19 @@ public final class SchematicArenaGenerator {
 
 
 
+    /** Repaints only the saved 40x40 Xmas dance-floor footprint; nearby builds are untouched. */
+    public static void repairXmasBlockPartyFloor(ServerLevel level, BlockPos floorFirst) {
+        if (level == null || floorFirst == null) throw new IllegalArgumentException("Xmas-gulvet mangler posisjon.");
+        for (int x = 0; x < FLOOR_SIZE; x++) {
+            for (int z = 0; z < FLOOR_SIZE; z++) {
+                if (!level.hasChunkAt(floorFirst.offset(x, 0, z))) {
+                    throw new IllegalStateException("Hele Xmas-gulvet må være lastet inn før reparasjon. Stå nær arenaen og prøv igjen.");
+                }
+            }
+        }
+        buildXmasBlockPartyFloor(level, floorFirst, new FloorRegion(0, 0, 0));
+    }
+
     private static void buildXmasBlockPartyFloor(ServerLevel level, BlockPos origin, FloorRegion floor) {
         Block[][] tiles = new Block[FLOOR_SIZE][FLOOR_SIZE];
         for (int x = 0; x < FLOOR_SIZE; x++) java.util.Arrays.fill(tiles[x], Blocks.BLACK_CONCRETE);

@@ -39,7 +39,9 @@ public final class BlockPartyCommands {
                                         .executes(context -> generate(context.getSource(), StringArgumentType.getString(context, "id"), IntegerArgumentType.getInteger(context, "size"))))))
                 .then(Commands.literal("xmas").executes(context -> join(context.getSource(), "xmas"))
                         .then(Commands.literal("generate").requires(source -> source.hasPermission(2))
-                                .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException()))))
+                                .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException())))
+                        .then(Commands.literal("repair-floor").requires(source -> source.hasPermission(2))
+                                .executes(context -> repairXmasFloor(context.getSource()))))
                 .then(Commands.literal("generate-xmas").requires(source -> source.hasPermission(2))
                         .executes(context -> generateXmas(context.getSource(), context.getSource().getPlayerOrException())))
                 .then(Commands.literal("arenas")
@@ -171,6 +173,40 @@ public final class BlockPartyCommands {
         }
     }
 
+
+    private static int repairXmasFloor(CommandSourceStack source) throws CommandSyntaxException {
+        Arena arena = ArenaManager.get().get("xmas");
+        if (arena == null || arena.getPos1() == null || arena.getPos2() == null) {
+            source.sendFailure(Component.literal("Fant ikke en ferdig konfigurert Xmas-arena. Reparasjonen endrer ingenting."));
+            return 0;
+        }
+        if (arena.getLevel() != source.getLevel()) {
+            source.sendFailure(Component.literal("Du må stå i samme dimensjon som Xmas-arenaen."));
+            return 0;
+        }
+        if (arena.isRunning() || arena.getPlayerCount() > 0) {
+            source.sendFailure(Component.literal("Tøm og stopp Xmas-arenaen før gulvet repareres."));
+            return 0;
+        }
+        BlockPos a = arena.getPos1();
+        BlockPos b = arena.getPos2();
+        if (a.getY() != b.getY()
+                || Math.abs(a.getX() - b.getX()) + 1 != 40
+                || Math.abs(a.getZ() - b.getZ()) + 1 != 40) {
+            source.sendFailure(Component.literal("Xmas-arenaens registrerte gulv er ikke nøyaktig 40x40. Ingen blokker ble endret."));
+            return 0;
+        }
+        BlockPos first = new BlockPos(Math.min(a.getX(), b.getX()), a.getY(), Math.min(a.getZ(), b.getZ()));
+        try {
+            SchematicArenaGenerator.repairXmasBlockPartyFloor(arena.getLevel(), first);
+            source.sendSuccess(() -> Component.literal("Xmas-gulvet er reparert! Kun de 40x40 gulvblokkene ble endret; resten av arenaen er urørt.")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal("Kunne ikke reparere Xmas-gulvet: " + exception.getMessage()));
+            return 0;
+        }
+    }
 
     private static int generateXmas(CommandSourceStack source, ServerPlayer player) {
         ArenaManager manager = ArenaManager.get();
