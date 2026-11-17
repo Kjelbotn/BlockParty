@@ -10,6 +10,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.LevelResource;
 import no.bangerfabrikken.blockparty.BlockPartyMod;
@@ -36,8 +38,8 @@ public final class CosmeticsManager {
         add("trail_flame", "Flammespor", 1000, Category.TRAILS, Items.BLAZE_POWDER, "Flammer følger stegene dine", ParticleTypes.FLAME);
         add("trail_hearts", "Hjertestøv", 1500, Category.TRAILS, Items.POPPY, "Små hjerter bak deg", ParticleTypes.HEART);
         add("trail_notes", "Musikkspor", 2000, Category.TRAILS, Items.NOTE_BLOCK, "Musikknoter følger deg", ParticleTypes.NOTE);
-        add("armor_glimmer", "Rustningsglød", 1000, Category.ARMOR, Items.DIAMOND_CHESTPLATE, "En glitrende rustningsaura", ParticleTypes.END_ROD);
-        add("armor_soul", "Sjelepanser", 1500, Category.ARMOR, Items.NETHERITE_CHESTPLATE, "Blå sjelpartikler rundt rustningen", ParticleTypes.SOUL_FIRE_FLAME);
+        add("armor_glimmer", "Gullstøvler", 1000, Category.ARMOR, Items.GOLDEN_BOOTS, "Gullstøvler vises i fotslotten", null);
+        add("armor_soul", "Diamantstøvler", 1500, Category.ARMOR, Items.DIAMOND_BOOTS, "Diamantstøvler vises i fotslotten", null);
         add("kill_bell", "Seiersklokke", 500, Category.KILL_SOUNDS, Items.BELL, "En kort klokketøy ved eliminering", null, SoundEvents.NOTE_BLOCK_BELL.value());
         add("kill_levelup", "Level Up", 1000, Category.KILL_SOUNDS, Items.EXPERIENCE_BOTTLE, "En triumferende lyd ved eliminering", null, SoundEvents.PLAYER_LEVELUP);
         add("kill_pling", "Arcade Pling", 1500, Category.KILL_SOUNDS, Items.AMETHYST_SHARD, "En retro spilllyd ved eliminering", null, SoundEvents.EXPERIENCE_ORB_PICKUP);
@@ -136,6 +138,7 @@ public final class CosmeticsManager {
             owned.add(id);
             player.sendSystemMessage(Component.literal("Du kjøpte " + cosmetic.name() + "!").withStyle(ChatFormatting.GREEN));
         }
+        if (cosmetic.category() == Category.ARMOR && !equipArmorBoots(player, id)) return;
         EQUIPPED.computeIfAbsent(uuid, ignored -> new EnumMap<>(Category.class)).put(cosmetic.category(), id);
         save(player.getServer());
         player.sendSystemMessage(Component.literal(cosmetic.name() + " er nå utstyrt.").withStyle(ChatFormatting.YELLOW));
@@ -143,7 +146,12 @@ public final class CosmeticsManager {
 
     public static synchronized void unequip(ServerPlayer player, Category category) {
         EnumMap<Category, String> equipped = EQUIPPED.get(player.getUUID());
-        if (equipped != null) equipped.remove(category);
+        String previousId = equipped == null ? null : equipped.remove(category);
+        if (category == Category.ARMOR && previousId != null) {
+            Item item = armorItem(previousId);
+            ItemStack worn = player.getItemBySlot(EquipmentSlot.FEET);
+            if (item != null && worn.is(item)) player.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
+        }
         save(player.getServer());
         player.sendSystemMessage(Component.literal("Kosmetikken er fjernet.").withStyle(ChatFormatting.GRAY));
     }
@@ -161,9 +169,32 @@ public final class CosmeticsManager {
         if (++ticks % 4 != 0) return;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             emit(player, Category.TRAILS);
-            emit(player, Category.ARMOR);
             if (player.getDeltaMovement().horizontalDistanceSqr() > 0.0025 && !player.isCrouching()) emit(player, Category.FOOTSTEPS);
         }
+    }
+
+    private static Item armorItem(String id) {
+        return switch (id) {
+            case "armor_glimmer" -> Items.GOLDEN_BOOTS;
+            case "armor_soul" -> Items.DIAMOND_BOOTS;
+            default -> null;
+        };
+    }
+
+    private static boolean equipArmorBoots(ServerPlayer player, String id) {
+        Item item = armorItem(id);
+        if (item == null) return false;
+        ItemStack current = player.getItemBySlot(EquipmentSlot.FEET);
+        String oldId = equipped(player.getUUID(), Category.ARMOR);
+        Item oldCosmetic = oldId == null ? null : armorItem(oldId);
+        if (!current.isEmpty() && (oldCosmetic == null || !current.is(oldCosmetic))) {
+            if (!player.getInventory().add(current.copy())) {
+                player.sendSystemMessage(Component.literal("Du har ikke plass i inventaret til å ta vare på støvlene dine.").withStyle(ChatFormatting.RED));
+                return false;
+            }
+        }
+        player.setItemSlot(EquipmentSlot.FEET, new ItemStack(item));
+        return true;
     }
 
     private static void emit(ServerPlayer player, Category category) {

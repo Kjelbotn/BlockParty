@@ -10,6 +10,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.commands.arguments.EntityArgument;
 import no.bangerfabrikken.blockparty.arena.Arena;
 import no.bangerfabrikken.blockparty.arena.ArenaGenerator;
 import no.bangerfabrikken.blockparty.arena.ArenaManager;
@@ -96,6 +97,18 @@ public final class BlockPartyCommands {
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(context -> resetStats(context.getSource(),
                                         StringArgumentType.getString(context, "player")))))
+                .then(Commands.literal("points")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.literal("add")
+                                .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000000))
+                                        .executes(context -> adjustPoints(context.getSource(), null, IntegerArgumentType.getInteger(context, "amount")))
+                                        .then(Commands.argument("player", EntityArgument.player())
+                                                .executes(context -> adjustPoints(context.getSource(), EntityArgument.getPlayer(context, "player"), IntegerArgumentType.getInteger(context, "amount"))))))
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000000))
+                                        .executes(context -> adjustPoints(context.getSource(), null, -IntegerArgumentType.getInteger(context, "amount")))
+                                        .then(Commands.argument("player", EntityArgument.player())
+                                                .executes(context -> adjustPoints(context.getSource(), EntityArgument.getPlayer(context, "player"), -IntegerArgumentType.getInteger(context, "amount")))))))
                 .then(Commands.literal("rank").executes(context -> rank(context.getSource())))
                 .then(Commands.literal("ranklist").executes(context -> rankList(context.getSource())))
                 .then(Commands.literal("profile").executes(context -> rank(context.getSource())))
@@ -377,6 +390,23 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int adjustPoints(CommandSourceStack source, ServerPlayer target, int amount) throws CommandSyntaxException {
+        if (target == null) target = source.getPlayerOrException();
+        final ServerPlayer recipient = target;
+        if (amount > 0) {
+            PlayerStatsManager.addPoints(source.getServer(), recipient, amount);
+        } else if (!PlayerStatsManager.spendPoints(source.getServer(), recipient, -amount)) {
+            source.sendFailure(Component.literal(recipient.getGameProfile().getName() + " har ikke nok poeng å trekke fra."));
+            return 0;
+        }
+        int balance = PlayerStatsManager.getRecord(recipient.getUUID()).points();
+        String action = amount > 0 ? "Ga " + amount : "Trakk fra " + (-amount);
+        source.sendSuccess(() -> Component.literal(action + " BlockParty-poeng " + (amount > 0 ? "til " : "fra ")
+                + recipient.getGameProfile().getName() + ". Ny saldo: " + balance + " poeng.")
+                .withStyle(amount > 0 ? ChatFormatting.GREEN : ChatFormatting.YELLOW), true);
+        return 1;
+    }
+
     private static int resetStats(CommandSourceStack source, String playerName) {
         if (!PlayerStatsManager.resetByName(source.getServer(), playerName)) {
             source.sendFailure(Component.literal("Fant ingen BlockParty-statistikk for spilleren '" + playerName + "'."));
@@ -441,6 +471,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("Kosmetikk åpnes via Kosmetikk-knappen i kompassmenyen. Kjøp og utstyr trails, rustning, kill sounds og footsteps direkte i GUI-et."), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 5 | /bp rank – spillerprofil | /bp ranklist – alle ranker og poengkrav"), false);
+        source.sendSuccess(() -> Component.literal("/bp points add <antall> [spiller] | /bp points remove <antall> [spiller] – gi eller trekk fra poeng (OP)"), false);
         source.sendSuccess(() -> Component.literal("/bp statsreset <navn> – nullstill en spillers BlockParty-statistikk (admin)"), false);
         source.sendSuccess(() -> Component.literal("Automatisk nedtelling starter når minst to påmeldte spillere har stemt på en sang. /bp start <id> starter manuelt."), false);
         source.sendSuccess(() -> Component.literal("/bp music reload – last inn egendefinert spilleliste (admin)"), false);
