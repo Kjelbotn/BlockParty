@@ -39,8 +39,8 @@ public final class CosmeticsManager {
         add("armor_glimmer", "Rustningsglød", 1000, Category.ARMOR, Items.DIAMOND_CHESTPLATE, "En glitrende rustningsaura", ParticleTypes.END_ROD);
         add("armor_soul", "Sjelepanser", 1500, Category.ARMOR, Items.NETHERITE_CHESTPLATE, "Blå sjelpartikler rundt rustningen", ParticleTypes.SOUL_FIRE_FLAME);
         add("kill_bell", "Seiersklokke", 500, Category.KILL_SOUNDS, Items.BELL, "En kort klokketøy ved eliminering", null, SoundEvents.NOTE_BLOCK_BELL.value());
-        add("kill_levelup", "Level Up", 1000, Category.KILL_SOUNDS, Items.EXPERIENCE_BOTTLE, "En triumferende lyd ved eliminering", null, SoundEvents.PLAYER_LEVELUP.value());
-        add("kill_pling", "Arcade Pling", 1500, Category.KILL_SOUNDS, Items.AMETHYST_SHARD, "En retro spilllyd ved eliminering", null, SoundEvents.EXPERIENCE_ORB_PICKUP.value());
+        add("kill_levelup", "Level Up", 1000, Category.KILL_SOUNDS, Items.EXPERIENCE_BOTTLE, "En triumferende lyd ved eliminering", null, SoundEvents.PLAYER_LEVELUP);
+        add("kill_pling", "Arcade Pling", 1500, Category.KILL_SOUNDS, Items.AMETHYST_SHARD, "En retro spilllyd ved eliminering", null, SoundEvents.EXPERIENCE_ORB_PICKUP);
         add("step_soul", "Sjelesteg", 500, Category.FOOTSTEPS, Items.SOUL_SAND, "Sjelepartikler når du går", ParticleTypes.SOUL);
         add("step_snow", "Snøfnuggsteg", 1000, Category.FOOTSTEPS, Items.SNOWBALL, "Snøfnugg når du går", ParticleTypes.SNOWFLAKE);
         add("step_music", "Rytmesteg", 1500, Category.FOOTSTEPS, Items.JUKEBOX, "Noter når du går", ParticleTypes.NOTE);
