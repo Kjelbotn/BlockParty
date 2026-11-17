@@ -41,11 +41,18 @@ final class CosmeticsMenu extends ChestMenu {
                 "Poeng: " + PlayerStatsManager.getPoints(player.getUUID()));
 
         if (category == null && !mine) {
-            put(20, Items.FIREWORK_STAR, "TRAILS", "Partikler som følger deg");
-            put(22, Items.DIAMOND_CHESTPLATE, "ARMOR", "Kosmetisk rustningsutseende");
-            put(24, Items.BELL, "KILL SOUNDS", "Lyder ved eliminering");
-            put(30, Items.FEATHER, "FOOTSTEPS", "Effekter når du går");
-            put(32, Items.CHEST, "MY COSMETICS", "Alt du eier og har utstyrt");
+            put(10, Items.FIREWORK_STAR, "TRAILS", "Partikler som følger deg");
+            put(12, Items.DIAMOND_CHESTPLATE, "ARMOR", "Kosmetisk rustningsutseende");
+            put(14, Items.BELL, "KILL SOUNDS", "Lyder ved eliminering");
+            put(16, Items.FEATHER, "FOOTSTEPS", "Effekter når du går");
+            put(19, Items.ALLAY_SPAWN_EGG, "PETS", "Svevende partikkelfølgesvenner");
+            put(21, Items.FIREWORK_ROCKET, "WIN EFFECTS", "Effekter når du vinner");
+            put(23, Items.LIGHTNING_ROD, "ELIMINATION", "Effekter når du eliminerer");
+            put(25, Items.GOLD_INGOT, "CROWNS", "Glorie over hodet i lobbyen");
+            put(28, Items.ENDER_PEARL, "JOIN EFFECTS", "Partikler når du går inn");
+            put(30, Items.AMETHYST_SHARD, "JOIN SOUNDS", "Lyder når du går inn");
+            put(32, Items.EXPERIENCE_BOTTLE, "WIN SOUNDS", "Lyder når du vinner");
+            put(40, Items.CHEST, "MY COSMETICS", "Alt du eier og har utstyrt");
         } else {
             Collection<CosmeticsManager.Cosmetic> cosmetics = mine
                     ? CosmeticsManager.owned(player.getUUID()) : CosmeticsManager.items(category);
@@ -98,11 +105,18 @@ final class CosmeticsMenu extends ChestMenu {
             return;
         }
         if (category == null && !mine) {
-            if (slot == 20) open(viewer, CosmeticsManager.Category.TRAILS);
-            else if (slot == 22) open(viewer, CosmeticsManager.Category.ARMOR);
-            else if (slot == 24) open(viewer, CosmeticsManager.Category.KILL_SOUNDS);
-            else if (slot == 30) open(viewer, CosmeticsManager.Category.FOOTSTEPS);
-            else if (slot == 32) open(viewer, null, true);
+            if (slot == 10) open(viewer, CosmeticsManager.Category.TRAILS);
+            else if (slot == 12) open(viewer, CosmeticsManager.Category.ARMOR);
+            else if (slot == 14) open(viewer, CosmeticsManager.Category.KILL_SOUNDS);
+            else if (slot == 16) open(viewer, CosmeticsManager.Category.FOOTSTEPS);
+            else if (slot == 19) open(viewer, CosmeticsManager.Category.PETS);
+            else if (slot == 21) open(viewer, CosmeticsManager.Category.WIN_EFFECTS);
+            else if (slot == 23) open(viewer, CosmeticsManager.Category.ELIMINATION_EFFECTS);
+            else if (slot == 25) open(viewer, CosmeticsManager.Category.CROWNS);
+            else if (slot == 28) open(viewer, CosmeticsManager.Category.JOIN_EFFECTS);
+            else if (slot == 30) open(viewer, CosmeticsManager.Category.JOIN_SOUNDS);
+            else if (slot == 32) open(viewer, CosmeticsManager.Category.WIN_SOUNDS);
+            else if (slot == 40) open(viewer, null, true);
             return;
         }
         if (slot == 49) {

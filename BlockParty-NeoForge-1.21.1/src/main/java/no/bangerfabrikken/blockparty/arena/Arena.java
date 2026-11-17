@@ -3997,6 +3997,7 @@ public final class Arena {
         player.getAbilities().mayfly = false;
         player.onUpdateAbilities();
         player.setGameMode(GameType.ADVENTURE);
+        CosmeticsManager.playEliminationEffects(player);
         teleportToSpectatorWalkway(player);
         player.setNoGravity(false);
         player.setDeltaMovement(0.0, 0.0, 0.0);
@@ -4108,6 +4109,7 @@ public final class Arena {
         }
         if (winner != null) {
             PlayerStatsManager.recordWin(level.getServer(), winner);
+            CosmeticsManager.playWinEffects(winner);
             DailyChallengeManager.recordWin(level.getServer(), winner);
             level.sendParticles(ParticleTypes.FIREWORK, winner.getX(), winner.getY() + 1.5, winner.getZ(),
                     90, 2.4, 2.0, 2.4, 0.18);

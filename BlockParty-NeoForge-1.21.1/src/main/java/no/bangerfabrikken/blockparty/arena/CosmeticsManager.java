@@ -31,6 +31,7 @@ public final class CosmeticsManager {
     /** Categories explicitly disabled by each player; all newly equipped cosmetics start enabled. */
     private static final Map<UUID, EnumSet<Category>> DISABLED = new HashMap<>();
     private static long ticks;
+    private static final Set<UUID> SESSION_SEEN = new HashSet<>();
     public enum Category { TRAILS, ARMOR, KILL_SOUNDS, FOOTSTEPS }
     public record Cosmetic(String id, String name, int price, Category category, int icon,
                            String description, ParticleOptions particle, SoundEvent sound) {}
@@ -200,11 +201,14 @@ public final class CosmeticsManager {
 
     public static synchronized void tick(MinecraftServer server) {
         if (++ticks % 4 != 0) return;
+        Set<UUID> onlineInSession = new HashSet<>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             // Cosmetic particles are BlockParty-only. A saved selection never leaks
             // into ordinary survival after /bp leave, logout, or a teleport away.
             Arena session = ArenaManager.get().findArenaForLeave(player);
             if (session == null || !session.hasReturnLocation(player.getUUID())) continue;
+            onlineInSession.add(player.getUUID());
+            if (SESSION_SEEN.add(player.getUUID())) playJoinEffects(player);
             emit(player, Category.TRAILS);
             if (player.getDeltaMovement().horizontalDistanceSqr() > 0.0025 && !player.isCrouching()) {
                 emit(player, Category.FOOTSTEPS);
