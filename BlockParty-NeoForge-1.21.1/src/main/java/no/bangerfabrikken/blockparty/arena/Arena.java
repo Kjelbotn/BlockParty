@@ -3962,6 +3962,9 @@ public final class Arena {
         // only void/fall damage. This check must happen before clearPlayerRoundPowerUps,
         // because that cleanup consumes the stored one-use rescue.
         if (rescueWithLuckyLanding(player)) return;
+        // BlockParty eliminations are handled by the arena, not vanilla player death.
+        // Play the eliminated player's equipped cosmetic sound before they become a spectator.
+        CosmeticsManager.playKillSound(player);
         clearPlayerRoundPowerUps(player);
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
