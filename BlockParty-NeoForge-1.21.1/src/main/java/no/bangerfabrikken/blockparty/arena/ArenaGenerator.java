@@ -106,6 +106,11 @@ public final class ArenaGenerator {
             }
         }
 
+
+        // The permanent 40x40 dance-floor base carries the same two-line BlockParty
+        // wordmark between matches and is also the untouched starting layout for round 1.
+        drawBlockPartyLogo(level, minX, floorY, minZ, size);
+
         // Remove legacy/accidental support blocks beneath the spectator ring.
         // Keep the arena's outer shell intact; the walkway itself is intentionally cantilevered.
         for (int x = minX - WALKWAY_OUTER_MARGIN; x <= maxX + WALKWAY_OUTER_MARGIN; x++) {
@@ -916,6 +921,49 @@ public final class ArenaGenerator {
 
     private static boolean isSouthEntrance(int x, int centerX) {
         return x >= centerX - 4 && x <= centerX + 4;
+    }
+
+
+    /** Paints the two-line BlockParty wordmark over the regular concrete floor. */
+    private static void drawBlockPartyLogo(ServerLevel level, int minX, int floorY, int minZ, int size) {
+        if (size < 34) return;
+        Block[] firstLine = {Blocks.LIGHT_BLUE_CONCRETE, Blocks.LIME_CONCRETE,
+                Blocks.YELLOW_CONCRETE, Blocks.ORANGE_CONCRETE, Blocks.RED_CONCRETE};
+        Block[] secondLine = {Blocks.CYAN_CONCRETE, Blocks.CYAN_CONCRETE,
+                Blocks.CYAN_CONCRETE, Blocks.CYAN_CONCRETE, Blocks.CYAN_CONCRETE};
+        drawFloorWord(level, minX, floorY, minZ, (size - 30) / 2, 12, "BLOCK", firstLine);
+        drawFloorWord(level, minX, floorY, minZ, (size - 30) / 2, 21, "PARTY", secondLine);
+    }
+
+    private static void drawFloorWord(ServerLevel level, int minX, int floorY, int minZ,
+                                      int startX, int startZ, String word, Block[] colours) {
+        for (int i = 0; i < word.length(); i++) {
+            String[] glyph = floorGlyph(word.charAt(i));
+            for (int row = 0; row < 7; row++) {
+                for (int col = 0; col < 5; col++) {
+                    if (glyph[row].charAt(col) == '1') {
+                        put(level, minX + startX + i * 6 + col, floorY,
+                                minZ + startZ + row, colours[i]);
+                    }
+                }
+            }
+        }
+    }
+
+    private static String[] floorGlyph(char character) {
+        return switch (character) {
+            case 'B' -> new String[]{"11110","10001","10001","11110","10001","10001","11110"};
+            case 'L' -> new String[]{"10000","10000","10000","10000","10000","10000","11111"};
+            case 'O' -> new String[]{"01110","10001","10001","10001","10001","10001","01110"};
+            case 'C' -> new String[]{"01111","10000","10000","10000","10000","10000","01111"};
+            case 'K' -> new String[]{"10001","10010","10100","11000","10100","10010","10001"};
+            case 'P' -> new String[]{"11110","10001","10001","11110","10000","10000","10000"};
+            case 'A' -> new String[]{"01110","10001","10001","11111","10001","10001","10001"};
+            case 'R' -> new String[]{"11110","10001","10001","11110","10100","10010","10001"};
+            case 'T' -> new String[]{"11111","00100","00100","00100","00100","00100","00100"};
+            case 'Y' -> new String[]{"10001","10001","01010","00100","00100","00100","00100"};
+            default -> new String[]{"00000","00000","00000","00000","00000","00000","00000"};
+        };
     }
 
     private static Block shellBlock(int y) {
