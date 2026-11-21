@@ -3335,7 +3335,12 @@ public final class Arena {
     }
 
     private void tickColorInfection() {
-        if (roundEventElapsedTicks % 12 != 0 || infectedFloorBlocks.isEmpty()) return;
+        // Infection advances five times per second and can spread from many
+        // infected tiles in the same pulse. A hard cap keeps large floors safe.
+        if (roundEventElapsedTicks % 4 != 0 || infectedFloorBlocks.isEmpty()) return;
+        final int maxNewInfectionsPerPulse = 12;
+        final int maxPerSource = 2;
+        int infectedThisPulse = 0;
         List<BlockPos> frontier = new ArrayList<>(infectedFloorBlocks);
         Collections.shuffle(frontier, random);
         for (BlockPos source : frontier) {
@@ -3344,13 +3349,19 @@ public final class Arena {
                 BlockPos next = source.relative(direction);
                 if (floorSnapshot.containsKey(next) && !infectedFloorBlocks.contains(next)) candidates.add(next);
             }
-            if (candidates.isEmpty()) continue;
-            BlockPos next = candidates.get(random.nextInt(candidates.size()));
-            infectedFloorBlocks.add(next.immutable());
-            level.setBlock(next, Blocks.REDSTONE_BLOCK.defaultBlockState(), 3);
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.defaultBlockState()),
-                    next.getX() + 0.5D, next.getY() + 1.0D, next.getZ() + 0.5D, 8, 0.25D, 0.15D, 0.25D, 0.04D);
-            break;
+            Collections.shuffle(candidates, random);
+            int infectedFromSource = 0;
+            for (BlockPos next : candidates) {
+                if (infectedThisPulse >= maxNewInfectionsPerPulse) return;
+                if (infectedFromSource >= maxPerSource) break;
+                if (!infectedFloorBlocks.add(next.immutable())) continue;
+                level.setBlock(next, Blocks.REDSTONE_BLOCK.defaultBlockState(), 3);
+                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.defaultBlockState()),
+                        next.getX() + 0.5D, next.getY() + 1.0D, next.getZ() + 0.5D, 10,
+                        0.3D, 0.2D, 0.3D, 0.05D);
+                infectedFromSource++;
+                infectedThisPulse++;
+            }
         }
     }
 
