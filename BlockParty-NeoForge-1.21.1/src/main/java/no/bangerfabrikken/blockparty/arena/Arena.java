@@ -240,6 +240,7 @@ public final class Arena {
     private final Map<BlockPos, Integer> pendingTntRainBombs = new HashMap<>();
     private final Map<UUID, Vec3> slipperyMomentum = new HashMap<>();
     private final List<DyeColor> colorHuntColors = new ArrayList<>();
+    private boolean colorHuntClueHidden;
     private int previousPattern = -1;
     private final List<Integer> recentPatterns = new ArrayList<>();
     private boolean soloMode;
@@ -2934,6 +2935,14 @@ public final class Arena {
                     player.getInventory().setChanged();
                     player.inventoryMenu.broadcastChanges();
                 }
+            } else if (activeRoundEvent == RoundEvent.COLOR_HUNT) {
+                // Color Hunt is a memory challenge: deliberately remove the answer item.
+                for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                    if (isTargetColorBlock(player.getInventory().getItem(slot))) {
+                        player.getInventory().setItem(slot, ItemStack.EMPTY);
+                    }
+                }
+                player.getInventory().setChanged();
             } else {
                 // The target concrete always belongs in slot 5. If a toss or inventory action
                 // displaced it, recover the existing stack before creating a replacement.
@@ -3085,6 +3094,7 @@ public final class Arena {
         rainbowSwitchDelayTicks = 0;
         invisibleColorsHidden = false;
         colorHuntColors.clear();
+        colorHuntClueHidden = false;
         infectedFloorBlocks.clear();
         pendingTntRainBombs.clear();
         slipperyMomentum.clear();
@@ -3143,17 +3153,21 @@ public final class Arena {
             component.append(Component.literal(BlockPartyColors.displayName(secondaryTargetColor).toUpperCase(Locale.ROOT))
                     .withStyle(getTargetChatFormatting(secondaryTargetColor)));
         }
-        if (activeRoundEvent == RoundEvent.COLOR_HUNT && !colorHuntColors.isEmpty()) {
-            component = Component.literal("FIND SAFE: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
+        if (activeRoundEvent == RoundEvent.COLOR_HUNT) {
+            if (colorHuntClueHidden) {
+                return Component.literal("HUSK FARGEN DU SÅ!").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
+            }
+            component = Component.literal("HUSK DEN MARKERTE FARGEN: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
             for (int i = 0; i < colorHuntColors.size(); i++) {
                 if (i > 0) component.append(Component.literal("  /  ").withStyle(ChatFormatting.DARK_GRAY));
                 DyeColor candidate = colorHuntColors.get(i);
-                component.append(Component.literal(BlockPartyColors.displayName(candidate).toUpperCase(Locale.ROOT))
-                        .withStyle(getTargetChatFormatting(candidate), ChatFormatting.BOLD));
+                MutableComponent colorName = Component.literal(BlockPartyColors.displayName(candidate).toUpperCase(Locale.ROOT))
+                        .withStyle(getTargetChatFormatting(candidate), ChatFormatting.BOLD);
+                if (candidate == targetColor) {
+                    colorName.append(Component.literal(" ★").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                }
+                component.append(colorName);
             }
-            component.append(Component.literal("  |  STÅ PÅ: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
-                    .append(Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                            .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD));
         }
         return component;
     }
@@ -3178,7 +3192,7 @@ public final class Arena {
             case RAINBOW_RUSH -> "Målfargen skifter raskt!";
             case SLIPPERY_FLOOR -> "Gulvet blir glatt!";
             case INVISIBLE_COLORS -> "Husk hvor målfargen ligger!";
-            case COLOR_HUNT -> "Finn fargen etter STÅ PÅ på skjermen. De andre fargene er feller!";
+            case COLOR_HUNT -> "Husk den markerte fargen! Den forsvinner om 3 sekunder – ingen blokk i hotbaren!";
             case BLIZZARD -> "Snøstormen varer i to runder!";
             case COLOR_INFECTION -> "Infeksjonen sprer seg over gulvet!";
             case TNT_RAIN -> "Pass deg for TNT-regnet!";
@@ -3223,6 +3237,15 @@ public final class Arena {
                 }
                 rainbowSwitchesRemaining--;
                 rainbowSwitchDelayTicks = 12;
+            }
+            case COLOR_HUNT -> {
+                if (!colorHuntClueHidden && roundEventElapsedTicks >= 60) {
+                    colorHuntClueHidden = true;
+                    updateArenaWelcomeDisplay();
+                    broadcastActionBar(Component.literal("FARGEN ER SKJULT! HUSK HVA DU SÅ!")
+                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                    playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, 0.7F);
+                }
             }
             case INVISIBLE_COLORS -> {
                 if (!invisibleColorsHidden && roundEventElapsedTicks >= 40) {
@@ -4263,7 +4286,7 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             InventorySnapshot snapshot = originalHeldItems.get(uuid);
             if (player == null || snapshot == null) continue;
-            if (gameMode == GameMode.HARDCORE) {
+            if (gameMode == GameMode.HARDCORE || activeRoundEvent == RoundEvent.COLOR_HUNT) {
                 player.getInventory().setItem(COLOR_CHAOS_LEFT_SLOT, ItemStack.EMPTY);
                 player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
                 player.getInventory().setItem(COLOR_CHAOS_RIGHT_SLOT, ItemStack.EMPTY);
@@ -4290,7 +4313,8 @@ public final class Arena {
 
     /** Restore a tossed target block to its dedicated centre hotbar slot, never the first free slot. */
     public void restoreTossedTargetBlock(ServerPlayer player, ItemStack stack) {
-        if (targetColor == null || !players.contains(player.getUUID())) return;
+        if (targetColor == null || !players.contains(player.getUUID())
+                || activeRoundEvent == RoundEvent.COLOR_HUNT) return;
         DyeColor displayedColor = fakeDisplayedColors.getOrDefault(player.getUUID(), targetColor);
         setTargetColorItem(player, displayedColor);
     }
