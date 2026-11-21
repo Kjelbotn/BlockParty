@@ -45,7 +45,6 @@ final class BlockPartyHubMenu extends ChestMenu {
         add(15, Items.GOLDEN_HELMET, "TOPPLISTE", "Se de 5 beste spillerne i BlockParty.");
         add(29, Items.CLOCK, "DAGLIGE UTFORDRINGER", "Tre daglige oppgaver med personlige poengbelønninger.");
         add(31, Items.COMPASS, "SPILLMODUS", "Velg Classic eller Memory Mode for neste match.");
-        add(33, Items.EMERALD, "BETTING", "Tips på vinneren av matchen. Innsats: 10 rank-poeng.");
         add(49, Items.LIME_CONCRETE, "MELD DEG PÅ NESTE MATCH", "Registrer deg til neste BlockParty-match.");
     }
 
@@ -66,7 +65,7 @@ final class BlockPartyHubMenu extends ChestMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         if (!(player instanceof ServerPlayer serverPlayer) || clickType != ClickType.PICKUP || button != 0) return;
-        if (slotId == 11 || slotId == 13 || slotId == 15 || slotId == 29 || slotId == 31 || slotId == 33 || slotId == 49) {
+        if (slotId == 11 || slotId == 13 || slotId == 15 || slotId == 29 || slotId == 31 || slotId == 49) {
             serverPlayer.closeContainer();
             arena.handleHubMenuClick(serverPlayer, switch (slotId) {
                 case 11 -> 10;
@@ -74,7 +73,6 @@ final class BlockPartyHubMenu extends ChestMenu {
                 case 15 -> 14;
                 case 29 -> 30;
                 case 31 -> 34;
-                case 33 -> 36;
                 default -> 49;
             });
         }

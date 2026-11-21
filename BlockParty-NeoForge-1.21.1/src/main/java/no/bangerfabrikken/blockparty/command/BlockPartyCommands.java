@@ -67,8 +67,6 @@ public final class BlockPartyCommands {
                                 .executes(context -> join(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("leave")
                         .executes(context -> leave(context.getSource())))
-                .then(Commands.literal("bet")
-                        .executes(context -> bet(context.getSource())))
                 .then(Commands.literal("start")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -124,18 +122,6 @@ public final class BlockPartyCommands {
                                 .requires(source -> source.hasPermission(2))
                                 .executes(context -> reloadMusic(context.getSource()))))
                 .then(Commands.literal("help").executes(context -> help(context.getSource())));
-    }
-
-    private static int bet(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
-        Arena arena = ArenaManager.get().findArenaForLeave(player);
-        if (arena == null) arena = ArenaManager.get().findLobbyArenaFor(player);
-        if (arena == null) {
-            source.sendFailure(Component.literal("Fant ingen BlockParty-arena i nærheten."));
-            return 0;
-        }
-        arena.openBettingMenu(player);
-        return 1;
     }
 
     private static int quickJoin(CommandSourceStack source) throws CommandSyntaxException {

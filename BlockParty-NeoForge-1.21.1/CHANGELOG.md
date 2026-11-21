@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.60
+- Fixed Slippery Floor to preserve horizontal momentum and updated its Norwegian subtitle.
+- Color Chaos now displays its two safe concrete blocks in hotbar slots 4 and 6.
+- Extended Blackout Round and the Blackout penalty to 10 seconds; round cleanup no longer cancels the effect early.
+- Hardcore actionbar now shows only the countdown; the target remains on the arena display.
+- Added Color Hunt, two-round Blizzard, spreading Color Infection, and TNT Rain. TNT Rain blasts are restricted to captured dance-floor concrete and never damage stadium construction.
+- Removed betting completely: hub entry, /bp bet, menu, wagers, payouts and settlement.
+
 ## 1.4.59
 - Added rotating Random Events to Classic and Hardcore matches: Color Chaos, Blackout Round, Rainbow Rush, Slippery Floor and Invisible Colors.
 - Color Chaos makes either of two announced colours safe; both appear on the arena display, actionbar and target item.
