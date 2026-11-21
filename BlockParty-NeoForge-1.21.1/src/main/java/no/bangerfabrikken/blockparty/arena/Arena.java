@@ -3094,6 +3094,7 @@ public final class Arena {
         roundEventElapsedTicks = 0;
         rainbowSwitchesRemaining = 0;
         rainbowSwitchDelayTicks = 0;
+        rainbowRushColors.clear();
         invisibleColorsHidden = false;
         colorHuntColors.clear();
         colorHuntClueHidden = false;
