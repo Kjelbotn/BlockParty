@@ -4668,8 +4668,11 @@ public final class Arena {
         roundEventElapsedTicks = 0;
         rainbowSwitchesRemaining = 0;
         invisibleColorsHidden = false;
-        matchBets.clear();
-        bettingOpen = false;
+        blizzardRoundsRemaining = 0;
+        infectedFloorBlocks.clear();
+        pendingTntRainBombs.clear();
+        slipperyMomentum.clear();
+        colorHuntColors.clear();
         gameMode = GameMode.CLASSIC;
         matchStartTick = 0L;
         phase = Phase.WAITING;
