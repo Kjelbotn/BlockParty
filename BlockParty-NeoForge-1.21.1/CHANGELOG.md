@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.61
+- Added BlockParty-only hotbar navigation through slots 1, 5 and 9; scrolling is locked to concrete slot 5 when no hotbar power-up is carried.
+- LEAP BOOST is placed in slot 1, rounds automatically select concrete slot 5, and activating LEAP returns selection to concrete.
+- Added a compact active-effect HUD with live remaining-time display during matches.
+- Added distinct sound feedback when LEAP is activated and when timed Freeze/Pumpkin Vision effects expire.
+
+
 ## 1.4.60
 - Fixed Slippery Floor to preserve horizontal momentum and updated its Norwegian subtitle.
 - Color Chaos now displays its two safe concrete blocks in hotbar slots 4 and 6.
