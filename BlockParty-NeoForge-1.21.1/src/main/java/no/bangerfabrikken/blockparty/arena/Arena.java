@@ -3319,7 +3319,7 @@ public final class Arena {
                     pos.getZ() + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, pos.getX() + 0.5D, pos.getY() + 0.25D,
                     pos.getZ() + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-            level.playSound(null, pos, SoundEvents.GENERIC_EXPLODE, SoundSource.BLOCKS, 0.7F, 1.0F);
+            level.playSound(null, pos, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.BLOCKS, 0.7F, 1.0F);
             for (BlockPos floorPos : floorSnapshot.keySet()) {
                 if (floorPos.distSqr(pos) > 6.25D) continue;
                 if (BlockPartyColors.isConcrete(level.getBlockState(floorPos))) level.setBlock(floorPos, Blocks.AIR.defaultBlockState(), 3);
