@@ -1681,7 +1681,7 @@ public final class Arena {
         player.getInventory().selected = TARGET_BLOCK_SLOT;
         player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
         sendSystemMessage(player, Component.literal("LEAP BOOST aktivert!").withStyle(ChatFormatting.GREEN));
-        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP.value(), SoundSource.PLAYERS, 0.8F, 1.35F);
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.8F, 1.35F);
         return true;
     }
 
