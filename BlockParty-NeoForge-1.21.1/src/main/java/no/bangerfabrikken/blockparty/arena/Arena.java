@@ -748,7 +748,7 @@ public final class Arena {
         secondaryTargetColor = null;
         activeRoundEvent = RoundEvent.NONE;
         lastRoundEvent = RoundEvent.NONE;
-        nextEventRound = 3 + random.nextInt(2);
+        nextEventRound = 3;
         roundEventElapsedTicks = 0;
         rainbowSwitchesRemaining = 0;
         rainbowSwitchDelayTicks = 0;
@@ -3102,7 +3102,6 @@ public final class Arena {
                 RoundEvent.COLOR_HUNT, RoundEvent.BLIZZARD, RoundEvent.COLOR_INFECTION, RoundEvent.TNT_RAIN));
         if (roundColors.size() < 3) {
             choices.remove(RoundEvent.COLOR_HUNT);
-            choices.remove(RoundEvent.COLOR_INFECTION);
         }
         if (getRoundDurationTicks(round) < 80) {
             choices.remove(RoundEvent.RAINBOW_RUSH);
@@ -3110,7 +3109,10 @@ public final class Arena {
         }
         if (lastRoundEvent != RoundEvent.NONE) choices.remove(lastRoundEvent);
         if (choices.isEmpty()) choices = new ArrayList<>(List.of(RoundEvent.BLACKOUT, RoundEvent.SLIPPERY_FLOOR));
-        activeRoundEvent = choices.get(random.nextInt(choices.size()));
+        // The first special event is always Color Infection on round 3, so players
+        // encounter this mechanic early and learn how it spreads before rounds get fast.
+        activeRoundEvent = round == 3 && lastRoundEvent == RoundEvent.NONE
+                ? RoundEvent.COLOR_INFECTION : choices.get(random.nextInt(choices.size()));
         lastRoundEvent = activeRoundEvent;
         nextEventRound = round + 3 + random.nextInt(2);
         if (activeRoundEvent == RoundEvent.COLOR_CHAOS) {
@@ -3142,16 +3144,16 @@ public final class Arena {
                     .withStyle(getTargetChatFormatting(secondaryTargetColor)));
         }
         if (activeRoundEvent == RoundEvent.COLOR_HUNT && !colorHuntColors.isEmpty()) {
-            component = Component.literal("HUNT: ").withStyle(ChatFormatting.WHITE);
+            component = Component.literal("FIND SAFE: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
             for (int i = 0; i < colorHuntColors.size(); i++) {
-                if (i > 0) component.append(Component.literal(" / ").withStyle(ChatFormatting.GRAY));
+                if (i > 0) component.append(Component.literal("  /  ").withStyle(ChatFormatting.DARK_GRAY));
                 DyeColor candidate = colorHuntColors.get(i);
                 component.append(Component.literal(BlockPartyColors.displayName(candidate).toUpperCase(Locale.ROOT))
-                        .withStyle(getTargetChatFormatting(candidate)));
+                        .withStyle(getTargetChatFormatting(candidate), ChatFormatting.BOLD));
             }
-            component.append(Component.literal("  •  SAFE: ").withStyle(ChatFormatting.WHITE))
+            component.append(Component.literal("  |  STÅ PÅ: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD))
                     .append(Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                            .withStyle(getTargetChatFormatting(targetColor)));
+                            .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD));
         }
         return component;
     }
@@ -3176,7 +3178,7 @@ public final class Arena {
             case RAINBOW_RUSH -> "Målfargen skifter raskt!";
             case SLIPPERY_FLOOR -> "Gulvet blir glatt!";
             case INVISIBLE_COLORS -> "Husk hvor målfargen ligger!";
-            case COLOR_HUNT -> "Flere farger vises – bare én er trygg!";
+            case COLOR_HUNT -> "Finn fargen etter STÅ PÅ på skjermen. De andre fargene er feller!";
             case BLIZZARD -> "Snøstormen varer i to runder!";
             case COLOR_INFECTION -> "Infeksjonen sprer seg over gulvet!";
             case TNT_RAIN -> "Pass deg for TNT-regnet!";
@@ -3245,6 +3247,11 @@ public final class Arena {
     }
 
     private void tickSlipperyFloor(MinecraftServer server) {
+        // Vanilla ice has 0.98 slipperiness versus 0.60 for ordinary blocks.
+        // The event runs after normal movement, so compensate for the normal-floor
+        // drag and restore the horizontal momentum an ice surface would preserve.
+        final double iceToNormalFriction = 0.98D / 0.60D;
+        final double maxIceSpeed = 1.05D;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null || !player.onGround() || !isInsideFloorAndBorder(player, 0.0D)) {
@@ -3252,28 +3259,42 @@ public final class Arena {
                 continue;
             }
             Vec3 velocity = player.getDeltaMovement();
-            Vec3 previous = slipperyMomentum.getOrDefault(uuid, velocity);
-            double x = previous.x * 0.62D + velocity.x * 0.38D;
-            double z = previous.z * 0.62D + velocity.z * 0.38D;
+            double x = velocity.x * iceToNormalFriction;
+            double z = velocity.z * iceToNormalFriction;
             double speed = Math.sqrt(x * x + z * z);
-            if (speed > 0.72D) {
-                double scale = 0.72D / speed;
+            if (speed > maxIceSpeed) {
+                double scale = maxIceSpeed / speed;
                 x *= scale;
                 z *= scale;
             }
-            player.setDeltaMovement(x * 1.12D, velocity.y, z * 1.12D);
+            player.setDeltaMovement(x, velocity.y, z);
             player.hurtMarked = true;
             slipperyMomentum.put(uuid, new Vec3(x, 0.0D, z));
         }
     }
 
     private void tickBlizzard(MinecraftServer server) {
-        if (roundEventElapsedTicks % 4 != 0) return;
+        if (roundEventElapsedTicks % 2 != 0) return;
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player == null) continue;
+            if (player == null || !isInsideFloorAndBorder(player, 2.0D)) continue;
+            // Dense snow around each dancer makes the storm clearly visible, not just a
+            // few flakes at their feet.
             level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX(), player.getY() + 1.0D,
-                    player.getZ(), 18, 1.8D, 1.0D, 1.8D, 0.015D);
+                    player.getZ(), 28, 2.8D, 1.8D, 2.8D, 0.035D);
+            level.sendParticles(ParticleTypes.WHITE_ASH, player.getX(), player.getY() + 1.0D,
+                    player.getZ(), 8, 2.0D, 1.2D, 2.0D, 0.012D);
+
+            // A strong gust every 1.5 seconds pushes players sideways, making the
+            // snowstorm a real movement hazard as well as a visual event.
+            if (roundEventElapsedTicks % 30 == 0) {
+                double angle = random.nextDouble() * Math.PI * 2.0D;
+                Vec3 gust = new Vec3(Math.cos(angle) * 0.38D, 0.08D, Math.sin(angle) * 0.38D);
+                player.setDeltaMovement(player.getDeltaMovement().add(gust));
+                player.hurtMarked = true;
+                level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.5D,
+                        player.getZ(), 12, 0.8D, 0.25D, 0.8D, 0.04D);
+            }
         }
     }
 
@@ -3311,10 +3332,19 @@ public final class Arena {
     }
 
     private void tickTntRain() {
-        if (roundEventElapsedTicks % 30 == 1 && !floorSnapshot.isEmpty()) {
-            List<BlockPos> tiles = new ArrayList<>(floorSnapshot.keySet());
-            BlockPos target = tiles.get(random.nextInt(tiles.size()));
-            pendingTntRainBombs.put(target.immutable(), 12);
+        // Three bombs arrive every 0.4 seconds, each with a short 0.4-second fuse.
+        if (roundEventElapsedTicks % 8 == 1 && !floorSnapshot.isEmpty()) {
+            List<BlockPos> tiles = new ArrayList<>();
+            for (BlockPos tile : floorSnapshot.keySet()) {
+                if (BlockPartyColors.isConcrete(level.getBlockState(tile)) && !pendingTntRainBombs.containsKey(tile)) {
+                    tiles.add(tile);
+                }
+            }
+            Collections.shuffle(tiles, random);
+            int bombsToSpawn = Math.min(3, tiles.size());
+            for (int i = 0; i < bombsToSpawn; i++) {
+                pendingTntRainBombs.put(tiles.get(i).immutable(), 8);
+            }
         }
         for (Map.Entry<BlockPos, Integer> entry : new HashMap<>(pendingTntRainBombs).entrySet()) {
             BlockPos pos = entry.getKey();
@@ -3333,7 +3363,7 @@ public final class Arena {
                     pos.getZ() + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             level.playSound(null, pos, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.BLOCKS, 0.7F, 1.0F);
             for (BlockPos floorPos : floorSnapshot.keySet()) {
-                if (floorPos.distSqr(pos) > 6.25D) continue;
+                if (floorPos.distSqr(pos) > 16.0D) continue;
                 if (BlockPartyColors.isConcrete(level.getBlockState(floorPos))) level.setBlock(floorPos, Blocks.AIR.defaultBlockState(), 3);
             }
         }
