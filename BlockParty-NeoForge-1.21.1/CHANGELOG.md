@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.64
+- Greatly accelerated Color Infection: it spreads every 4 ticks, infects from multiple tiles at once, and can convert up to 12 floor blocks per pulse.
+
 ## 1.4.63
 - Reworked Color Hunt into a real memory challenge: three candidate colours appear briefly, the correct colour is marked, then the clue disappears and the target concrete is removed from the hotbar.
 
