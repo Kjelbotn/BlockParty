@@ -6,6 +6,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import no.bangerfabrikken.blockparty.network.PowerUpVisualPayload;
+import no.bangerfabrikken.blockparty.network.BlockPartyHudPayload;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.CommandEvent;
@@ -84,6 +85,9 @@ public final class BlockPartyMod {
         event.registrar("1").playToClient(PowerUpVisualPayload.TYPE, PowerUpVisualPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() ->
                         no.bangerfabrikken.blockparty.client.PowerUpVisualController.handle(payload)));
+        event.registrar("1").playToClient(BlockPartyHudPayload.TYPE, BlockPartyHudPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        no.bangerfabrikken.blockparty.client.BlockPartyHudController.handle(payload)));
     }
 
     private void onEntityJoinLevel(EntityJoinLevelEvent event) {
