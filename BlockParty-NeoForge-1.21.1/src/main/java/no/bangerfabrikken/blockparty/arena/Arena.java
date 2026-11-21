@@ -234,6 +234,7 @@ public final class Arena {
     private int roundEventElapsedTicks;
     private int rainbowSwitchesRemaining;
     private int rainbowSwitchDelayTicks;
+    private final List<DyeColor> rainbowRushColors = new ArrayList<>();
     private boolean invisibleColorsHidden;
     private int blizzardRoundsRemaining;
     private final Set<BlockPos> infectedFloorBlocks = new HashSet<>();
@@ -753,6 +754,7 @@ public final class Arena {
         roundEventElapsedTicks = 0;
         rainbowSwitchesRemaining = 0;
         rainbowSwitchDelayTicks = 0;
+        rainbowRushColors.clear();
         invisibleColorsHidden = false;
         previousPattern = -1;
         soloMode = players.size() == 1;
@@ -3141,6 +3143,9 @@ public final class Arena {
             blizzardRoundsRemaining = 1;
         } else if (activeRoundEvent == RoundEvent.COLOR_INFECTION) {
             seedColorInfection();
+        } else if (activeRoundEvent == RoundEvent.RAINBOW_RUSH) {
+            rainbowRushColors.addAll(roundColors);
+            Collections.shuffle(rainbowRushColors, random);
         }
     }
 
@@ -3189,7 +3194,7 @@ public final class Arena {
         String subtitle = switch (activeRoundEvent) {
             case COLOR_CHAOS -> "To farger er trygge denne runden!";
             case BLACKOUT -> "Lysene går ut – finn målfargen!";
-            case RAINBOW_RUSH -> "Målfargen skifter raskt!";
+            case RAINBOW_RUSH -> "Alle fargene ruller i 2 sekunder før én blir valgt!";
             case SLIPPERY_FLOOR -> "Gulvet blir glatt!";
             case INVISIBLE_COLORS -> "Husk hvor målfargen ligger!";
             case COLOR_HUNT -> "Husk den markerte fargen! Den forsvinner om 3 sekunder – ingen blokk i hotbaren!";
@@ -3219,24 +3224,19 @@ public final class Arena {
         roundEventElapsedTicks++;
         switch (activeRoundEvent) {
             case RAINBOW_RUSH -> {
-                if (rainbowSwitchesRemaining <= 0 || --rainbowSwitchDelayTicks > 0) return;
-                List<DyeColor> alternatives = new ArrayList<>();
-                for (BlockState state : floorSnapshot.values()) {
-                    DyeColor color = BlockPartyColors.getColor(state);
-                    if (color != null && color != targetColor && color != previousTargetColor && !alternatives.contains(color)) {
-                        alternatives.add(color);
-                    }
-                }
-                if (!alternatives.isEmpty()) {
-                    targetColor = alternatives.get(random.nextInt(alternatives.size()));
+                // Rapidly cycle through every colour available on this floor for
+                // exactly two seconds, then lock the final colour for the round.
+                if (roundEventElapsedTicks > 40 || rainbowRushColors.isEmpty()
+                        || roundEventElapsedTicks % 2 != 0) return;
+                int colorIndex = ((roundEventElapsedTicks / 2) - 1) % rainbowRushColors.size();
+                targetColor = rainbowRushColors.get(colorIndex);
+                updateColorDisplay();
+                updateArenaWelcomeDisplay();
+                broadcastTargetHud();
+                if (roundEventElapsedTicks >= 40) {
                     updateTargetItems(server);
-                    updateColorDisplay();
-                    updateArenaWelcomeDisplay();
-                    broadcastTargetHud();
-                    playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.75F, 1.25F);
+                    playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.9F, 1.0F);
                 }
-                rainbowSwitchesRemaining--;
-                rainbowSwitchDelayTicks = 12;
             }
             case COLOR_HUNT -> {
                 if (!colorHuntClueHidden && roundEventElapsedTicks >= 60) {
