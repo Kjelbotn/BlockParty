@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.65
+- Rainbow Rush now rapidly cycles through every available floor colour for 2 seconds, then locks the final colour for the round.
+
 ## 1.4.64
 - Greatly accelerated Color Infection: it spreads every 4 ticks, infects from multiple tiles at once, and can convert up to 12 floor blocks per pulse.
 
