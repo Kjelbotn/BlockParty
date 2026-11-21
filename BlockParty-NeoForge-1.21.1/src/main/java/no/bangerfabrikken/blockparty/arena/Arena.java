@@ -3044,7 +3044,9 @@ public final class Arena {
             for (UUID uuid : alive) {
                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                 if (player != null) {
+                    player.getInventory().setItem(COLOR_CHAOS_LEFT_SLOT, ItemStack.EMPTY);
                     player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
+                    player.getInventory().setItem(COLOR_CHAOS_RIGHT_SLOT, ItemStack.EMPTY);
                     player.getInventory().selected = TARGET_BLOCK_SLOT;
                     player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
                     player.getInventory().setChanged();
