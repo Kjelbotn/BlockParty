@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.63
+- Reworked Color Hunt into a real memory challenge: three candidate colours appear briefly, the correct colour is marked, then the clue disappears and the target concrete is removed from the hotbar.
+
 ## 1.4.62
 - Slippery Floor now preserves momentum like vanilla ice instead of slowing players down.
 - Increased TNT Rain to three bombs every 0.4 seconds, shortened fuses, and expanded blast radius.
