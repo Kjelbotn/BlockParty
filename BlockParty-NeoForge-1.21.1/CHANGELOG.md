@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.59
+- Added rotating Random Events to Classic and Hardcore matches: Color Chaos, Blackout Round, Rainbow Rush, Slippery Floor and Invisible Colors.
+- Color Chaos makes either of two announced colours safe; both appear on the arena display, actionbar and target item.
+- Blackout briefly darkens vision, Rainbow Rush changes the target twice, Slippery Floor adds momentum, and Invisible Colors masks the floor after a short reveal.
+- Added five new Main floor patterns and five festive Xmas floor patterns to later-round pattern pools.
+- Added Hardcore Mode voting: players receive no target concrete item and must follow the target on the arena screen/actionbar.
+- Added spectator winner betting using rank points: 10-point stake and 20-point reward for a correct prediction. Admin-stopped matches refund wagers.
+- Existing rank names, thresholds and power-ups remain unchanged.
+
 ## 1.4.58
 - Replaced the Xmas dance-floor artwork with the supplied Christmas BlockParty pixel-art design. The repair command now restores this design.
 

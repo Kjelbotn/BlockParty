@@ -151,6 +151,17 @@ public final class PlayerStatsManager {
         save(server);
     }
 
+    /** Awards rank points to a saved record, including offline spectators. */
+    public static synchronized void addPoints(MinecraftServer server, UUID playerId, int amount) {
+        if (amount <= 0) return;
+        PlayerRecord old = PLAYERS.get(playerId);
+        if (old == null) return;
+        PLAYERS.put(playerId, new PlayerRecord(playerId, old.name(), old.points() + amount,
+                old.currentStreak(), old.bestStreak(), old.personalBest(), old.wins(), old.mvpAwards(),
+                old.gamesPlayed(), old.podiums()));
+        save(server);
+    }
+
     public static synchronized void breakStreak(MinecraftServer server, UUID uuid) {
         PlayerRecord old = PLAYERS.get(uuid);
         if (old == null || old.currentStreak() == 0) return;

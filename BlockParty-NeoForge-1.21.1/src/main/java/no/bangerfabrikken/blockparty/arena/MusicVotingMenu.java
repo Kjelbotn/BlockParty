@@ -96,33 +96,31 @@ final class MusicVotingMenu extends ChestMenu {
             songContainer.setItem(slot, icon);
         }
 
-        // Game-mode voting lives in the same GUI as song voting, on the bottom row.
+        // Three game-mode choices share the bottom row; the heading sits above songs.
         Arena.GameMode selectedMode = arena.getPreferredGameMode(viewerId);
         boolean hasModeVote = arena.hasGameModeVote(viewerId);
-        ItemStack classic = new ItemStack(Items.NETHER_STAR);
-        classic.set(DataComponents.CUSTOM_NAME, Component.literal(
-                (hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC")
-                .withStyle(hasModeVote && selectedMode == Arena.GameMode.CLASSIC ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
-        classic.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.CLASSIC)).withStyle(ChatFormatting.YELLOW),
-                Component.literal("Klikk for å stemme på Classic").withStyle(ChatFormatting.YELLOW))));
-        songContainer.setItem(48, classic);
-
-        ItemStack memory = new ItemStack(Items.BOOK);
-        memory.set(DataComponents.CUSTOM_NAME, Component.literal(
-                (hasModeVote && selectedMode == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE")
-                .withStyle(hasModeVote && selectedMode == Arena.GameMode.MEMORY ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
-        memory.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Stemmer: " + arena.getGameModeVoteCount(Arena.GameMode.MEMORY)).withStyle(ChatFormatting.YELLOW),
-                Component.literal("Klikk for å stemme på Memory Mode").withStyle(ChatFormatting.YELLOW))));
-        songContainer.setItem(50, memory);
-
+        addModeVote(47, Items.NETHER_STAR, "CLASSIC", Arena.GameMode.CLASSIC, selectedMode, hasModeVote);
+        addModeVote(49, Items.BOOK, "MEMORY MODE", Arena.GameMode.MEMORY, selectedMode, hasModeVote);
+        addModeVote(51, Items.IRON_SWORD, "HARDCORE MODE", Arena.GameMode.HARDCORE, selectedMode, hasModeVote);
         ItemStack heading = new ItemStack(Items.COMPASS);
         heading.set(DataComponents.CUSTOM_NAME, Component.literal("STEM PÅ SPILLMODUS")
                 .withStyle(ChatFormatting.YELLOW));
         heading.set(DataComponents.LORE, new ItemLore(List.of(
-                Component.literal("Velg Classic eller Memory Mode").withStyle(ChatFormatting.GRAY))));
-        songContainer.setItem(49, heading);
+                Component.literal("Velg Classic, Memory eller Hardcore").withStyle(ChatFormatting.GRAY))));
+        songContainer.setItem(4, heading);
+    }
+
+
+    private void addModeVote(int slot, net.minecraft.world.item.Item item, String name,
+                             Arena.GameMode mode, Arena.GameMode selectedMode, boolean hasModeVote) {
+        boolean selected = hasModeVote && selectedMode == mode;
+        ItemStack stack = new ItemStack(item);
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal((selected ? "✓ " : "") + name)
+                .withStyle(selected ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
+        stack.set(DataComponents.LORE, new ItemLore(List.of(
+                Component.literal("Stemmer: " + arena.getGameModeVoteCount(mode)).withStyle(ChatFormatting.YELLOW),
+                Component.literal("Klikk for å stemme").withStyle(ChatFormatting.GRAY))));
+        songContainer.setItem(slot, stack);
     }
 
     @Override
@@ -130,9 +128,13 @@ final class MusicVotingMenu extends ChestMenu {
         // Never delegate to ChestMenu: voting icons must not be picked up, moved, or shift-clicked.
         if (!(player instanceof ServerPlayer serverPlayer)) return;
         if (clickType != ClickType.PICKUP || button != 0) return;
-        if (slotId == 48 || slotId == 50) {
-            arena.setPreferredGameMode(serverPlayer,
-                    slotId == 48 ? Arena.GameMode.CLASSIC : Arena.GameMode.MEMORY);
+        if (slotId == 47 || slotId == 49 || slotId == 51) {
+            Arena.GameMode mode = switch (slotId) {
+                case 47 -> Arena.GameMode.CLASSIC;
+                case 49 -> Arena.GameMode.MEMORY;
+                default -> Arena.GameMode.HARDCORE;
+            };
+            arena.setPreferredGameMode(serverPlayer, mode);
             refreshContents();
             broadcastChanges();
             return;

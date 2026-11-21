@@ -45,6 +45,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import org.joml.Vector3f;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.network.chat.numbers.BlankFormat;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
@@ -86,7 +87,9 @@ public final class Arena {
         WAITING, COUNTDOWN, TELEPORT_COUNTDOWN, PREPARE, FALL, WAITING_FOR_COLOR, MEMORY_REVEAL, MEMORY_FIND, FINISHING
     }
 
-    public enum GameMode { CLASSIC, MEMORY }
+    public enum GameMode { CLASSIC, MEMORY, HARDCORE }
+
+    private enum RoundEvent { NONE, COLOR_CHAOS, BLACKOUT, RAINBOW_RUSH, SLIPPERY_FLOOR, INVISIBLE_COLORS }
 
     private enum PowerUp {
         SPEED_UPGRADE, NIGHT_VISION, SUPER_JUMP, SLOWNESS, LEAP, COLOR_TELEPORTER, COLOR_SCANNER,
@@ -220,6 +223,19 @@ public final class Arena {
     private int round;
     private DyeColor targetColor;
     private DyeColor previousTargetColor;
+
+    private DyeColor secondaryTargetColor;
+    private RoundEvent activeRoundEvent = RoundEvent.NONE;
+    private RoundEvent lastRoundEvent = RoundEvent.NONE;
+    private int nextEventRound = 3;
+    private int roundEventElapsedTicks;
+    private int rainbowSwitchesRemaining;
+    private int rainbowSwitchDelayTicks;
+    private boolean invisibleColorsHidden;
+    private static final int BET_STAKE_POINTS = 10;
+    private static final int BET_PAYOUT_POINTS = 20;
+    private final Map<UUID, UUID> matchBets = new HashMap<>();
+    private boolean bettingOpen;
     private int previousPattern = -1;
     private final List<Integer> recentPatterns = new ArrayList<>();
     private boolean soloMode;
@@ -683,9 +699,11 @@ public final class Arena {
         long classicVotes = players.stream()
                 .filter(uuid -> preferredGameModes.get(uuid) == GameMode.CLASSIC)
                 .count();
-        // Only explicit lobby votes count. Ties and no votes default to Classic.
-        gameMode = memoryVotes > classicVotes ? GameMode.MEMORY : GameMode.CLASSIC;
-        broadcast(Component.literal((gameMode == GameMode.MEMORY ? "MEMORY MODE" : "CLASSIC") + " vant avstemningen!")
+        long hardcoreVotes = players.stream()
+                .filter(uuid -> preferredGameModes.get(uuid) == GameMode.HARDCORE)
+                .count();
+        gameMode = selectWinningGameMode(classicVotes, memoryVotes, hardcoreVotes);
+        broadcast(Component.literal(getGameModeName(gameMode) + " vant avstemningen!")
                 .withStyle(ChatFormatting.YELLOW));
         // Keep mode votes through the lobby countdown so the combined GUI remains usable.
 
@@ -723,6 +741,16 @@ public final class Arena {
         }
         round = 0;
         previousTargetColor = null;
+        secondaryTargetColor = null;
+        activeRoundEvent = RoundEvent.NONE;
+        lastRoundEvent = RoundEvent.NONE;
+        nextEventRound = 3 + random.nextInt(2);
+        roundEventElapsedTicks = 0;
+        rainbowSwitchesRemaining = 0;
+        rainbowSwitchDelayTicks = 0;
+        invisibleColorsHidden = false;
+        matchBets.clear();
+        bettingOpen = true;
         previousPattern = -1;
         soloMode = players.size() == 1;
         activeBeacons.clear();
@@ -1233,14 +1261,13 @@ public final class Arena {
                 displayCenter.getX() + 64, displayCenter.getY() + 16, displayCenter.getZ() + 12);
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 entity -> entity.getTags().contains(tag))) old.discard();
-        boolean classicTarget = gameMode == GameMode.CLASSIC
+        boolean classicTarget = (gameMode == GameMode.CLASSIC || gameMode == GameMode.HARDCORE)
                 && (phase == Phase.PREPARE || phase == Phase.FALL) && targetColor != null;
         boolean memoryRevealTarget = gameMode == GameMode.MEMORY
                 && phase == Phase.MEMORY_REVEAL && targetColor != null;
         // Main arena board stays blank outside the active target/reveal window.
         if (!classicTarget && !memoryRevealTarget) return;
-        Component target = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                .withStyle(getTargetChatFormatting(targetColor));
+        Component target = getTargetDisplayComponent();
         BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
                 displayCenter.getZ() + 1.0, targetDisplayYaw, target, 16.0F, tag);
     }
@@ -1258,14 +1285,11 @@ public final class Arena {
         if (level == null || pos1 == null || pos2 == null || !"xmas".equals(id)) return;
 
         boolean showTarget = targetColor != null
-                && ((gameMode == GameMode.CLASSIC && (phase == Phase.WAITING_FOR_COLOR || phase == Phase.PREPARE || phase == Phase.FALL))
+                && (((gameMode == GameMode.CLASSIC || gameMode == GameMode.HARDCORE)
+                        && (phase == Phase.WAITING_FOR_COLOR || phase == Phase.PREPARE || phase == Phase.FALL))
                 || (gameMode == GameMode.MEMORY && phase == Phase.MEMORY_REVEAL));
-        String text = showTarget
-                ? BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
-                : null;
-        Component displayText = showTarget
-                ? Component.literal(text).withStyle(getTargetChatFormatting(targetColor))
-                : null;
+        String text = showTarget ? getTargetDisplayComponent().getString() : null;
+        Component displayText = showTarget ? getTargetDisplayComponent() : null;
 
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
@@ -1410,8 +1434,7 @@ public final class Arena {
             case GREEN -> ChatFormatting.GREEN;
             case RED -> ChatFormatting.RED;
         };
-        Component text = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                .withStyle(textColor);
+        Component text = getTargetDisplayComponent();
         // Use exactly the same visible centre as the welcome title. The previous
         // lower anchor put target text behind the main arena's panel, leaving only
         // the old "BlockParty" title visible during Memory Mode.
@@ -1767,6 +1790,11 @@ public final class Arena {
                 }
             }
         }
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) player.removeEffect(MobEffects.DARKNESS);
+        }
+
         roundPowerupEffects.clear();
 
         // Remove carried effects once their promised extra round has finished.
@@ -2219,6 +2247,7 @@ public final class Arena {
             case 14 -> PlayerStatsManager.sendLeaderboard(player);
             case 30 -> openDailyChallenges(player);
             case 34 -> openGameModeMenu(player);
+            case 36 -> openBettingMenu(player);
             case 49 -> registerForGame(player);
             default -> { }
         }
@@ -2253,6 +2282,20 @@ public final class Arena {
         return (int) preferredGameModes.values().stream().filter(mode::equals).count();
     }
 
+    private static GameMode selectWinningGameMode(long classic, long memory, long hardcore) {
+        if (hardcore > classic && hardcore > memory) return GameMode.HARDCORE;
+        if (memory > classic && memory > hardcore) return GameMode.MEMORY;
+        return GameMode.CLASSIC;
+    }
+
+    private static String getGameModeName(GameMode mode) {
+        return switch (mode) {
+            case MEMORY -> "Memory Mode";
+            case HARDCORE -> "Hardcore Mode";
+            default -> "Classic";
+        };
+    }
+
     public void setPreferredGameMode(ServerPlayer player, GameMode selected) {
         if ((phase != Phase.WAITING && phase != Phase.COUNTDOWN)
                 || !isLobbyAccessibleTo(player) || !returnLocations.containsKey(player.getUUID())) {
@@ -2268,13 +2311,114 @@ public final class Arena {
         if (phase == Phase.COUNTDOWN) {
             long memory = players.stream().filter(uuid -> preferredGameModes.get(uuid) == GameMode.MEMORY).count();
             long classic = players.stream().filter(uuid -> preferredGameModes.get(uuid) == GameMode.CLASSIC).count();
-            gameMode = memory > classic ? GameMode.MEMORY : GameMode.CLASSIC;
+            long hardcore = players.stream().filter(uuid -> preferredGameModes.get(uuid) == GameMode.HARDCORE).count();
+            gameMode = selectWinningGameMode(classic, memory, hardcore);
         }
         broadcast(Component.literal(player.getGameProfile().getName() + " stemte på "
-                + (mode == GameMode.MEMORY ? "Memory Mode" : "Classic") + " for neste match.")
+                + getGameModeName(mode) + " for neste match.")
                 .withStyle(ChatFormatting.YELLOW));
         refreshOpenMusicVotingMenus();
         tryStartWhenTwoPlayersHaveVotedForSongs(player.serverLevel().getServer());
+    }
+
+
+    public void openBettingMenu(ServerPlayer viewer) {
+        if (!canLocatePlayerForLeave(viewer) && !isInsideBlockPartyArea(viewer)) {
+            sendSystemMessage(viewer, Component.literal("Stå i eller ved BlockParty-arenaen for å bette.")
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (players.contains(viewer.getUUID())) {
+            sendSystemMessage(viewer, Component.literal("Betting er for spectators, ikke spillere som er påmeldt matchen.")
+                    .withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (!bettingOpen || alive.isEmpty()) {
+            sendSystemMessage(viewer, Component.literal("Betting er ikke åpent akkurat nå. Tips før første spiller blir eliminert.")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+        viewer.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, menuPlayer) ->
+                        new BettingMenu(containerId, inventory, this, (ServerPlayer) menuPlayer),
+                Component.literal("BlockParty – Betting")));
+    }
+
+    static int getBetStakePoints() { return BET_STAKE_POINTS; }
+    boolean isBettingOpen() { return bettingOpen; }
+    List<UUID> getBettingCandidates() { return new ArrayList<>(alive); }
+    boolean hasPlacedBet(UUID bettorId) { return matchBets.containsKey(bettorId); }
+
+    String getPlacedBetCandidateName(UUID bettorId) {
+        UUID selected = matchBets.get(bettorId);
+        return selected == null ? "" : getBettingCandidateName(selected);
+    }
+
+    String getBettingCandidateName(UUID candidateId) {
+        ServerPlayer online = level == null || level.getServer() == null ? null
+                : level.getServer().getPlayerList().getPlayer(candidateId);
+        return online != null ? online.getGameProfile().getName()
+                : PlayerStatsManager.getRecord(candidateId).name();
+    }
+
+    boolean placeBet(ServerPlayer bettor, UUID candidateId) {
+        UUID bettorId = bettor.getUUID();
+        if (!bettingOpen || !alive.contains(candidateId)) {
+            sendSystemMessage(bettor, Component.literal("Denne spilleren er ikke lenger et gyldig bettingvalg.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        if (players.contains(bettorId)) {
+            sendSystemMessage(bettor, Component.literal("Kun spectators kan bette.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        if (matchBets.containsKey(bettorId)) {
+            sendSystemMessage(bettor, Component.literal("Du har allerede bettet i denne matchen.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        MinecraftServer server = bettor.serverLevel().getServer();
+        if (!PlayerStatsManager.spendPoints(server, bettor, BET_STAKE_POINTS)) {
+            sendSystemMessage(bettor, Component.literal("Du trenger minst " + BET_STAKE_POINTS
+                    + " rank-poeng. Du har " + PlayerStatsManager.getPoints(bettorId) + ".")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        matchBets.put(bettorId, candidateId);
+        sendSystemMessage(bettor, Component.literal("Du bettet " + BET_STAKE_POINTS + " poeng på "
+                + getBettingCandidateName(candidateId) + ". Riktig tips gir " + BET_PAYOUT_POINTS + " poeng tilbake!")
+                .withStyle(ChatFormatting.GREEN));
+        return true;
+    }
+
+    private void settleMatchBets(UUID winnerId) {
+        MinecraftServer server = level == null ? null : level.getServer();
+        if (server == null) {
+            matchBets.clear();
+            bettingOpen = false;
+            return;
+        }
+        for (Map.Entry<UUID, UUID> bet : new HashMap<>(matchBets).entrySet()) {
+            UUID bettorId = bet.getKey();
+            boolean refund = winnerId == null;
+            boolean correct = !refund && winnerId.equals(bet.getValue());
+            int adjustment = refund ? BET_STAKE_POINTS : correct ? BET_PAYOUT_POINTS : 0;
+            if (adjustment > 0) PlayerStatsManager.addPoints(server, bettorId, adjustment);
+            ServerPlayer onlineBettor = server.getPlayerList().getPlayer(bettorId);
+            if (onlineBettor != null) {
+                String result = refund ? "Matchen ble avbrutt – innsatsen er refundert."
+                        : correct ? "Riktig tips! Du fikk " + BET_PAYOUT_POINTS + " rank-poeng."
+                        : "Feil tips – innsatsen på " + BET_STAKE_POINTS + " poeng er tapt.";
+                sendSystemMessage(onlineBettor, Component.literal(result)
+                        .withStyle(refund ? ChatFormatting.YELLOW : correct ? ChatFormatting.GREEN : ChatFormatting.RED));
+            }
+        }
+        matchBets.clear();
+        bettingOpen = false;
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            if (online.containerMenu instanceof BettingMenu) online.closeContainer();
+        }
     }
 
     public void openMusicVoting(ServerPlayer player) {
@@ -2677,6 +2821,7 @@ public final class Arena {
         tickSpecialSongScreen();
         tickColorScanners(server);
         tickPumpkinVision(server);
+        if (phase == Phase.PREPARE) tickRoundEvent(server);
         switch (phase) {
             case WAITING -> { /* Waiting for the 50% music-vote threshold. */ }
             case COUNTDOWN -> {
@@ -2876,6 +3021,16 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
 
+            if (gameMode == GameMode.HARDCORE) {
+                ItemStack hiddenTarget = player.getInventory().getItem(TARGET_BLOCK_SLOT);
+                if (isTargetColorBlock(hiddenTarget)) {
+                    player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
+                    player.getInventory().setChanged();
+                    player.inventoryMenu.broadcastChanges();
+                }
+                continue;
+            }
+
             // The target concrete always belongs in slot 5. If a toss or inventory action
             // displaced it, recover the existing stack before creating a replacement.
             ItemStack centre = player.getInventory().getItem(TARGET_BLOCK_SLOT);
@@ -2981,6 +3136,7 @@ public final class Arena {
             targetColor = choices.get(random.nextInt(choices.size()));
         }
         previousTargetColor = targetColor;
+        configureRoundEvent(roundColors);
 
         if (firstRound) {
             if (gameMode == GameMode.MEMORY) startMemoryReveal(server);
@@ -3009,6 +3165,139 @@ public final class Arena {
     }
 
     /** Show the full, coloured floor for five seconds; the target stays server-side only. */
+
+    private void configureRoundEvent(Set<DyeColor> roundColors) {
+        activeRoundEvent = RoundEvent.NONE;
+        secondaryTargetColor = null;
+        roundEventElapsedTicks = 0;
+        rainbowSwitchesRemaining = 0;
+        rainbowSwitchDelayTicks = 0;
+        invisibleColorsHidden = false;
+        if (gameMode == GameMode.MEMORY || round < nextEventRound) return;
+
+        List<RoundEvent> choices = new ArrayList<>(List.of(
+                RoundEvent.COLOR_CHAOS, RoundEvent.BLACKOUT, RoundEvent.RAINBOW_RUSH,
+                RoundEvent.SLIPPERY_FLOOR, RoundEvent.INVISIBLE_COLORS));
+        if (roundColors.size() < 2) choices.remove(RoundEvent.COLOR_CHAOS);
+        if (getRoundDurationTicks(round) < 80) {
+            choices.remove(RoundEvent.RAINBOW_RUSH);
+            choices.remove(RoundEvent.INVISIBLE_COLORS);
+        }
+        if (lastRoundEvent != RoundEvent.NONE) choices.remove(lastRoundEvent);
+        if (choices.isEmpty()) choices = new ArrayList<>(List.of(RoundEvent.BLACKOUT, RoundEvent.SLIPPERY_FLOOR));
+        activeRoundEvent = choices.get(random.nextInt(choices.size()));
+        lastRoundEvent = activeRoundEvent;
+        nextEventRound = round + 3 + random.nextInt(2);
+
+        if (activeRoundEvent == RoundEvent.COLOR_CHAOS) {
+            List<DyeColor> alternatives = new ArrayList<>(roundColors);
+            alternatives.remove(targetColor);
+            if (alternatives.isEmpty()) activeRoundEvent = RoundEvent.NONE;
+            else secondaryTargetColor = alternatives.get(random.nextInt(alternatives.size()));
+        }
+    }
+
+    private Component getTargetDisplayComponent() {
+        if (targetColor == null) return Component.empty();
+        MutableComponent component = Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                .withStyle(getTargetChatFormatting(targetColor));
+        if (secondaryTargetColor != null) {
+            component.append(Component.literal(" OR ").withStyle(ChatFormatting.WHITE));
+            component.append(Component.literal(BlockPartyColors.displayName(secondaryTargetColor).toUpperCase(Locale.ROOT))
+                    .withStyle(getTargetChatFormatting(secondaryTargetColor)));
+        }
+        return component;
+    }
+
+    private void announceRoundEvent(MinecraftServer server) {
+        if (activeRoundEvent == RoundEvent.NONE) return;
+        String title = switch (activeRoundEvent) {
+            case COLOR_CHAOS -> "COLOR CHAOS!";
+            case BLACKOUT -> "BLACKOUT ROUND!";
+            case RAINBOW_RUSH -> "RAINBOW RUSH!";
+            case SLIPPERY_FLOOR -> "SLIPPERY FLOOR!";
+            case INVISIBLE_COLORS -> "INVISIBLE COLORS!";
+            default -> "";
+        };
+        String subtitle = switch (activeRoundEvent) {
+            case COLOR_CHAOS -> "To farger er trygge denne runden!";
+            case BLACKOUT -> "Lysene går ut – finn målfargen!";
+            case RAINBOW_RUSH -> "Målfargen skifter raskt!";
+            case SLIPPERY_FLOOR -> "Bevegelsene glir videre!";
+            case INVISIBLE_COLORS -> "Husk hvor målfargen ligger!";
+            default -> "";
+        };
+        broadcast(Component.literal("✦ SPESIALRUNDE: " + title + " " + subtitle)
+                .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
+            player.connection.send(new ClientboundSetTitleTextPacket(
+                    Component.literal(title).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(
+                    Component.literal(subtitle).withStyle(ChatFormatting.WHITE)));
+            if (activeRoundEvent == RoundEvent.BLACKOUT) {
+                player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 60, 0, false, false, false));
+            }
+        }
+        playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.9F, 0.78F);
+    }
+
+    private void tickRoundEvent(MinecraftServer server) {
+        roundEventElapsedTicks++;
+        switch (activeRoundEvent) {
+            case RAINBOW_RUSH -> {
+                if (rainbowSwitchesRemaining <= 0 || --rainbowSwitchDelayTicks > 0) return;
+                List<DyeColor> alternatives = new ArrayList<>();
+                for (BlockState state : floorSnapshot.values()) {
+                    DyeColor color = BlockPartyColors.getColor(state);
+                    if (color != null && color != targetColor && color != previousTargetColor && !alternatives.contains(color)) {
+                        alternatives.add(color);
+                    }
+                }
+                if (!alternatives.isEmpty()) {
+                    targetColor = alternatives.get(random.nextInt(alternatives.size()));
+                    updateTargetItems(server);
+                    updateColorDisplay();
+                    updateArenaWelcomeDisplay();
+                    broadcastTargetHud();
+                    playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.75F, 1.25F);
+                }
+                rainbowSwitchesRemaining--;
+                rainbowSwitchDelayTicks = 12;
+            }
+            case INVISIBLE_COLORS -> {
+                if (!invisibleColorsHidden && roundEventElapsedTicks >= 40) {
+                    invisibleColorsHidden = true;
+                    for (UUID uuid : alive) {
+                        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                        if (player == null) continue;
+                        cottonPickerPlayers.add(uuid);
+                        applyCottonPickerView(player);
+                    }
+                    broadcastActionBar(Component.literal("FARGENE ER BORTE! HUSK HVOR DU SKAL STÅ!")
+                            .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+                    playSound(ModSounds.COLOR_REVEAL, SoundSource.PLAYERS, 0.8F, 0.65F);
+                }
+            }
+            case SLIPPERY_FLOOR -> tickSlipperyFloor(server);
+            default -> { }
+        }
+    }
+
+    private void tickSlipperyFloor(MinecraftServer server) {
+        for (UUID uuid : alive) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null || !player.onGround() || !isInsideFloorAndBorder(player, 0.0D)) continue;
+            Vec3 velocity = player.getDeltaMovement();
+            double speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+            if (speed < 0.015D) continue;
+            double multiplier = Math.min(1.08D, 0.35D / speed);
+            player.setDeltaMovement(velocity.x * multiplier, velocity.y, velocity.z * multiplier);
+        }
+    }
+
     private void startMemoryReveal(MinecraftServer server) {
         phase = Phase.MEMORY_REVEAL;
         timerTicks = getMemoryRevealDurationTicks(round);
@@ -3049,6 +3338,11 @@ public final class Arena {
         updateColorDisplay();
         timerTicks = getRoundDurationTicks(round);
         phase = Phase.PREPARE;
+        if (activeRoundEvent == RoundEvent.RAINBOW_RUSH) {
+            rainbowSwitchesRemaining = 2;
+            rainbowSwitchDelayTicks = 12;
+        }
+        announceRoundEvent(server);
         updateArenaWelcomeDisplay();
         if (musicPaused) resumeMusic();
         else if (activeMusicId == null && !musicFinished) playSelectedMusic();
@@ -3145,27 +3439,12 @@ public final class Arena {
 
     private void broadcastTargetHud() {
         if (targetColor == null || level == null) return;
-        ChatFormatting color = switch (targetColor) {
-            case WHITE -> ChatFormatting.WHITE;
-            case ORANGE -> ChatFormatting.GOLD;
-            case MAGENTA, PINK -> ChatFormatting.LIGHT_PURPLE;
-            case LIGHT_BLUE, CYAN -> ChatFormatting.AQUA;
-            case YELLOW -> ChatFormatting.YELLOW;
-            case LIME -> ChatFormatting.GREEN;
-            case GRAY -> ChatFormatting.DARK_GRAY;
-            case LIGHT_GRAY -> ChatFormatting.GRAY;
-            case PURPLE -> ChatFormatting.DARK_PURPLE;
-            case BLUE -> ChatFormatting.BLUE;
-            case BROWN -> ChatFormatting.GOLD;
-            case GREEN -> ChatFormatting.DARK_GREEN;
-            case RED -> ChatFormatting.RED;
-            case BLACK -> ChatFormatting.DARK_GRAY;
-        };
+        ChatFormatting color = getTargetChatFormatting(targetColor);
         int remainingSeconds = Math.max(1, Math.min(10, (timerTicks + 19) / 20));
         String filled = "■".repeat(remainingSeconds);
         String empty = "■".repeat(10 - remainingSeconds);
-        Component hud = Component.literal("      ").append(Component.literal(BlockPartyColors.displayName(targetColor))
-                .withStyle(color))
+        MutableComponent hud = Component.literal("      ")
+                .append(getTargetDisplayComponent())
                 .append(Component.literal("  " + formatSeconds(Math.max(0, timerTicks)) + "s  ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(filled).withStyle(color))
                 .append(Component.literal(empty).withStyle(ChatFormatting.DARK_GRAY));
@@ -3336,9 +3615,7 @@ public final class Arena {
         Component speedLine = Component.literal("Round Speed: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(roundSpeed).withStyle(ChatFormatting.YELLOW));
         Component findLine = Component.literal("Find: ").withStyle(ChatFormatting.YELLOW)
-                .append(Component.literal(targetColor == null ? "—"
-                        : BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
-                        .withStyle(targetColor == null ? ChatFormatting.WHITE : getTargetChatFormatting(targetColor)));
+                .append(targetColor == null ? Component.literal("—") : getTargetDisplayComponent());
         Component pointsLine = Component.literal("Points: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(Integer.toString(matchPoints)).withStyle(ChatFormatting.GREEN));
         Component powerupsLine = Component.literal("Power-Ups: ").withStyle(ChatFormatting.GRAY)
@@ -3423,19 +3700,19 @@ public final class Arena {
                 : (round <= 5 ? 0 : round <= 10 ? 6 : round <= 15 ? 12 : round <= 20 ? 19 : 24);
         int maxPattern = "xmas".equals(id)
                 ? (round <= 5 ? 11 : round <= 10 ? 19 : round <= 15 ? 25 : round <= 20 ? 29 : 31)
-                : (round <= 5 ? 12 : round <= 10 ? 22 : round <= 15 ? 29 : round <= 20 ? 35 : 38);
+                : (round <= 5 ? 12 : round <= 10 ? 22 : round <= 15 ? 29 : round <= 20 ? 40 : 43);
         int patternCount = maxPattern - minPattern + 1;
         int pattern;
         // Xmas occasionally gets a dedicated festive pixel-art motif instead of
         // the normal geometric pattern. Keep the regular patterns in rotation too.
         if ("xmas".equals(id) && random.nextInt(3) == 0) {
-            pattern = 32 + random.nextInt(14);
+            pattern = 32 + random.nextInt(19);
         } else {
             pattern = minPattern + random.nextInt(patternCount);
         }
         int rerolls = 0;
         while (recentPatterns.contains(pattern) && rerolls++ < 18) {
-            if ("xmas".equals(id) && random.nextInt(3) == 0) pattern = 32 + random.nextInt(14);
+            if ("xmas".equals(id) && random.nextInt(3) == 0) pattern = 32 + random.nextInt(19);
             else pattern = minPattern + random.nextInt(patternCount);
         }
         previousPattern = pattern;
@@ -3590,6 +3867,29 @@ public final class Arena {
                     int gx = x / cell, gz = z / cell;
                     index = gx * 23 + gz * 29 + (gx * gz) % 31 + ((gx ^ (gz * 3)) % 7) * 5 + twist;
                 } // maximum-density fractured mosaic
+                case 39 -> {
+                    int gx = x / 3, gz = z / 3;
+                    index = gx * 7 + gz * 11 + (gx % 3 - gz % 3) * 4 + ((gx + gz) % 2) * 5 + twist;
+                } // interlocking brick maze
+                case 40 -> {
+                    double angle = Math.atan2(dz, dx);
+                    double radius = Math.hypot(dx, dz);
+                    index = (int) Math.floor((Math.sin(angle * 6.0 + radius * 0.18) + 1.0) * 3.5 + radius / 4.0 + twist);
+                } // six-petal radial bloom
+                case 41 -> {
+                    int lane = Math.floorMod(x * 2 + z * 3, 16);
+                    index = (lane < 8 ? lane : 15 - lane) + twist;
+                } // mirrored zig-zag ribbons
+                case 42 -> {
+                    int wave = (int) Math.floor((Math.sin(x * 0.35) + Math.cos(z * 0.35)
+                            + Math.sin((x + z) * 0.18) + 3.0) * 3.0);
+                    index = wave + ((x / 4) % 2 == 0 ? z / 3 : -z / 3) + twist;
+                } // crossing wavefronts
+                case 43 -> {
+                    int gx = x / 2, gz = z / 2;
+                    int hash = Math.floorMod(gx * 43 + gz * 71 + gx * gz * 13, 97);
+                    index = hash + ((gx + gz) % 2 == 0 ? 0 : colors.size() / 2) + twist;
+                } // fractured colour islands
                 default -> {
                     int roundLimit = getMatchRoundLimit();
                     int cell = round >= roundLimit ? 1 : round >= (int) Math.ceil(roundLimit * 0.8) ? 2 : 3;
@@ -3754,6 +4054,51 @@ public final class Arena {
                 }
                 yield DyeColor.LIGHT_BLUE;
             }
+            case 46 -> { // Ornament garland
+                double left = Math.hypot(dx + 10, dz + 1);
+                double centre = Math.hypot(dx, dz - 3);
+                double right = Math.hypot(dx - 10, dz + 1);
+                double nearest = Math.min(left, Math.min(centre, right));
+                if (az >= 10 && az <= 17 && ax <= 1) yield DyeColor.GREEN;
+                if (nearest <= 7) {
+                    if (nearest >= 6) yield DyeColor.YELLOW;
+                    if (Math.floorMod(x + z, 9) == 0) yield DyeColor.WHITE;
+                    yield left <= centre && left <= right ? DyeColor.RED
+                            : centre <= right ? DyeColor.LIGHT_BLUE : DyeColor.GREEN;
+                }
+                yield DyeColor.BLUE;
+            }
+            case 47 -> { // Wrapped present with ribbon
+                int lx = Math.floorMod(x, 18), lz = Math.floorMod(z, 18);
+                if (lx <= 1 || lx >= 16 || lz <= 1 || lz >= 16) yield DyeColor.GREEN;
+                if ((lx >= 8 && lx <= 9) || (lz >= 8 && lz <= 9)) yield DyeColor.YELLOW;
+                if ((lx == 7 || lx == 10) && (lz <= 5 || lz >= 12)) yield DyeColor.WHITE;
+                yield DyeColor.RED;
+            }
+            case 48 -> { // Eight-point icy star
+                boolean ray = ax <= 1 || az <= 1 || Math.abs(ax - az) <= 1;
+                if (ray && Math.max(ax, az) <= 15) yield DyeColor.WHITE;
+                if (Math.max(ax, az) <= 17) yield DyeColor.LIGHT_BLUE;
+                yield DyeColor.BLUE;
+            }
+            case 49 -> { // Candy-cane spiral
+                double radius = Math.hypot(dx, dz);
+                double angle = Math.atan2(dz, dx);
+                int stripe = (int) Math.floor(radius + angle * 3.5);
+                if (radius <= 15) yield Math.floorMod(stripe, 8) < 4 ? DyeColor.RED : DyeColor.WHITE;
+                yield DyeColor.GREEN;
+            }
+            case 50 -> { // Festive wreath with berries and golden ribbon
+                double radius = Math.hypot(dx, dz);
+                if (radius >= 9 && radius <= 15) {
+                    if (Math.floorMod(x * 3 + z * 5, 13) == 0) yield DyeColor.RED;
+                    if (ax <= 1 && dz <= -11) yield DyeColor.YELLOW;
+                    yield DyeColor.GREEN;
+                }
+                if (radius < 7) yield DyeColor.WHITE;
+                if (az >= 15 && ax <= 4) yield DyeColor.YELLOW;
+                yield DyeColor.BLUE;
+            }
             default -> null;
         };
     }
@@ -3815,10 +4160,13 @@ public final class Arena {
     }
 
     private void setTargetColorItem(ServerPlayer player, DyeColor displayedColor) {
-        if (displayedColor == null) return;
+        if (displayedColor == null || gameMode == GameMode.HARDCORE) return;
         ItemStack targetBlock = new ItemStack(BlockPartyColors.getConcrete(displayedColor));
-        targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(displayedColor))
-                .withStyle(ChatFormatting.WHITE));
+        String itemName = secondaryTargetColor != null && displayedColor == targetColor
+                ? "COLOR CHAOS: " + BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT)
+                    + " OR " + BlockPartyColors.displayName(secondaryTargetColor).toUpperCase(Locale.ROOT)
+                : BlockPartyColors.displayName(displayedColor);
+        targetBlock.set(DataComponents.CUSTOM_NAME, Component.literal(itemName).withStyle(ChatFormatting.WHITE));
         player.getInventory().selected = TARGET_BLOCK_SLOT;
         player.getInventory().setItem(TARGET_BLOCK_SLOT, targetBlock);
         player.getInventory().setChanged();
@@ -3832,6 +4180,12 @@ public final class Arena {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             InventorySnapshot snapshot = originalHeldItems.get(uuid);
             if (player == null || snapshot == null) continue;
+            if (gameMode == GameMode.HARDCORE) {
+                player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
+                player.getInventory().setChanged();
+                player.inventoryMenu.broadcastChanges();
+                continue;
+            }
             DyeColor displayedColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
             setTargetColorItem(player, displayedColor);
         }
@@ -3882,7 +4236,8 @@ public final class Arena {
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 BlockPos tile = new BlockPos(x, pos1.getY(), z);
-                if (getGameplayFloorColor(tile) == targetColor) return tile;
+                DyeColor tileColor = getGameplayFloorColor(tile);
+                if (tileColor == targetColor || (secondaryTargetColor != null && tileColor == secondaryTargetColor)) return tile;
             }
         }
         return null;
@@ -3940,7 +4295,9 @@ public final class Arena {
         // Remove every tile except the announced color. The arena generator leaves a fall pit below.
         for (Map.Entry<BlockPos, BlockState> entry : floorSnapshot.entrySet()) {
             DyeColor color = BlockPartyColors.getColor(entry.getValue());
-            if (color != targetColor) level.setBlock(entry.getKey(), Blocks.AIR.defaultBlockState(), 3);
+            if (color != targetColor && (secondaryTargetColor == null || color != secondaryTargetColor)) {
+                level.setBlock(entry.getKey(), Blocks.AIR.defaultBlockState(), 3);
+            }
         }
         pauseMusic();
         phase = Phase.FALL;
@@ -3962,6 +4319,16 @@ public final class Arena {
         // because that cleanup consumes the stored one-use rescue.
         if (rescueWithLuckyLanding(player)) return;
         clearPlayerRoundPowerUps(player);
+        restoreCottonPickerView(player);
+        player.removeEffect(MobEffects.DARKNESS);
+        if (bettingOpen) {
+            bettingOpen = false;
+            for (ServerPlayer spectator : level.getServer().getPlayerList().getPlayers()) {
+                if (spectator.containerMenu instanceof BettingMenu) spectator.closeContainer();
+            }
+            broadcast(Component.literal("BETTING STENGT – DEN FØRSTE SPILLEREN ER UTE!")
+                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        }
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
         if (alive.size() == 2) {
@@ -4072,6 +4439,8 @@ public final class Arena {
         }
 
         matchWinnerId = winner == null ? null : winner.getUUID();
+
+        settleMatchBets(matchWinnerId);
         lastPodium.clear();
         lastPodiumPlayers.clear();
         UUID winnerUuid = winner == null ? null : winner.getUUID();
@@ -4182,6 +4551,7 @@ public final class Arena {
     }
 
     private void endGame(MinecraftServer server) {
+        settleMatchBets(null); // Admin-stopped matches refund outstanding stakes.
         stopMusic();
         hideScoreboard(server);
         for (UUID uuid : players) {
@@ -4256,6 +4626,15 @@ public final class Arena {
         pumpkinVisionPlayers.clear();
         pumpkinVisionExpiryTicks.clear();
         panicModePlayers.clear();
+        activeRoundEvent = RoundEvent.NONE;
+        secondaryTargetColor = null;
+        lastRoundEvent = RoundEvent.NONE;
+        nextEventRound = 3;
+        roundEventElapsedTicks = 0;
+        rainbowSwitchesRemaining = 0;
+        invisibleColorsHidden = false;
+        matchBets.clear();
+        bettingOpen = false;
         gameMode = GameMode.CLASSIC;
         matchStartTick = 0L;
         phase = Phase.WAITING;

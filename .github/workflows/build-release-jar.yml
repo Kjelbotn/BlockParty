@@ -18,6 +18,7 @@ on:
       - release/1.4.25
       - release/1.4.26
       - feature/1.4.35-feedback-chat-lobby-stats
+      - feature/1.4.59-random-events-betting-hardcore
 
 permissions:
   contents: read

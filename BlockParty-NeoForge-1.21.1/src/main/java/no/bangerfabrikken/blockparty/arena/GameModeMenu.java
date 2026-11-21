@@ -42,10 +42,13 @@ final class GameModeMenu extends ChestMenu {
         boolean hasVoted = arena.hasGameModeVote(viewer.getUUID());
         int classicVotes = arena.getGameModeVoteCount(Arena.GameMode.CLASSIC);
         int memoryVotes = arena.getGameModeVoteCount(Arena.GameMode.MEMORY);
+        int hardcoreVotes = arena.getGameModeVoteCount(Arena.GameMode.HARDCORE);
         add(4, Items.COMPASS, "STEM PÅ SPILLMODUS",
                 "Flest stemmer vinner. Stemmer nullstilles etter hver match.");
         add(11, Items.NETHER_STAR, (hasVoted && current == Arena.GameMode.CLASSIC ? "✓ " : "") + "CLASSIC",
-                "Klassisk BlockParty med vanlig dansegulv. Stemmer: " + classicVotes + ".");
+                "Klassisk BlockParty med målblokk i hånden. Stemmer: " + classicVotes + ".");
+        add(13, Items.IRON_SWORD, (hasVoted && current == Arena.GameMode.HARDCORE ? "✓ " : "") + "HARDCORE MODE",
+                "Ingen målblokk i hånden. Følg målfargen på arena-skjermen. Stemmer: " + hardcoreVotes + ".");
         add(15, Items.BOOK, (hasVoted && current == Arena.GameMode.MEMORY ? "✓ " : "") + "MEMORY MODE",
                 "Husk riktig farge før gulvet blir grått. Tiden blir kortere utover i matchen. Stemmer: " + memoryVotes + ".");
     }
@@ -70,6 +73,7 @@ final class GameModeMenu extends ChestMenu {
         if (!(player instanceof ServerPlayer serverPlayer) || clickType != ClickType.PICKUP || button != 0) return;
         Arena.GameMode selected = switch (slotId) {
             case 11 -> Arena.GameMode.CLASSIC;
+            case 13 -> Arena.GameMode.HARDCORE;
             case 15 -> Arena.GameMode.MEMORY;
             default -> null;
         };
