@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.62
+- Slippery Floor now preserves momentum like vanilla ice instead of slowing players down.
+- Increased TNT Rain to three bombs every 0.4 seconds, shortened fuses, and expanded blast radius.
+- Blizzard now creates a dense snowstorm and periodic sideways wind gusts that affect movement.
+- Reworked Color Hunt instructions to clearly show the candidate colours and explicitly identify the safe colour.
+- Color Infection is now guaranteed as the first special event on round 3 and can appear with fewer floor colours.
+
 ## 1.4.61
 - Added BlockParty-only hotbar navigation through slots 1, 5 and 9; scrolling is locked to concrete slot 5 when no hotbar power-up is carried.
 - LEAP BOOST is placed in slot 1, rounds automatically select concrete slot 5, and activating LEAP returns selection to concrete.
