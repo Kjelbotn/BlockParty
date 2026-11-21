@@ -18,6 +18,7 @@ import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.neoforged.neoforge.network.PacketDistributor;
 import no.bangerfabrikken.blockparty.network.MusicControlPayload;
 import no.bangerfabrikken.blockparty.network.PowerUpVisualPayload;
+import no.bangerfabrikken.blockparty.network.BlockPartyHudPayload;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
@@ -832,6 +833,10 @@ public final class Arena {
         showScoreboard(server);
         phase = Phase.TELEPORT_COUNTDOWN;
         timerTicks = TELEPORT_COUNTDOWN_TICKS;
+        for (UUID uuid : alive) {
+            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
+            if (participant != null) PacketDistributor.sendToPlayer(participant, new BlockPartyHudPayload(true));
+        }
         broadcast(Component.literal("Spillet begynner om 5 sekunder.")
                 .withStyle(ChatFormatting.GREEN));
         for (UUID uuid : alive) {
@@ -1515,23 +1520,15 @@ public final class Arena {
             feather.set(DataComponents.CUSTOM_NAME, Component.literal("LEAP BOOST")
                     .withStyle(ChatFormatting.GREEN));
             feather.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
-            int freeSlot = -1;
-            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-                if (slot == TARGET_BLOCK_SLOT) continue; // Never replace the target-colour block.
-                if (player.getInventory().getItem(slot).isEmpty()) {
-                    freeSlot = slot;
-                    break;
-                }
-            }
-            if (freeSlot < 0) {
+            if (!player.getInventory().getItem(0).isEmpty()) {
                 activated = false;
-                sendSystemMessage(player, Component.literal("Du har ikke plass i inventaret til LEAP BOOST-fjæren.")
+                sendSystemMessage(player, Component.literal("Slot 1 er opptatt. Frigjør plassen for LEAP BOOST.")
                         .withStyle(ChatFormatting.YELLOW));
             } else {
-                player.getInventory().setItem(freeSlot, feather);
+                player.getInventory().setItem(0, feather);
                 player.getInventory().setChanged();
                 player.inventoryMenu.broadcastChanges();
-                sendSystemMessage(player, Component.literal("LEAP BOOST-fjæren er lagt i inventaret ditt.")
+                sendSystemMessage(player, Component.literal("LEAP BOOST-fjæren er lagt i slot 1.")
                         .withStyle(ChatFormatting.GREEN));
             }
         } else if (powerUp == PowerUp.COLOR_TELEPORTER) {
@@ -1654,6 +1651,13 @@ public final class Arena {
         return name != null && "LEAP BOOST".equals(name.getString());
     }
 
+    /** Reserved slot-9 projectile power-up; ordinary snowballs never unlock BlockParty hotbar scrolling. */
+    public static boolean isKnockbackSnowball(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !stack.is(Items.SNOWBALL)) return false;
+        Component name = stack.get(DataComponents.CUSTOM_NAME);
+        return name != null && "KNOCKBACK SNOWBALL".equals(name.getString());
+    }
+
     private static boolean isPumpkinVisionHelmet(ItemStack stack) {
         if (stack == null || stack.isEmpty() || !stack.is(Items.CARVED_PUMPKIN)) return false;
         Component name = stack.get(DataComponents.CUSTOM_NAME);
@@ -1674,8 +1678,10 @@ public final class Arena {
         leapFallProtection.add(player.getUUID());
         if (!player.getAbilities().instabuild) stack.shrink(1);
         player.getInventory().setChanged();
+        player.getInventory().selected = TARGET_BLOCK_SLOT;
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
         sendSystemMessage(player, Component.literal("LEAP BOOST aktivert!").withStyle(ChatFormatting.GREEN));
-        playSound(ModSounds.POWERUP_PICKUP, SoundSource.PLAYERS, 0.8F, 1.35F);
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP.value(), SoundSource.PLAYERS, 0.8F, 1.35F);
         return true;
     }
 
@@ -1761,6 +1767,7 @@ public final class Arena {
                 player.getInventory().armor.set(3, ItemStack.EMPTY);
                 player.getInventory().setChanged();
                 player.inventoryMenu.broadcastChanges();
+                player.playNotifySound(SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.PLAYERS, 0.45F, 1.6F);
             }
             pumpkinVisionExpiryTicks.remove(uuid);
             pumpkinVisionPlayers.remove(uuid);
@@ -1839,6 +1846,7 @@ public final class Arena {
     /** Clears every active or banked power-up when one player leaves or is eliminated. */
     private void clearPlayerRoundPowerUps(ServerPlayer player) {
         UUID uuid = player.getUUID();
+        PacketDistributor.sendToPlayer(player, new BlockPartyHudPayload(false));
         restoreCottonPickerView(player);
 
         Set<Holder<MobEffect>> effects = roundPowerupEffects.remove(uuid);
@@ -2651,6 +2659,7 @@ public final class Arena {
             player.fallDistance = 0.0F;
             if (state.ticksLeft() <= 1) {
                 frozenPlayers.remove(uuid);
+                player.playNotifySound(SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.PLAYERS, 0.55F, 1.45F);
                 sendSystemMessage(player, Component.literal("FREEZE er over!")
                         .withStyle(ChatFormatting.GREEN));
             } else frozenPlayers.put(uuid, state.tick());
@@ -2912,7 +2921,7 @@ public final class Arena {
         if (phase != Phase.WAITING && scoreboardTick % 5 == 0) updateScoreboard(server);
     }
 
-    /** Keep the target block fixed in the centre slot; a LEAP feather temporarily unlocks scrolling. */
+    /** Keep concrete anchored in slot 5; only the dedicated LEAP and snowball slots unlock scrolling. */
     private void enforceTargetHotbar(MinecraftServer server) {
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
@@ -2925,44 +2934,40 @@ public final class Arena {
                     player.getInventory().setChanged();
                     player.inventoryMenu.broadcastChanges();
                 }
-                continue;
-            }
-
-            // The target concrete always belongs in slot 5. If a toss or inventory action
-            // displaced it, recover the existing stack before creating a replacement.
-            ItemStack centre = player.getInventory().getItem(TARGET_BLOCK_SLOT);
-            if (!isTargetColorBlock(centre)) {
-                ItemStack recovered = ItemStack.EMPTY;
-                for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-                    if (slot == TARGET_BLOCK_SLOT) continue;
-                    ItemStack candidate = player.getInventory().getItem(slot);
-                    if (isTargetColorBlock(candidate)) {
-                        recovered = candidate.copy();
-                        player.getInventory().setItem(slot, ItemStack.EMPTY);
-                        break;
+            } else {
+                // The target concrete always belongs in slot 5. If a toss or inventory action
+                // displaced it, recover the existing stack before creating a replacement.
+                ItemStack centre = player.getInventory().getItem(TARGET_BLOCK_SLOT);
+                if (!isTargetColorBlock(centre)) {
+                    ItemStack recovered = ItemStack.EMPTY;
+                    for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                        if (slot == TARGET_BLOCK_SLOT) continue;
+                        ItemStack candidate = player.getInventory().getItem(slot);
+                        if (isTargetColorBlock(candidate)) {
+                            recovered = candidate.copy();
+                            player.getInventory().setItem(slot, ItemStack.EMPTY);
+                            break;
+                        }
                     }
+                    DyeColor shownColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
+                    if (recovered.isEmpty() && shownColor != null) {
+                        recovered = new ItemStack(BlockPartyColors.getConcrete(shownColor));
+                        recovered.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(shownColor))
+                                .withStyle(ChatFormatting.WHITE));
+                    }
+                    if (!recovered.isEmpty()) player.getInventory().setItem(TARGET_BLOCK_SLOT, recovered);
                 }
-                DyeColor shownColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
-                if (recovered.isEmpty() && shownColor != null) {
-                    recovered = new ItemStack(BlockPartyColors.getConcrete(shownColor));
-                    recovered.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(shownColor))
-                            .withStyle(ChatFormatting.WHITE));
-                }
-                if (!recovered.isEmpty()) player.getInventory().setItem(TARGET_BLOCK_SLOT, recovered);
             }
 
-            if (!hasLeapFeather(player) && player.getInventory().selected != TARGET_BLOCK_SLOT) {
+            boolean selectedLeap = player.getInventory().selected == 0
+                    && isLeapFeather(player.getInventory().getItem(0));
+            boolean selectedSnowball = player.getInventory().selected == 8
+                    && isKnockbackSnowball(player.getInventory().getItem(8));
+            if (player.getInventory().selected != TARGET_BLOCK_SLOT && !selectedLeap && !selectedSnowball) {
                 player.getInventory().selected = TARGET_BLOCK_SLOT;
                 player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
             }
         }
-    }
-
-    private static boolean hasLeapFeather(ServerPlayer player) {
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            if (isLeapFeather(player.getInventory().getItem(slot))) return true;
-        }
-        return false;
     }
 
     private void beginRound(MinecraftServer server) {
@@ -2978,6 +2983,13 @@ public final class Arena {
         boolean firstRound = round == 0;
         clearActivePowerUps(server);
         removeActiveBeacon();
+        for (UUID uuid : alive) {
+            ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
+            if (participant != null) {
+                participant.getInventory().selected = TARGET_BLOCK_SLOT;
+                participant.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+            }
+        }
         round++;
         String milestone = switch (round) {
             case 5 -> "Godt i gang!";
