@@ -2053,22 +2053,66 @@ public final class Arena {
                 && player.getY() >= lobbyY - 5 && player.getY() <= lobbyY + 30;
     }
 
-    /** Give the non-interactive wall instructions' matching inventory items to lobby visitors. */
+    /** Keep the lobby in Adventure mode with a locked, deterministic control hotbar. */
     public void ensureLobbyItems(ServerPlayer player) {
         if (!lobbySet || level == null || player.serverLevel() != level) return;
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) return;
-        if (!returnLocations.containsKey(player.getUUID())) return;
-        giveUniqueLobbyItem(player, createJoinGameItem(), Arena::isJoinGameItem);
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (i != 6 && isHubItem(player.getInventory().getItem(i))) player.getInventory().setItem(i, ItemStack.EMPTY);
+        UUID uuid = player.getUUID();
+        if (!returnLocations.containsKey(uuid)) return;
+
+        boolean changed = false;
+        if (player.gameMode.getGameModeForPlayer() != GameType.ADVENTURE) {
+            player.setGameMode(GameType.ADVENTURE);
         }
-        if (!isHubItem(player.getInventory().getItem(6))) player.getInventory().setItem(6, createHubItem());
-        ensureLeaveLobbyItem(player);
-        // Keep lobby controls stable during countdown; do not re-normalize and resend
-        // their inventory every second. Newly created controls already use current labels.
-        if (hasLobbyItem(player, Arena::isJoinGameItem)) {
-            fullLobbyInventoryNotices.remove(player.getUUID());
+
+        // Preserve the existing control stacks when possible, but never trust their
+        // client-reported slot positions: restore one copy to each fixed slot.
+        ItemStack join = findLobbyControlCopy(player, Arena::isJoinGameItem, createJoinGameItem());
+        ItemStack hub = findLobbyControlCopy(player, Arena::isHubItem, createHubItem());
+        ItemStack leave = findLobbyControlCopy(player, Arena::isLeaveLobbyItem, createLeaveLobbyItem());
+        boolean showLeave = !podiumFreezeTicks.containsKey(uuid);
+        boolean showVote = musicVotingUnlocked.contains(uuid);
+        ItemStack vote = showVote
+                ? findLobbyControlCopy(player, Arena::isMusicVotingBook, createMusicVotingBook())
+                : ItemStack.EMPTY;
+
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack desired = switch (slot) {
+                case 0 -> join;
+                case 1 -> vote;
+                case 6 -> hub;
+                case 8 -> showLeave ? leave : ItemStack.EMPTY;
+                default -> ItemStack.EMPTY;
+            };
+            ItemStack current = player.getInventory().getItem(slot);
+            if (!ItemStack.matches(current, desired)) {
+                player.getInventory().setItem(slot, desired.copy());
+                changed = true;
+            }
         }
+
+        // A stack dragged onto the cursor is still part of the lobby inventory and
+        // must not be transferable into another container or dropped outside.
+        if (!player.containerMenu.getCarried().isEmpty()) {
+            player.containerMenu.setCarried(ItemStack.EMPTY);
+            changed = true;
+        }
+        if (changed) {
+            player.getInventory().setChanged();
+            player.inventoryMenu.broadcastChanges();
+            if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();
+        }
+        fullLobbyInventoryNotices.remove(uuid);
+    }
+
+    private ItemStack findLobbyControlCopy(ServerPlayer player,
+                                           java.util.function.Predicate<ItemStack> matcher,
+                                           ItemStack fallback) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (matcher.test(stack)) return stack.copy();
+        }
+        return fallback;
     }
 
     /** Upgrade old control labels in-place without duplicating items or breaking their matchers. */
