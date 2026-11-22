@@ -458,5 +458,25 @@
         "volume": 1
       }
     ]
+  },
+  "music_det_gar_likar_no": {
+    "subtitle": "subtitles.blockparty.music_det_gar_likar_no",
+    "sounds": [
+      {
+        "name": "blockparty:music/det_gar_likar_no",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_daseduft_i_luften": {
+    "subtitle": "subtitles.blockparty.music_daseduft_i_luften",
+    "sounds": [
+      {
+        "name": "blockparty:music/daseduft_i_luften",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }
