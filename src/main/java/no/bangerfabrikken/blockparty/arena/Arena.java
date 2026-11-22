@@ -117,6 +117,7 @@ public final class Arena {
     private final Map<BlockPos, BlockState> activeBeacons = new HashMap<>();
     private final Map<UUID, String> musicVotes = new HashMap<>();
     private final Set<UUID> fullLobbyInventoryNotices = new HashSet<>();
+    private final Set<UUID> soloPromptsSent = new HashSet<>();
     private String selectedMusicTrackId;
     private Objective sidebarObjective;
     private Objective previousSidebarObjective;
@@ -193,13 +194,14 @@ public final class Arena {
             player.sendSystemMessage(Component.literal("Du er allerede med i denne arenaen.").withStyle(ChatFormatting.YELLOW));
             return;
         }
+        soloPromptsSent.clear();
         teleportToLobby(player);
         ensureLobbyItems(player);
         refreshLobbyLeaderboard();
         PlayerStatsManager.sendPlayerRank(player);
         player.sendSystemMessage(Component.literal("Du ble med i BlockParty-arenaen '" + id + "'. Spillere: " + players.size() + "/" + MAX_PLAYERS).withStyle(ChatFormatting.GREEN));
         if (players.size() < MIN_PLAYERS) {
-            player.sendSystemMessage(Component.literal("Venter på minst én spiller til. Administrator kan bruke /bp forcestart " + id + " for å teste alene.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Venter på flere spillere. Du kan skrive /bp solo hvis du vil starte alene, eller invitere noen til å bli med.").withStyle(ChatFormatting.YELLOW));
         }
         broadcast(Component.literal(player.getName().getString() + " ble med! (" + players.size() + "/" + MAX_PLAYERS + ")").withStyle(ChatFormatting.YELLOW));
     }
@@ -207,6 +209,7 @@ public final class Arena {
     public void leave(ServerPlayer player, boolean teleport) {
         UUID uuid = player.getUUID();
         boolean wasMember = players.remove(uuid);
+        if (wasMember) soloPromptsSent.clear();
         alive.remove(uuid);
         pendingEliminations.remove(uuid);
         removeLobbyItemsFromInventory(player);
@@ -233,6 +236,19 @@ public final class Arena {
 
     public void handleLogout(ServerPlayer player) {
         leave(player, false);
+    }
+
+    public void startSolo(ServerPlayer player) {
+        if (!players.contains(player.getUUID())) {
+            throw new IllegalStateException("Du må være påmeldt i arenaen før du kan starte Solo Mode.");
+        }
+        if (players.size() != 1) {
+            throw new IllegalStateException("Solo Mode er bare tilgjengelig når du er helt alene i lobbyen. Dere må spille sammen når to eller flere er påmeldt.");
+        }
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+            throw new IllegalStateException("Arenaen har allerede startet. Vent til spillet er ferdig.");
+        }
+        start(player.getServer());
     }
 
     public void start(MinecraftServer server) {
@@ -630,6 +646,10 @@ public final class Arena {
         }
         musicVotes.put(player.getUUID(), track.id());
         player.sendSystemMessage(Component.literal("Du stemte på " + track.name() + "!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        if (players.size() == 1 && players.contains(player.getUUID()) && soloPromptsSent.add(player.getUUID())) {
+            player.sendSystemMessage(Component.literal("Vi ser at du spiller alene! Skriv /bp solo hvis du vil spille alene, eller inviter noen til å bli med i lobbyen!")
+                    .withStyle(ChatFormatting.AQUA));
+        }
         return true;
     }
 
