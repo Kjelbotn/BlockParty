@@ -46,6 +46,8 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_INNI_HODET_DITT = musicSound("music_inni_hodet_ditt");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_ODIN_ALKIS_DUBSTEP = musicSound("music_odin_alkis_dubstep");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_NENA_99_LUFTBALLONS = musicSound("music_nena_99_luftballons");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_DET_GAR_LIKAR_NO = musicSound("music_det_gar_likar_no");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_DASEDUFT_I_LUFTEN = musicSound("music_daseduft_i_luften");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_OSLO_GOSPELKOR_EN_STJERNE = musicSound("music_oslo_gospelkor_en_stjerne_skinner_i_natt");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_TRAVELLIN_STRAWBERRIES_STOVEL_DANCE = musicSound("music_travellin_strawberries_the_stovel_dance");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_SOLVGUTTENE_DEILIG_ER_JORDEN = musicSound("music_solvguttene_deilig_er_jorden");
