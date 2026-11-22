@@ -3289,17 +3289,11 @@ public final class Arena {
             if (colorHuntClueHidden) {
                 return Component.literal("HUSK FARGEN DU SÅ!").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);
             }
-            component = Component.literal("HUSK DEN MARKERTE FARGEN: ").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
-            for (int i = 0; i < colorHuntColors.size(); i++) {
-                if (i > 0) component.append(Component.literal("  /  ").withStyle(ChatFormatting.DARK_GRAY));
-                DyeColor candidate = colorHuntColors.get(i);
-                MutableComponent colorName = Component.literal(BlockPartyColors.displayName(candidate).toUpperCase(Locale.ROOT))
-                        .withStyle(getTargetChatFormatting(candidate), ChatFormatting.BOLD);
-                if (candidate == targetColor) {
-                    colorName.append(Component.literal(" ★").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-                }
-                component.append(colorName);
-            }
+            // Keep the clue short and instantly readable: show only the actual target.
+            component = Component.literal("FINN ")
+                    .withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)
+                    .append(Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                            .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD));
         }
         return component;
     }
@@ -3324,7 +3318,7 @@ public final class Arena {
             case RAINBOW_RUSH -> "Alle fargene ruller i 2 sekunder før én blir valgt!";
             case SLIPPERY_FLOOR -> "Gulvet blir glatt!";
             case INVISIBLE_COLORS -> "Husk hvor målfargen ligger!";
-            case COLOR_HUNT -> "Husk den markerte fargen! Den forsvinner om 3 sekunder – ingen blokk i hotbaren!";
+            case COLOR_HUNT -> "Se på fargen – husk den!";
             case BLIZZARD -> "Snøstormen varer i to runder!";
             case COLOR_INFECTION -> "Infeksjonen sprer seg over gulvet!";
             case TNT_RAIN -> "Pass deg for TNT-regnet!";
@@ -3335,11 +3329,22 @@ public final class Arena {
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
-            player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
-            player.connection.send(new ClientboundSetTitleTextPacket(
-                    Component.literal(title).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)));
-            player.connection.send(new ClientboundSetSubtitleTextPacket(
-                    Component.literal(subtitle).withStyle(ChatFormatting.WHITE)));
+            if (activeRoundEvent == RoundEvent.COLOR_HUNT && targetColor != null) {
+                // A large, colour-coded target is much faster to recognize than reading
+                // a sentence while moving. Keep it visible for the full five-second clue.
+                player.connection.send(new ClientboundSetTitlesAnimationPacket(2, 100, 8));
+                player.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
+                                .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)));
+                player.connection.send(new ClientboundSetSubtitleTextPacket(
+                        Component.literal("HUSK DENNE FARGEN!").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD)));
+            } else {
+                player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 10));
+                player.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.literal(title).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)));
+                player.connection.send(new ClientboundSetSubtitleTextPacket(
+                        Component.literal(subtitle).withStyle(ChatFormatting.WHITE)));
+            }
             if (activeRoundEvent == RoundEvent.BLACKOUT) {
                 player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 200, 0, false, false, false));
             }
@@ -3366,10 +3371,10 @@ public final class Arena {
                 }
             }
             case COLOR_HUNT -> {
-                if (!colorHuntClueHidden && roundEventElapsedTicks >= 60) {
+                if (!colorHuntClueHidden && roundEventElapsedTicks >= 100) {
                     colorHuntClueHidden = true;
                     updateArenaWelcomeDisplay();
-                    broadcastActionBar(Component.literal("FARGEN ER SKJULT! HUSK HVA DU SÅ!")
+                    broadcastActionBar(Component.literal("FINN FARGEN!")
                             .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                     playSound(SoundEvents.NOTE_BLOCK_HARP, SoundSource.PLAYERS, 0.9F, 0.7F);
                 }
