@@ -131,6 +131,12 @@
       "name": "Dåseduft i luften",
       "artist": "Kjell \"Kjellen\" Bigset",
       "bpm": 0
+    },
+    {
+      "id": "pink_cloud",
+      "name": "Pink Cloud (feat. Max Collins)",
+      "artist": "Pegboard Nerds",
+      "bpm": 0
     }
   ]
 }
