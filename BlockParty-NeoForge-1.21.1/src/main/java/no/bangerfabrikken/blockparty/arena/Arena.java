@@ -2830,6 +2830,14 @@ public final class Arena {
             for (UUID uuid : new ArrayList<>(alive)) {
                 ServerPlayer active = server.getPlayerList().getPlayer(uuid);
                 if (active == null) continue;
+                // Lucky Landing is a proactive rescue, not a last-second death handler.
+                // Rescue as soon as the player's feet pass below the dance-floor plane;
+                // this runs before vanilla void/fall damage and before pending elimination
+                // processing can race the rescue.
+                if (luckyLanding.contains(uuid) && active.getY() <= pos1.getY() + 0.25D) {
+                    rescueWithLuckyLanding(active);
+                    continue;
+                }
                 double fallThreshold = "xmas".equals(id) ? pos1.getY() : pos1.getY() - 3.0;
                 if (isOutsidePlayableFloor(active) || active.getY() <= fallThreshold) {
                     eliminate(active);
