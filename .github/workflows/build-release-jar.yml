@@ -165,9 +165,17 @@ jobs:
           print(f"Verified Xmas schematic and {total} tracks across both playlists in the JAR.")
           PY
 
+      - name: Read release version
+        id: release_version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^mod_version=//p' BlockParty-NeoForge-1.21.1/gradle.properties | head -n 1)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Upload release JAR
         uses: actions/upload-artifact@v4
         with:
-          name: BlockParty-1.4.43-JAR
+          name: BlockParty-${{ steps.release_version.outputs.version }}-JAR
           path: BlockParty-NeoForge-1.21.1/build/libs/*.jar
           if-no-files-found: error
