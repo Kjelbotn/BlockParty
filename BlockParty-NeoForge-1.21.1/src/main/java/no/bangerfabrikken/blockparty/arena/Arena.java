@@ -686,6 +686,19 @@ public final class Arena {
         leave(player, true);
     }
 
+    public void startSolo(ServerPlayer player) {
+        if (!players.contains(player.getUUID())) {
+            throw new IllegalStateException("Du må være påmeldt i arenaen før du kan starte Solo Mode.");
+        }
+        if (players.size() != 1) {
+            throw new IllegalStateException("Solo Mode er bare tilgjengelig når du er helt alene i lobbyen. Dere må spille sammen når to eller flere er påmeldt.");
+        }
+        if (phase != Phase.WAITING && phase != Phase.COUNTDOWN) {
+            throw new IllegalStateException("Arenaen har allerede startet. Vent til spillet er ferdig.");
+        }
+        start(player.getServer());
+    }
+
     public void start(MinecraftServer server) {
         if (phase != Phase.WAITING && phase != Phase.COUNTDOWN && phase != Phase.TELEPORT_COUNTDOWN) {
             throw new IllegalStateException("Arenaen kjører allerede.");
