@@ -54,6 +54,8 @@ public final class BlockPartyCommands {
                                 .executes(context -> join(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("leave")
                         .executes(context -> leave(context.getSource())))
+                .then(Commands.literal("solo")
+                        .executes(context -> solo(context.getSource())))
                 .then(Commands.literal("start")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -195,6 +197,24 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int solo(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = ArenaManager.get().findArena(player.getUUID());
+        if (arena == null) {
+            source.sendFailure(Component.literal("Du må først melde deg på en BlockParty-lobby før du kan starte Solo Mode."));
+            return 0;
+        }
+        try {
+            arena.startSolo(player);
+            source.sendSuccess(() -> Component.literal("Solo Mode startet! Lykke til – overlev alle 15 rundene!")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+            return 1;
+        } catch (IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
     private static int leave(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         Arena arena = ArenaManager.get().findArena(player.getUUID());
@@ -318,7 +338,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – oppdater lobbyspawn"), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
-        source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
+        source.sendSuccess(() -> Component.literal("/bp solo – start Solo Mode når du er eneste påmeldte spiller | /bp start <id> – start manuelt | /bp forcestart <id> – admin-test"), false);
         source.sendSuccess(() -> Component.literal("15 runder, 10 til 0,5 sekunder. Eliminert? Du kan løpe rundt spectatorgangen i Adventure Mode."), false);
         source.sendSuccess(() -> Component.literal("/bp list – vis arenaer | /bp status <id> – vis status"), false);
         source.sendSuccess(() -> Component.literal("/bp leaderboard – se topp 10 | /bp rank eller /bp profile – se spillerprofil"), false);
