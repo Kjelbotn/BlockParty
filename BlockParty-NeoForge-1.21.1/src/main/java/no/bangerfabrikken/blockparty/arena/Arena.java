@@ -3332,7 +3332,7 @@ public final class Arena {
             if (activeRoundEvent == RoundEvent.COLOR_HUNT && targetColor != null) {
                 // A large, colour-coded target is much faster to recognize than reading
                 // a sentence while moving. Keep it visible for the full five-second clue.
-                player.connection.send(new ClientboundSetTitlesAnimationPacket(2, 100, 8));
+                player.connection.send(new ClientboundSetTitlesAnimationPacket(2, 40, 8));
                 player.connection.send(new ClientboundSetTitleTextPacket(
                         Component.literal(BlockPartyColors.displayName(targetColor).toUpperCase(Locale.ROOT))
                                 .withStyle(getTargetChatFormatting(targetColor), ChatFormatting.BOLD)));
@@ -3371,7 +3371,7 @@ public final class Arena {
                 }
             }
             case COLOR_HUNT -> {
-                if (!colorHuntClueHidden && roundEventElapsedTicks >= 100) {
+                if (!colorHuntClueHidden && roundEventElapsedTicks >= 40) {
                     colorHuntClueHidden = true;
                     updateArenaWelcomeDisplay();
                     broadcastActionBar(Component.literal("FINN FARGEN!")
