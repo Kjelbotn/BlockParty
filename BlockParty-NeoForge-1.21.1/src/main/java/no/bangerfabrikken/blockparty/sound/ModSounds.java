@@ -59,6 +59,11 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_TRAVELLIN_SPIKK = musicSound("music_travellin_spikk_a_bitte_little");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_PER_ASPLIN_SPIKKE = musicSound("music_per_asplin_spikke_sage_lime_banke");
     public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_ODIN_JUL = musicSound("music_odin_jul");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_SVINGENSONGEN = musicSound("music_svingensongen");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_MAMSEN_OG_LILLEGUTT = musicSound("music_mamsen_og_lillegutt");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_DEN_LURE_NISSEN = musicSound("music_den_lure_nissen");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_JULEKVELDSVISA = musicSound("music_julekveldsvisa");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MUSIC_XMAS_ROCKIN_AROUND_THE_CHRISTMAS_TREE = musicSound("music_rockin_around_the_christmas_tree");
 
     /** Eight pre-registered extension slots. Add tracks through music_playlist.json without touching Java. */
     public static final java.util.List<DeferredHolder<SoundEvent, SoundEvent>> CUSTOM_MUSIC_SOUNDS =
