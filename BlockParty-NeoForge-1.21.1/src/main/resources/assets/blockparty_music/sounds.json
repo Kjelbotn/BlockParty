@@ -408,5 +408,55 @@
         "volume": 1
       }
     ]
+  },
+  "music_svingensongen": {
+    "subtitle": "subtitles.blockparty.music_svingensongen",
+    "sounds": [
+      {
+        "name": "blockparty:music/svingensongen",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_mamsen_og_lillegutt": {
+    "subtitle": "subtitles.blockparty.music_mamsen_og_lillegutt",
+    "sounds": [
+      {
+        "name": "blockparty:music/mamsen_og_lillegutt",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_den_lure_nissen": {
+    "subtitle": "subtitles.blockparty.music_den_lure_nissen",
+    "sounds": [
+      {
+        "name": "blockparty:music/den_lure_nissen",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_julekveldsvisa": {
+    "subtitle": "subtitles.blockparty.music_julekveldsvisa",
+    "sounds": [
+      {
+        "name": "blockparty:music/julekveldsvisa",
+        "stream": true,
+        "volume": 1
+      }
+    ]
+  },
+  "music_rockin_around_the_christmas_tree": {
+    "subtitle": "subtitles.blockparty.music_rockin_around_the_christmas_tree",
+    "sounds": [
+      {
+        "name": "blockparty:music/rockin_around_the_christmas_tree",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }
