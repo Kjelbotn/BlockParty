@@ -67,6 +67,8 @@ public final class BlockPartyCommands {
                                 .executes(context -> join(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("leave")
                         .executes(context -> leave(context.getSource())))
+                .then(Commands.literal("solo")
+                        .executes(context -> solo(context.getSource())))
                 .then(Commands.literal("start")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -326,6 +328,24 @@ public final class BlockPartyCommands {
         }
         arena.leave(player, true);
         return 1;
+    }
+
+    private static int solo(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = ArenaManager.get().findArena(player.getUUID());
+        if (arena == null) {
+            source.sendFailure(Component.literal("Du må først melde deg på en BlockParty-lobby før du kan starte Solo Mode."));
+            return 0;
+        }
+        try {
+            arena.startSolo(player);
+            source.sendSuccess(() -> Component.literal("Solo Mode startet! Lykke til – overlev alle rundene!")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+            return 1;
+        } catch (IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
     }
 
     private static int start(CommandSourceStack source, String id) {
