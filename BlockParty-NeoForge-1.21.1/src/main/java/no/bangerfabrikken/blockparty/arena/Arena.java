@@ -1965,9 +1965,9 @@ public final class Arena {
         musicFinished = false;
         musicPaused = false;
         if ("daseduft_i_luften".equals(track.id())) {
-            // The track opens with "Ein, to, tre". Start it when the normal 3-2-1
-            // countdown begins, three seconds after the round timer starts.
-            musicStartDelayTicks = 60;
+            // The track opens with "Ein, to, tre". Delay playback until the
+            // round's final three-second 3-2-1 window begins (Classic and Memory).
+            musicStartDelayTicks = Math.max(0, timerTicks - 60);
             BlockPartyMod.LOGGER.info("Scheduling '{}' to begin on the round's 3-2-1 countdown.", track.name());
             return;
         }
