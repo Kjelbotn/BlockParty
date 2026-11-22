@@ -279,6 +279,7 @@ public final class Arena {
     private int musicTicksRemaining;
     /** One-time lead-in for Dåseduft i luften: the song's spoken count-in aligns with 3-2-1. */
     private int musicStartDelayTicks;
+    private int daseduftCountdownElapsedTicks;
     private boolean musicFinished;
     private boolean musicPaused;
     private int lastPowerupRound = -10;
@@ -1152,8 +1153,9 @@ public final class Arena {
                     activeMusicId = delayedTrack.soundId();
                     musicTicksRemaining = delayedTrack.durationTicks();
                     musicFinished = false;
+                    daseduftCountdownElapsedTicks = 0;
                     sendMusicControl(MusicControlPayload.PLAY);
-                    BlockPartyMod.LOGGER.info("Starting delayed BlockParty track '{}' after its synchronized countdown lead-in.", delayedTrack.name());
+                    BlockPartyMod.LOGGER.info("Starting '{}' on the spoken count-in.", delayedTrack.name());
                 }
             }
             return;
@@ -1965,10 +1967,10 @@ public final class Arena {
         musicFinished = false;
         musicPaused = false;
         if ("daseduft_i_luften".equals(track.id())) {
-            // The track opens with "Ein, to, tre". Delay playback until the
-            // round's final three-second 3-2-1 window begins (Classic and Memory).
-            musicStartDelayTicks = Math.max(0, timerTicks - 60);
-            BlockPartyMod.LOGGER.info("Scheduling '{}' to begin on the round's 3-2-1 countdown.", track.name());
+            // Start at the final 1.4-second lead-in for the spoken "Ein, to, tre!".
+            musicStartDelayTicks = Math.max(0, timerTicks - 28);
+            daseduftCountdownElapsedTicks = 0;
+            BlockPartyMod.LOGGER.info("Scheduling '{}' with its spoken 1-2-3 count-in.", track.name());
             return;
         }
         activeMusicId = track.soundId();
@@ -1976,6 +1978,27 @@ public final class Arena {
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
                 track.name(), track.soundId(), players.size());
         sendMusicControl(MusicControlPayload.PLAY);
+    }
+
+    /** Displays the spoken 1-2-3 syllables for Dåseduft i luften only. */
+    private void tickDaseduftCountIn() {
+        daseduftCountdownElapsedTicks++;
+        int shownNumber = daseduftCountdownElapsedTicks <= 4 ? 1
+                : daseduftCountdownElapsedTicks <= 15 ? 2
+                : daseduftCountdownElapsedTicks <= 27 ? 3 : 0;
+        if (shownNumber == 0) return;
+        if (daseduftCountdownElapsedTicks == 1 || daseduftCountdownElapsedTicks == 12
+                || daseduftCountdownElapsedTicks == 23) {
+            for (UUID uuid : alive) {
+                ServerPlayer viewer = level.getServer().getPlayerList().getPlayer(uuid);
+                if (viewer == null) continue;
+                viewer.connection.send(new ClientboundSetTitlesAnimationPacket(0, 9, 1));
+                viewer.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.literal(Integer.toString(shownNumber)).withStyle(ChatFormatting.GREEN)));
+                viewer.connection.send(new ClientboundSetSubtitleTextPacket(Component.empty()));
+            }
+            broadcastActionBar(Component.literal("NEDTELLING  " + shownNumber).withStyle(ChatFormatting.GREEN));
+        }
     }
 
     /** Pause the actual client audio channel; its OpenAL playback cursor is retained. */
@@ -1997,6 +2020,7 @@ public final class Arena {
         activeMusicId = null;
         musicTicksRemaining = 0;
         musicStartDelayTicks = 0;
+        daseduftCountdownElapsedTicks = 0;
         musicPaused = false;
     }
 
@@ -2890,8 +2914,9 @@ public final class Arena {
                 rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
-                if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
-                    // Three descending, darker harp notes: 3s = 1.00, 2s = 0.79, 1s = 0.63.
+                if (timerTicks > 0 && "daseduft_i_luften".equals(selectedMusicTrackId)) {
+                    tickDaseduftCountIn();
+                } else if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
@@ -2960,9 +2985,9 @@ public final class Arena {
             }
             case MEMORY_REVEAL -> {
                 timerTicks--;
-                if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
-                    // Match Classic's three-note 3-2-1 countdown during the Memory
-                    // reveal window; Memory used to show the countdown without audio.
+                if (timerTicks > 0 && "daseduft_i_luften".equals(selectedMusicTrackId)) {
+                    tickDaseduftCountIn();
+                } else if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
@@ -3464,8 +3489,8 @@ public final class Arena {
     }
 
     private void tickTntRain() {
-        // One bomb arrives per second; this event should add pressure, not demolish the arena.
-        if (roundEventElapsedTicks % 20 == 1 && !floorSnapshot.isEmpty()) {
+        // One bomb every two seconds; this event should add pressure, not demolish the arena.
+        if (roundEventElapsedTicks % 40 == 1 && !floorSnapshot.isEmpty()) {
             List<BlockPos> tiles = new ArrayList<>();
             for (BlockPos tile : floorSnapshot.keySet()) {
                 if (BlockPartyColors.isConcrete(level.getBlockState(tile)) && !pendingTntRainBombs.containsKey(tile)) {
@@ -3495,7 +3520,7 @@ public final class Arena {
                     pos.getZ() + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             level.playSound(null, pos, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.BLOCKS, 0.7F, 1.0F);
             for (BlockPos floorPos : floorSnapshot.keySet()) {
-                if (floorPos.distSqr(pos) > 2.25D) continue;
+                if (floorPos.distSqr(pos) > 1.0D) continue;
                 if (BlockPartyColors.isConcrete(level.getBlockState(floorPos))) level.setBlock(floorPos, Blocks.AIR.defaultBlockState(), 3);
             }
         }
