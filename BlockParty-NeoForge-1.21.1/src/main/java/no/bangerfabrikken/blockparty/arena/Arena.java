@@ -544,6 +544,9 @@ public final class Arena {
         UUID uuid = player.getUUID();
         boolean firstLobbyEntry = !returnLocations.containsKey(uuid);
         if (firstLobbyEntry) {
+            // Close any chest/container opened before teleporting into the lobby. Otherwise
+            // a stale menu could remain usable after the player inventory is cleared.
+            player.closeContainer();
             originalGameModes.putIfAbsent(uuid, player.gameMode.getGameModeForPlayer());
             returnLocations.put(uuid, new ReturnLocation(player.serverLevel(), player.getX(), player.getY(),
                     player.getZ(), player.getYRot(), player.getXRot()));
