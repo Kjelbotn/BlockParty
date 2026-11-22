@@ -854,21 +854,22 @@ public final class Arena {
         hideLobbyStatsSidebar(server);
         showScoreboard(server);
         phase = Phase.TELEPORT_COUNTDOWN;
-        timerTicks = TELEPORT_COUNTDOWN_TICKS;
+        boolean daseduftOpening = "daseduft_i_luften".equals(selectedMusicTrackId);
+        timerTicks = daseduftOpening ? 40 : TELEPORT_COUNTDOWN_TICKS;
+        if (daseduftOpening) startDaseduftTeleportCountIn();
         for (UUID uuid : alive) {
             ServerPlayer participant = server.getPlayerList().getPlayer(uuid);
             if (participant != null) PacketDistributor.sendToPlayer(participant, new BlockPartyHudPayload(true));
         }
-        broadcast(Component.literal("Spillet begynner om 5 sekunder.")
-                .withStyle(ChatFormatting.GREEN));
-        for (UUID uuid : alive) {
-            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
-            if (p == null) continue;
-            p.connection.send(new ClientboundSetTitlesAnimationPacket(0, 20, 5));
-            p.connection.send(new ClientboundSetTitleTextPacket(Component.literal("5")
-                    .withStyle(ChatFormatting.GREEN)));
-            // Clear the pre-teleport subtitle once players arrive in the arena.
-            p.connection.send(new ClientboundSetSubtitleTextPacket(Component.empty()));
+        if (!daseduftOpening) {
+            broadcast(Component.literal("Spillet begynner om 5 sekunder.").withStyle(ChatFormatting.GREEN));
+            for (UUID uuid : alive) {
+                ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+                if (p == null) continue;
+                p.connection.send(new ClientboundSetTitlesAnimationPacket(0, 20, 5));
+                p.connection.send(new ClientboundSetTitleTextPacket(Component.literal("5").withStyle(ChatFormatting.GREEN)));
+                p.connection.send(new ClientboundSetSubtitleTextPacket(Component.empty()));
+            }
         }
     }
 
@@ -1966,13 +1967,6 @@ public final class Arena {
         if (track == null) return;
         musicFinished = false;
         musicPaused = false;
-        if ("daseduft_i_luften".equals(track.id())) {
-            // Start at the final 1.4-second lead-in for the spoken "Ein, to, tre!".
-            musicStartDelayTicks = Math.max(0, timerTicks - 28);
-            daseduftCountdownElapsedTicks = 0;
-            BlockPartyMod.LOGGER.info("Scheduling '{}' with its spoken 1-2-3 count-in.", track.name());
-            return;
-        }
         activeMusicId = track.soundId();
         musicTicksRemaining = track.durationTicks();
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
@@ -1980,25 +1974,36 @@ public final class Arena {
         sendMusicControl(MusicControlPayload.PLAY);
     }
 
-    /** Displays the spoken 1-2-3 syllables for Dåseduft i luften only. */
+    /** Start Dåseduft as soon as players arrive; its vocal count-in replaces the five-second timer. */
+    private void startDaseduftTeleportCountIn() {
+        Track track = MusicTrackManager.get(id, "daseduft_i_luften");
+        if (track == null) return;
+        stopMusic();
+        activeMusicId = track.soundId();
+        musicTicksRemaining = track.durationTicks();
+        musicFinished = false;
+        musicPaused = false;
+        daseduftCountdownElapsedTicks = 0;
+        sendMusicControl(MusicControlPayload.PLAY);
+        BlockPartyMod.LOGGER.info("Starting '{}' immediately after teleport for its spoken 1-2-3 count-in.", track.name());
+    }
+
+    /** Display 1, 2 and 3 at the measured spoken syllable onsets in Dåseduft. */
     private void tickDaseduftCountIn() {
         daseduftCountdownElapsedTicks++;
-        int shownNumber = daseduftCountdownElapsedTicks <= 4 ? 1
-                : daseduftCountdownElapsedTicks <= 15 ? 2
-                : daseduftCountdownElapsedTicks <= 27 ? 3 : 0;
+        int shownNumber = daseduftCountdownElapsedTicks == 4 ? 1
+                : daseduftCountdownElapsedTicks == 15 ? 2
+                : daseduftCountdownElapsedTicks == 26 ? 3 : 0;
         if (shownNumber == 0) return;
-        if (daseduftCountdownElapsedTicks == 1 || daseduftCountdownElapsedTicks == 12
-                || daseduftCountdownElapsedTicks == 23) {
-            for (UUID uuid : alive) {
-                ServerPlayer viewer = level.getServer().getPlayerList().getPlayer(uuid);
-                if (viewer == null) continue;
-                viewer.connection.send(new ClientboundSetTitlesAnimationPacket(0, 9, 1));
-                viewer.connection.send(new ClientboundSetTitleTextPacket(
-                        Component.literal(Integer.toString(shownNumber)).withStyle(ChatFormatting.GREEN)));
-                viewer.connection.send(new ClientboundSetSubtitleTextPacket(Component.empty()));
-            }
-            broadcastActionBar(Component.literal("NEDTELLING  " + shownNumber).withStyle(ChatFormatting.GREEN));
+        for (UUID uuid : alive) {
+            ServerPlayer viewer = level.getServer().getPlayerList().getPlayer(uuid);
+            if (viewer == null) continue;
+            viewer.connection.send(new ClientboundSetTitlesAnimationPacket(0, 9, 1));
+            viewer.connection.send(new ClientboundSetTitleTextPacket(
+                    Component.literal(Integer.toString(shownNumber)).withStyle(ChatFormatting.GREEN)));
+            viewer.connection.send(new ClientboundSetSubtitleTextPacket(Component.empty()));
         }
+        broadcastActionBar(Component.literal("NEDTELLING  " + shownNumber).withStyle(ChatFormatting.GREEN));
     }
 
     /** Pause the actual client audio channel; its OpenAL playback cursor is retained. */
@@ -2873,10 +2878,12 @@ public final class Arena {
                     break;
                 }
                 timerTicks--;
-                long sunsetProgress = TELEPORT_COUNTDOWN_TICKS - Math.max(0, timerTicks);
+                if ("daseduft_i_luften".equals(selectedMusicTrackId)) tickDaseduftCountIn();
+                long countdownDuration = "daseduft_i_luften".equals(selectedMusicTrackId) ? 40L : TELEPORT_COUNTDOWN_TICKS;
+                long sunsetProgress = countdownDuration - Math.max(0, timerTicks);
                 long sunsetTime = teleportSunsetStartTime
                         + ((teleportSunsetEndTime - teleportSunsetStartTime) * sunsetProgress)
-                        / TELEPORT_COUNTDOWN_TICKS;
+                        / countdownDuration;
                 // Send a time-sync packet every server tick. Vanilla normally synchronizes
                 // world time much less often, which makes a five-second accelerated sunset
                 // appear to jump in large steps on clients even when the server clock is smooth.
@@ -2887,7 +2894,8 @@ public final class Arena {
                     ServerPlayer viewer = server.getPlayerList().getPlayer(uuid);
                     if (viewer != null) viewer.connection.send(timePacket);
                 }
-                if (timerTicks > 0 && timerTicks % 20 == 0) {
+                if (!"daseduft_i_luften".equals(selectedMusicTrackId)
+                        && timerTicks > 0 && timerTicks % 20 == 0) {
                     int secondsLeft = timerTicks / 20;
                     for (UUID uuid : alive) {
                         ServerPlayer countdownPlayer = server.getPlayerList().getPlayer(uuid);
@@ -2914,9 +2922,7 @@ public final class Arena {
                 rememberTargetContacts(server);
                 timerTicks--;
                 if (timerTicks > 0 && timerTicks % 2 == 0) broadcastTargetHud();
-                if (timerTicks > 0 && "daseduft_i_luften".equals(selectedMusicTrackId)) {
-                    tickDaseduftCountIn();
-                } else if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
@@ -2985,9 +2991,7 @@ public final class Arena {
             }
             case MEMORY_REVEAL -> {
                 timerTicks--;
-                if (timerTicks > 0 && "daseduft_i_luften".equals(selectedMusicTrackId)) {
-                    tickDaseduftCountIn();
-                } else if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
+                if (timerTicks > 0 && (timerTicks == 60 || timerTicks == 40 || timerTicks == 20)) {
                     float pitch = switch (timerTicks / 20) {
                         case 3 -> 1.00F;
                         case 2 -> 0.79F;
@@ -3055,17 +3059,9 @@ public final class Arena {
                 }
                 player.getInventory().setChanged();
             } else if (activeRoundEvent == RoundEvent.COLOR_CHAOS && secondaryTargetColor != null) {
-                // Two safe colours must remain visible in hotbar slots 4 and 6;
-                // slot 5 is intentionally empty for this special round.
+                // Only repair missing/wrong items; keep the two blocks stable across ticks.
                 DyeColor shownColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
-                ItemStack left = player.getInventory().getItem(COLOR_CHAOS_LEFT_SLOT);
-                ItemStack right = player.getInventory().getItem(COLOR_CHAOS_RIGHT_SLOT);
-                boolean correctLeft = shownColor != null
-                        && left.getItem() == BlockPartyColors.getConcrete(shownColor).asItem();
-                boolean correctRight = right.getItem() == BlockPartyColors.getConcrete(secondaryTargetColor).asItem();
-                if (!correctLeft || !correctRight || !player.getInventory().getItem(TARGET_BLOCK_SLOT).isEmpty()) {
-                    setTargetColorItem(player, shownColor);
-                }
+                ensureColorChaosTargetItems(player, shownColor);
             } else {
                 // The single target concrete always belongs in slot 5.
                 ItemStack centre = player.getInventory().getItem(TARGET_BLOCK_SLOT);
@@ -3095,8 +3091,8 @@ public final class Arena {
             boolean selectedSnowball = player.getInventory().selected == 8
                     && isKnockbackSnowball(player.getInventory().getItem(8));
             int targetSlot = activeRoundEvent == RoundEvent.COLOR_CHAOS && secondaryTargetColor != null
-                    ? COLOR_CHAOS_LEFT_SLOT : TARGET_BLOCK_SLOT;
-            if (player.getInventory().selected != targetSlot && !selectedLeap && !selectedSnowball) {
+                    ? -1 : TARGET_BLOCK_SLOT;
+            if (targetSlot >= 0 && player.getInventory().selected != targetSlot && !selectedLeap && !selectedSnowball) {
                 player.getInventory().selected = targetSlot;
                 player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(targetSlot));
             }
@@ -4387,6 +4383,40 @@ public final class Arena {
             case BLUE -> ChatFormatting.BLUE;
             case RED -> ChatFormatting.RED;
         };
+    }
+
+    private boolean isExpectedColorItem(ItemStack stack, DyeColor color) {
+        if (stack == null || stack.isEmpty() || color == null
+                || stack.getItem() != BlockPartyColors.getConcrete(color).asItem()) return false;
+        Component name = stack.get(DataComponents.CUSTOM_NAME);
+        return name != null && BlockPartyColors.displayName(color).equals(name.getString());
+    }
+
+    private void ensureColorChaosTargetItems(ServerPlayer player, DyeColor displayedColor) {
+        if (displayedColor == null || secondaryTargetColor == null || gameMode == GameMode.HARDCORE) return;
+        boolean changed = false;
+        if (!isExpectedColorItem(player.getInventory().getItem(COLOR_CHAOS_LEFT_SLOT), displayedColor)) {
+            ItemStack first = new ItemStack(BlockPartyColors.getConcrete(displayedColor));
+            first.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(displayedColor))
+                    .withStyle(ChatFormatting.WHITE));
+            player.getInventory().setItem(COLOR_CHAOS_LEFT_SLOT, first);
+            changed = true;
+        }
+        if (!isExpectedColorItem(player.getInventory().getItem(COLOR_CHAOS_RIGHT_SLOT), secondaryTargetColor)) {
+            ItemStack second = new ItemStack(BlockPartyColors.getConcrete(secondaryTargetColor));
+            second.set(DataComponents.CUSTOM_NAME, Component.literal(BlockPartyColors.displayName(secondaryTargetColor))
+                    .withStyle(ChatFormatting.WHITE));
+            player.getInventory().setItem(COLOR_CHAOS_RIGHT_SLOT, second);
+            changed = true;
+        }
+        if (!player.getInventory().getItem(TARGET_BLOCK_SLOT).isEmpty()) {
+            player.getInventory().setItem(TARGET_BLOCK_SLOT, ItemStack.EMPTY);
+            changed = true;
+        }
+        if (changed) {
+            player.getInventory().setChanged();
+            player.inventoryMenu.broadcastChanges();
+        }
     }
 
     private void setTargetColorItem(ServerPlayer player, DyeColor displayedColor) {
