@@ -119,6 +119,18 @@
       "name": "99 Luftballons",
       "artist": "Nena",
       "bpm": 0
+    },
+    {
+      "id": "det_gar_likar_no",
+      "name": "Det Går Likar No",
+      "artist": "D.D.E.",
+      "bpm": 0
+    },
+    {
+      "id": "daseduft_i_luften",
+      "name": "Dåseduft i luften",
+      "artist": "Kjell \"Kjellen\" Bigset",
+      "bpm": 0
     }
   ]
 }
