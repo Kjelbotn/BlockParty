@@ -126,16 +126,15 @@ public final class ArenaManager {
     }
 
     public void tick(MinecraftServer server) {
-        // Lobby visitors receive the Play star and Music Vote book automatically.
-        // Refresh once per second to avoid scanning all player inventories every tick.
-        if (++lobbyItemRefreshTicks >= 20) {
-            lobbyItemRefreshTicks = 0;
-            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                Arena lobbyArena = findLobbyArenaFor(player);
-                if (lobbyArena != null && lobbyArena.hasReturnLocation(player.getUUID())) {
-                    lobbyArena.applyVisualUpgrade();
-                    lobbyArena.ensureLobbyItems(player);
-                }
+        // Keep joined lobby inventories locked every server tick. Visual upgrades are
+        // still refreshed once per second; inventory enforcement only syncs on changes.
+        boolean refreshLobbyVisuals = ++lobbyItemRefreshTicks >= 20;
+        if (refreshLobbyVisuals) lobbyItemRefreshTicks = 0;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            Arena lobbyArena = findLobbyArenaFor(player);
+            if (lobbyArena != null && lobbyArena.hasReturnLocation(player.getUUID())) {
+                if (refreshLobbyVisuals) lobbyArena.applyVisualUpgrade();
+                lobbyArena.ensureLobbyItems(player);
             }
         }
         for (Arena arena : arenas.values()) {
