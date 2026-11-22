@@ -19,6 +19,7 @@ import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -67,6 +68,8 @@ public final class BlockPartyMod {
         NeoForge.EVENT_BUS.addListener(this::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(this::onRightClickItem);
         NeoForge.EVENT_BUS.addListener(this::onItemToss);
+        NeoForge.EVENT_BUS.addListener(this::onBlockBreak);
+        NeoForge.EVENT_BUS.addListener(this::onBlockPlace);
         NeoForge.EVENT_BUS.addListener(this::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(this::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(this::onLivingAttack);
@@ -138,9 +141,8 @@ public final class BlockPartyMod {
         String raw = event.getParseResults().getReader().getString().trim();
         String normalized = raw.startsWith("/") ? raw.substring(1).trim() : raw;
         String root = normalized.split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
-        boolean isOperator = player.hasPermissions(2);
-        boolean isGameModeCommand = root.equals("gamemode") || root.equals("minecraft:gamemode");
-        boolean allowed = root.equals("bp") || (isOperator && isGameModeCommand);
+        // Even operators must not switch back to Survival/Creative inside a lobby session.
+        boolean allowed = root.equals("bp");
         if (!allowed) {
             event.setCanceled(true);
             sendSystemMessage(player, net.minecraft.network.chat.Component.literal(
@@ -214,6 +216,13 @@ public final class BlockPartyMod {
         if (ArenaManager.get().handleBeaconInteraction(player, event.getPos())) {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
+        // Do not let lobby visitors open chests, doors, crafting blocks or other
+        // world containers. The hub and voting interfaces use the protected items above.
+        if (ArenaManager.get().isInsideAnyProtectedArea(player)) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.FAIL);
         }
     }
 
@@ -290,16 +299,13 @@ public final class BlockPartyMod {
         ItemStack stack = event.getEntity().getItem();
         no.bangerfabrikken.blockparty.arena.Arena lobbyArena = ArenaManager.get().findLobbyArenaFor(player);
         no.bangerfabrikken.blockparty.arena.Arena matchArena = ArenaManager.get().findArenaForLeave(player);
-        boolean inLobby = lobbyArena != null;
+        boolean inLobby = lobbyArena != null && lobbyArena.hasReturnLocation(player.getUUID());
         boolean inActiveMatch = matchArena != null && matchArena.isMatchParticipant(player);
 
-        // Lobby controls are protected only while the player is actually inside
-        // an open BlockParty lobby. Outside BlockParty, these are ordinary items.
-        boolean protectedLobbyControl = inLobby && (
-                no.bangerfabrikken.blockparty.arena.Arena.isJoinGameItem(stack)
-                || no.bangerfabrikken.blockparty.arena.Arena.isMusicVotingBook(stack)
-                || no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)
-                || no.bangerfabrikken.blockparty.arena.Arena.isHubItem(stack));
+        // Every item drop is blocked during a joined lobby session. Only the four
+        // server-managed controls may exist there, and the next lobby tick restores
+        // them to their fixed slots if a client attempts to move/drop one.
+        boolean protectedLobbyControl = inLobby;
 
         boolean concreteDuringMatch = inActiveMatch
                 && no.bangerfabrikken.blockparty.util.BlockPartyColors.isConcrete(
@@ -318,17 +324,26 @@ public final class BlockPartyMod {
                 matchArena.restoreTossedTargetBlock(player, stack);
             }
             // All other match-time drops (including lobby controls) are discarded.
-        } else if (inLobby && no.bangerfabrikken.blockparty.arena.Arena.isLeaveLobbyItem(stack)) {
-            // Keep the lobby exit control anchored in hotbar slot 9.
-            player.getInventory().setItem(8, stack.copy());
-            player.inventoryMenu.broadcastChanges();
-        } else {
-            player.getInventory().placeItemBackInInventory(stack.copy());
-            player.inventoryMenu.broadcastChanges();
+        } else if (inLobby) {
+            lobbyArena.ensureLobbyItems(player);
         }
 
         event.setCanceled(true);
         event.getEntity().discard();
+    }
+
+    private void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer player
+                && ArenaManager.get().isInsideAnyProtectedArea(player)) {
+            event.setCanceled(true);
+        }
+    }
+
+    private void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && ArenaManager.get().isInsideAnyProtectedArea(player)) {
+            event.setCanceled(true);
+        }
     }
 
     private void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
