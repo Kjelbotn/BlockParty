@@ -277,6 +277,8 @@ public final class Arena {
     private int djBeatTicks;
     private int djPulseTicks;
     private int musicTicksRemaining;
+    /** One-time lead-in for Dåseduft i luften: the song's spoken count-in aligns with 3-2-1. */
+    private int musicStartDelayTicks;
     private boolean musicFinished;
     private boolean musicPaused;
     private int lastPowerupRound = -10;
@@ -1142,7 +1144,21 @@ public final class Arena {
 
 
     private void tickMusicEffects() {
-        if (activeMusicId == null || selectedMusicTrackId == null || level == null || musicPaused) return;
+        if (level == null || musicPaused) return;
+        if (musicStartDelayTicks > 0) {
+            if (--musicStartDelayTicks == 0) {
+                Track delayedTrack = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
+                if (delayedTrack != null) {
+                    activeMusicId = delayedTrack.soundId();
+                    musicTicksRemaining = delayedTrack.durationTicks();
+                    musicFinished = false;
+                    sendMusicControl(MusicControlPayload.PLAY);
+                    BlockPartyMod.LOGGER.info("Starting delayed BlockParty track '{}' after its synchronized countdown lead-in.", delayedTrack.name());
+                }
+            }
+            return;
+        }
+        if (activeMusicId == null || selectedMusicTrackId == null) return;
         if (musicTicksRemaining > 0 && --musicTicksRemaining == 0) {
             // The match always has 25 rounds. Restart short tracks instead of
             // allowing the remaining rounds to continue in silence.
@@ -1946,10 +1962,17 @@ public final class Arena {
         stopMusic();
         Track track = selectedMusicTrackId == null ? null : MusicTrackManager.get(id, selectedMusicTrackId);
         if (track == null) return;
-        activeMusicId = track.soundId();
-        musicTicksRemaining = track.durationTicks();
         musicFinished = false;
         musicPaused = false;
+        if ("daseduft_i_luften".equals(track.id())) {
+            // The track opens with "Ein, to, tre". Start it when the normal 3-2-1
+            // countdown begins, three seconds after the round timer starts.
+            musicStartDelayTicks = 60;
+            BlockPartyMod.LOGGER.info("Scheduling '{}' to begin on the round's 3-2-1 countdown.", track.name());
+            return;
+        }
+        activeMusicId = track.soundId();
+        musicTicksRemaining = track.durationTicks();
         BlockPartyMod.LOGGER.info("Starting client-controlled BlockParty track '{}' ({}) for {} player(s).",
                 track.name(), track.soundId(), players.size());
         sendMusicControl(MusicControlPayload.PLAY);
@@ -1973,6 +1996,7 @@ public final class Arena {
         if (activeMusicId != null) sendMusicControl(MusicControlPayload.STOP);
         activeMusicId = null;
         musicTicksRemaining = 0;
+        musicStartDelayTicks = 0;
         musicPaused = false;
     }
 
@@ -2984,7 +3008,7 @@ public final class Arena {
         if (phase != Phase.WAITING && scoreboardTick % 5 == 0) updateScoreboard(server);
     }
 
-    /** Keep concrete anchored in slot 5; only the dedicated LEAP and snowball slots unlock scrolling. */
+    /** Keep target concrete anchored in its round-specific hotbar slots; LEAP and snowball remain usable. */
     private void enforceTargetHotbar(MinecraftServer server) {
         for (UUID uuid : alive) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
@@ -3005,9 +3029,20 @@ public final class Arena {
                     }
                 }
                 player.getInventory().setChanged();
+            } else if (activeRoundEvent == RoundEvent.COLOR_CHAOS && secondaryTargetColor != null) {
+                // Two safe colours must remain visible in hotbar slots 4 and 6;
+                // slot 5 is intentionally empty for this special round.
+                DyeColor shownColor = fakeDisplayedColors.getOrDefault(uuid, targetColor);
+                ItemStack left = player.getInventory().getItem(COLOR_CHAOS_LEFT_SLOT);
+                ItemStack right = player.getInventory().getItem(COLOR_CHAOS_RIGHT_SLOT);
+                boolean correctLeft = shownColor != null
+                        && left.getItem() == BlockPartyColors.getConcrete(shownColor).asItem();
+                boolean correctRight = right.getItem() == BlockPartyColors.getConcrete(secondaryTargetColor).asItem();
+                if (!correctLeft || !correctRight || !player.getInventory().getItem(TARGET_BLOCK_SLOT).isEmpty()) {
+                    setTargetColorItem(player, shownColor);
+                }
             } else {
-                // The target concrete always belongs in slot 5. If a toss or inventory action
-                // displaced it, recover the existing stack before creating a replacement.
+                // The single target concrete always belongs in slot 5.
                 ItemStack centre = player.getInventory().getItem(TARGET_BLOCK_SLOT);
                 if (!isTargetColorBlock(centre)) {
                     ItemStack recovered = ItemStack.EMPTY;
@@ -3034,9 +3069,11 @@ public final class Arena {
                     && isLeapFeather(player.getInventory().getItem(0));
             boolean selectedSnowball = player.getInventory().selected == 8
                     && isKnockbackSnowball(player.getInventory().getItem(8));
-            if (player.getInventory().selected != TARGET_BLOCK_SLOT && !selectedLeap && !selectedSnowball) {
-                player.getInventory().selected = TARGET_BLOCK_SLOT;
-                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(TARGET_BLOCK_SLOT));
+            int targetSlot = activeRoundEvent == RoundEvent.COLOR_CHAOS && secondaryTargetColor != null
+                    ? COLOR_CHAOS_LEFT_SLOT : TARGET_BLOCK_SLOT;
+            if (player.getInventory().selected != targetSlot && !selectedLeap && !selectedSnowball) {
+                player.getInventory().selected = targetSlot;
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(targetSlot));
             }
         }
     }
@@ -3427,8 +3464,8 @@ public final class Arena {
     }
 
     private void tickTntRain() {
-        // Three bombs arrive every 0.4 seconds, each with a short 0.4-second fuse.
-        if (roundEventElapsedTicks % 8 == 1 && !floorSnapshot.isEmpty()) {
+        // One bomb arrives per second; this event should add pressure, not demolish the arena.
+        if (roundEventElapsedTicks % 20 == 1 && !floorSnapshot.isEmpty()) {
             List<BlockPos> tiles = new ArrayList<>();
             for (BlockPos tile : floorSnapshot.keySet()) {
                 if (BlockPartyColors.isConcrete(level.getBlockState(tile)) && !pendingTntRainBombs.containsKey(tile)) {
@@ -3436,7 +3473,7 @@ public final class Arena {
                 }
             }
             Collections.shuffle(tiles, random);
-            int bombsToSpawn = Math.min(3, tiles.size());
+            int bombsToSpawn = Math.min(1, tiles.size());
             for (int i = 0; i < bombsToSpawn; i++) {
                 pendingTntRainBombs.put(tiles.get(i).immutable(), 8);
             }
@@ -3458,7 +3495,7 @@ public final class Arena {
                     pos.getZ() + 0.5D, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             level.playSound(null, pos, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.BLOCKS, 0.7F, 1.0F);
             for (BlockPos floorPos : floorSnapshot.keySet()) {
-                if (floorPos.distSqr(pos) > 16.0D) continue;
+                if (floorPos.distSqr(pos) > 2.25D) continue;
                 if (BlockPartyColors.isConcrete(level.getBlockState(floorPos))) level.setBlock(floorPos, Blocks.AIR.defaultBlockState(), 3);
             }
         }
