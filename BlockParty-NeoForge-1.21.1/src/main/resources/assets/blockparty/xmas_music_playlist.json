@@ -71,6 +71,36 @@
       "name": "Deilig er jorden",
       "artist": "Sølvguttene",
       "bpm": 0
+    },
+    {
+      "id": "svingensongen",
+      "name": "Svingensongen",
+      "artist": "Jul i Svingen",
+      "bpm": 0
+    },
+    {
+      "id": "mamsen_og_lillegutt",
+      "name": "Mamsen og Lillegutt",
+      "artist": "Jul i Blåfjell",
+      "bpm": 0
+    },
+    {
+      "id": "den_lure_nissen",
+      "name": "Den lure nissen",
+      "artist": "Jul i Svingen",
+      "bpm": 0
+    },
+    {
+      "id": "julekveldsvisa",
+      "name": "Julekveldsvisa",
+      "artist": "D.D.E.",
+      "bpm": 0
+    },
+    {
+      "id": "rockin_around_the_christmas_tree",
+      "name": "Rockin' Around The Christmas Tree",
+      "artist": "Brenda Lee",
+      "bpm": 0
     }
   ]
 }
