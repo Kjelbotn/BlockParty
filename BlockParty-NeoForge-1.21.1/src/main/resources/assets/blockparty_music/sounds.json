@@ -478,5 +478,15 @@
         "volume": 1
       }
     ]
+  },
+  "music_pink_cloud": {
+    "subtitle": "subtitles.blockparty.music_pink_cloud",
+    "sounds": [
+      {
+        "name": "blockparty:music/pink_cloud",
+        "stream": true,
+        "volume": 1
+      }
+    ]
   }
 }
