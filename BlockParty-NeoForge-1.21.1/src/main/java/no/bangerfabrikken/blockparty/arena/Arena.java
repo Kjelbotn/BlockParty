@@ -1100,7 +1100,7 @@ public final class Arena {
         if (!level.hasChunkAt(anchor)) return;
 
         double yawRadians = Math.toRadians(screenYaw);
-        double rightX = Math.cos(yawRadians);
+        double rightX = -Math.cos(yawRadians);
         double rightZ = -Math.sin(yawRadians);
         double frontX = -Math.sin(yawRadians);
         double frontZ = Math.cos(yawRadians);
