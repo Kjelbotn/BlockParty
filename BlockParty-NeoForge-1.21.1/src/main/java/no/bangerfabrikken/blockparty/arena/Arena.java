@@ -159,6 +159,8 @@ public final class Arena {
     private BlockPos regionPos1;
     private BlockPos regionPos2;
     private BlockPos displayCenter;
+    private BlockPos leaderboardCenter;
+    private float leaderboardYaw = 90.0F;
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
     private String lastXmasScreenText;
@@ -309,6 +311,14 @@ public final class Arena {
     public BlockPos getRegionPos1() { return regionPos1; }
     public BlockPos getRegionPos2() { return regionPos2; }
     public BlockPos getDisplayCenter() { return displayCenter; }
+    public BlockPos getLeaderboardCenter() { return leaderboardCenter; }
+    public float getLeaderboardYaw() { return leaderboardYaw; }
+    public void setLeaderboard(BlockPos center, float yaw) {
+        this.leaderboardCenter = center == null ? null : center.immutable();
+        this.leaderboardYaw = yaw;
+        refreshLobbyLeaderboard();
+    }
+    public void setLoadedLeaderboard(BlockPos center, float yaw) { setLeaderboard(center, yaw); }
     public void setDisplayCenter(BlockPos displayCenter) {
         this.displayCenter = displayCenter == null ? null : displayCenter.immutable();
         this.customDisplayPosition = displayCenter != null;
@@ -5157,6 +5167,14 @@ public final class Arena {
         double maxZ = lobbyZ + ("xmas".equals(id) ? 145.0 : 75.0);
         double minY = lobbyY - 30.0;
         double maxY = lobbyY + 55.0;
+        if (leaderboardCenter != null) {
+            minX = Math.min(minX, leaderboardCenter.getX() - 28.0);
+            maxX = Math.max(maxX, leaderboardCenter.getX() + 28.0);
+            minZ = Math.min(minZ, leaderboardCenter.getZ() - 28.0);
+            maxZ = Math.max(maxZ, leaderboardCenter.getZ() + 28.0);
+            minY = Math.min(minY, leaderboardCenter.getY() - 12.0);
+            maxY = Math.max(maxY, leaderboardCenter.getY() + 12.0);
+        }
         if (pos1 != null && pos2 != null) {
             minX = Math.min(minX, Math.min(pos1.getX(), pos2.getX()) - 24.0);
             maxX = Math.max(maxX, Math.max(pos1.getX(), pos2.getX()) + 24.0);
@@ -5196,19 +5214,27 @@ public final class Arena {
         }
         hideLobbyLeaderboard();
         boolean xmasLobby = "xmas".equals(id);
-        // Mount Xmas panels on the two indoor side walls instead of outside the glass.
-        double boardX = xmasLobby ? lobbyX - 22.0 : lobbyX + 30.0;
-        double boardZ = xmasLobby ? lobbyZ - 1.0 : lobbyZ + 18.5;
-        double commandsZ = xmasLobby ? lobbyZ - 1.0 : lobbyZ - 6.5;
-        double commandsX = xmasLobby ? lobbyX + 22.0 : boardX;
-        float boardYaw = xmasLobby ? -90.0F : 90.0F;
-        BlockPos anchor = BlockPos.containing(boardX, lobbyY + 8.0, boardZ);
+        boolean customBoard = leaderboardCenter != null;
+        // The builder can place the leaderboard on any wall and rotate the complete
+        // two-panel layout without mirroring or locking its text to one compass side.
+        double boardX = customBoard ? leaderboardCenter.getX() + 0.5 : (xmasLobby ? lobbyX - 22.0 : lobbyX + 30.0);
+        double boardY = customBoard ? leaderboardCenter.getY() + 0.5 : lobbyY + 8.0;
+        double boardZ = customBoard ? leaderboardCenter.getZ() + 0.5 : (xmasLobby ? lobbyZ - 1.0 : lobbyZ + 18.5);
+        float boardYaw = customBoard ? leaderboardYaw : (xmasLobby ? -90.0F : 90.0F);
+        double rightX = -Math.cos(Math.toRadians(boardYaw));
+        double rightZ = -Math.sin(Math.toRadians(boardYaw));
+        double commandsX = customBoard ? boardX + rightX * 17.0 : (xmasLobby ? lobbyX + 22.0 : boardX);
+        double commandsZ = customBoard ? boardZ + rightZ * 17.0 : (xmasLobby ? lobbyZ - 1.0 : lobbyZ - 6.5);
+        BlockPos anchor = BlockPos.containing(boardX, boardY, boardZ);
         if (!level.hasChunkAt(anchor)) return;
 
         String tag = "blockparty_lb_" + id;
         // Both panels share one cleanup region and tag, so periodic refreshes cannot duplicate text.
-        AABB area = new AABB(Math.min(boardX, commandsX) - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
-                Math.max(boardX, commandsX) + 5.0, lobbyY + 16.0, lobbyZ + ("xmas".equals(id) ? 100.0 : 32.0));
+        AABB area = customBoard
+                ? new AABB(Math.min(boardX, commandsX) - 8.0, boardY - 12.0, Math.min(boardZ, commandsZ) - 8.0,
+                        Math.max(boardX, commandsX) + 8.0, boardY + 12.0, Math.max(boardZ, commandsZ) + 8.0)
+                : new AABB(Math.min(boardX, commandsX) - 5.0, lobbyY - 1.0, lobbyZ - 24.0,
+                        Math.max(boardX, commandsX) + 5.0, lobbyY + 16.0, lobbyZ + ("xmas".equals(id) ? 100.0 : 32.0));
         for (Display.TextDisplay old : level.getEntitiesOfClass(Display.TextDisplay.class, area,
                 display -> display.getTags().contains(tag))) old.discard();
         for (ArmorStand old : level.getEntitiesOfClass(ArmorStand.class, area,
@@ -5234,7 +5260,7 @@ public final class Arena {
         }
         lines.add(Component.literal("/bp leaderboard  •  /bp ranklist").withStyle(ChatFormatting.YELLOW));
 
-        double panelCenterY = lobbyY + 7.0; // lowered from the previous layout
+        double panelCenterY = customBoard ? boardY : lobbyY + 7.0; // custom anchor is the panel centre
         double lineSpacing = 0.95;
         double firstLineY = panelCenterY + (lines.size() - 1) * lineSpacing / 2.0;
         for (int i = 0; i < lines.size(); i++) {
@@ -5258,7 +5284,7 @@ public final class Arena {
         for (int i = 0; i < commandLines.size(); i++) {
             float scale = i == 0 ? 1.65F : (i % 2 == 1 ? 1.15F : 0.78F);
             double y = commandFirstY - i * commandSpacing;
-            BlockPartyText.spawnTextDisplay(level, commandsX, y, commandsZ, 90.0F,
+            BlockPartyText.spawnTextDisplay(level, commandsX, y, commandsZ, customBoard ? boardYaw : 90.0F,
                     commandLines.get(i), scale, tag);
         }
     }
