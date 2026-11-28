@@ -70,6 +70,13 @@ public final class BlockPartyCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> setRegionCorner(context.getSource(), StringArgumentType.getString(context, "id"), 2))))
+                .then(Commands.literal("paste-leaderboard")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> pasteLeaderboard(context.getSource(), StringArgumentType.getString(context, "id"), null))
+                                .then(Commands.argument("direction", StringArgumentType.word())
+                                        .executes(context -> pasteLeaderboard(context.getSource(),
+                                                StringArgumentType.getString(context, "id"), StringArgumentType.getString(context, "direction"))))))
                 .then(Commands.literal("paste-lobby-screen")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -358,6 +365,28 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int pasteLeaderboard(CommandSourceStack source, String id, String direction) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() > 0 || arena.isRunning()) {
+            source.sendFailure(Component.literal("Stopp arenaen og tøm lobbyen før du flytter leaderboardet."));
+            return 0;
+        }
+        if (arena.getLevel() != player.serverLevel()) {
+            source.sendFailure(Component.literal("Leaderboardet må plasseres i samme dimensjon som arenaen."));
+            return 0;
+        }
+        Float yaw = displayYaw(player, direction, source);
+        if (yaw == null) return 0;
+        arena.setLeaderboard(player.blockPosition(), yaw);
+        ArenaManager.get().save(source.getServer());
+        source.sendSuccess(() -> Component.literal("Leaderboardet for '" + id
+                + "' er plassert her, vendt " + directionName(yaw) + ".")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+        return 1;
+    }
+
     private static int pasteLobbyScreen(CommandSourceStack source, String id, String direction) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         Arena arena = getArena(source, id);
@@ -636,7 +665,8 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);
         source.sendSuccess(() -> Component.literal("/bp region1 <id> og /bp region2 <id> – avgrens hele arenaen og lobbyen"), false);
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – sett lobbyens spawnpunkt der du står"), false);
-        source.sendSuccess(() -> Component.literal("/bp paste-lobby-screen <id> [north|south|east|west] – plasser voting/leaderboard-skjermen"), false);
+        source.sendSuccess(() -> Component.literal("/bp paste-leaderboard <id> [north|south|east|west] – plasser topplisten og kommandopanelet"), false);
+        source.sendSuccess(() -> Component.literal("/bp paste-lobby-screen <id> [north|south|east|west] – plasser musikkavstemningen"), false);
         source.sendSuccess(() -> Component.literal("/bp paste-arena-text <id> [north|south|east|west] – plasser farge-/rundedisplayet"), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
