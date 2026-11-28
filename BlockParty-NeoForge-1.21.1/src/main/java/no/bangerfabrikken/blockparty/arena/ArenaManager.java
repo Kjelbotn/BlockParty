@@ -237,6 +237,11 @@ public final class ArenaManager {
                 if (!first.isBlank() && !second.isBlank()) {
                     arena.setLoadedCorners(parseBlockPos(first), parseBlockPos(second));
                 }
+                String regionFirst = properties.getProperty(prefix + "regionPos1", "");
+                String regionSecond = properties.getProperty(prefix + "regionPos2", "");
+                if (!regionFirst.isBlank() && !regionSecond.isBlank()) {
+                    arena.setLoadedRegionCorners(parseBlockPos(regionFirst), parseBlockPos(regionSecond));
+                }
                 String display = properties.getProperty(prefix + "display", "");
                 if (!display.isBlank()) {
                     float displayYaw = Float.parseFloat(properties.getProperty(prefix + "displayYaw", "0"));
@@ -278,6 +283,8 @@ public final class ArenaManager {
             properties.setProperty(prefix + "dimension", arena.getDimensionId());
             if (arena.getPos1() != null) properties.setProperty(prefix + "pos1", serialize(arena.getPos1()));
             if (arena.getPos2() != null) properties.setProperty(prefix + "pos2", serialize(arena.getPos2()));
+            if (arena.getRegionPos1() != null) properties.setProperty(prefix + "regionPos1", serialize(arena.getRegionPos1()));
+            if (arena.getRegionPos2() != null) properties.setProperty(prefix + "regionPos2", serialize(arena.getRegionPos2()));
             if (arena.getDisplayCenter() != null) {
                 properties.setProperty(prefix + "display", serialize(arena.getDisplayCenter()));
                 properties.setProperty(prefix + "displayYaw", Float.toString(arena.getTargetDisplayYaw()));
