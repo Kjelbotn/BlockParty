@@ -155,6 +155,9 @@ public final class Arena {
     private ServerLevel level;
     private BlockPos pos1;
     private BlockPos pos2;
+    /** Optional outer cuboid covering the complete custom arena and lobby. */
+    private BlockPos regionPos1;
+    private BlockPos regionPos2;
     private BlockPos displayCenter;
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
@@ -303,6 +306,8 @@ public final class Arena {
     public ServerLevel getLevel() { return level; }
     public BlockPos getPos1() { return pos1; }
     public BlockPos getPos2() { return pos2; }
+    public BlockPos getRegionPos1() { return regionPos1; }
+    public BlockPos getRegionPos2() { return regionPos2; }
     public BlockPos getDisplayCenter() { return displayCenter; }
     public void setDisplayCenter(BlockPos displayCenter) {
         this.displayCenter = displayCenter == null ? null : displayCenter.immutable();
@@ -320,6 +325,8 @@ public final class Arena {
     }
     public void setLoadedTargetDisplay(BlockPos center, float yaw) { setTargetDisplay(center, yaw); }
     public float getTargetDisplayYaw() { return targetDisplayYaw; }
+    private double getTargetDisplayFrontX() { return -Math.sin(Math.toRadians(targetDisplayYaw)); }
+    private double getTargetDisplayFrontZ() { return Math.cos(Math.toRadians(targetDisplayYaw)); }
     public void setLobbyScreen(BlockPos center, float yaw) {
         this.lobbyScreenCenter = center == null ? null : center.immutable();
         this.lobbyScreenYaw = yaw;
@@ -356,7 +363,16 @@ public final class Arena {
 
     /** True for the generated arena, spectator ring, pit and separate lobby footprint. */
     public boolean protectsLocation(ServerLevel candidateLevel, double x, double y, double z) {
-        if (level == null || candidateLevel != level || !lobbySet || pos1 == null || pos2 == null) return false;
+        if (level == null || candidateLevel != level) return false;
+        if (regionPos1 != null && regionPos2 != null) {
+            return x >= Math.min(regionPos1.getX(), regionPos2.getX())
+                    && x <= Math.max(regionPos1.getX(), regionPos2.getX()) + 1.0
+                    && y >= Math.min(regionPos1.getY(), regionPos2.getY())
+                    && y <= Math.max(regionPos1.getY(), regionPos2.getY()) + 1.0
+                    && z >= Math.min(regionPos1.getZ(), regionPos2.getZ())
+                    && z <= Math.max(regionPos1.getZ(), regionPos2.getZ()) + 1.0;
+        }
+        if (!lobbySet || pos1 == null || pos2 == null) return false;
         int floorY = pos1.getY();
         int floorMinX = Math.min(pos1.getX(), pos2.getX());
         int floorMaxX = Math.max(pos1.getX(), pos2.getX());
@@ -486,6 +502,16 @@ public final class Arena {
 
     private void removeMobsFromProtectedArea() {
         if (level == null || !lobbySet || pos1 == null || pos2 == null) return;
+        if (regionPos1 != null && regionPos2 != null) {
+            AABB customArea = new AABB(
+                    Math.min(regionPos1.getX(), regionPos2.getX()), Math.min(regionPos1.getY(), regionPos2.getY()),
+                    Math.min(regionPos1.getZ(), regionPos2.getZ()),
+                    Math.max(regionPos1.getX(), regionPos2.getX()) + 1.0,
+                    Math.max(regionPos1.getY(), regionPos2.getY()) + 1.0,
+                    Math.max(regionPos1.getZ(), regionPos2.getZ()) + 1.0);
+            for (Mob mob : level.getEntitiesOfClass(Mob.class, customArea)) mob.discard();
+            return;
+        }
         int minX = Math.min(pos1.getX(), pos2.getX()) - 14;
         int maxX = Math.max(pos1.getX(), pos2.getX()) + 14;
         int minZ = Math.min(pos1.getZ(), pos2.getZ()) - 14;
@@ -514,6 +540,11 @@ public final class Arena {
     public void setCorner(int corner, BlockPos pos) {
         if (corner == 1) pos1 = pos.immutable();
         else pos2 = pos.immutable();
+    }
+
+    public void setRegionCorner(int corner, BlockPos pos) {
+        if (corner == 1) regionPos1 = pos.immutable();
+        else regionPos2 = pos.immutable();
     }
 
     public void setLobby(ServerPlayer player) {
@@ -1068,11 +1099,17 @@ public final class Arena {
         BlockPos anchor = new BlockPos(centerX, screenBaseY, wallZ);
         if (!level.hasChunkAt(anchor)) return;
 
-        boolean sideFacingScreen = customScreen && Math.abs(Math.abs(screenYaw) - 90.0F) < 1.0F;
-        double frontOffset = customScreen ? 0.72 : -0.72;
-        java.util.function.DoubleFunction<double[]> screenPoint = offset -> sideFacingScreen
-                ? new double[]{centerX + frontOffset, wallZ + offset}
-                : new double[]{centerX + offset, wallZ + frontOffset};
+        double yawRadians = Math.toRadians(screenYaw);
+        double rightX = Math.cos(yawRadians);
+        double rightZ = -Math.sin(yawRadians);
+        double frontX = -Math.sin(yawRadians);
+        double frontZ = Math.cos(yawRadians);
+        // Custom anchors face the direction selected by the builder. The display
+        // is offset toward that face, while columns follow the viewer's right axis.
+        double frontOffset = 0.72;
+        java.util.function.DoubleFunction<double[]> screenPoint = offset -> new double[]{
+                centerX + rightX * offset + frontX * frontOffset,
+                wallZ + rightZ * offset + frontZ * frontOffset};
 
         // The complete display is constrained to a 38-wide by 9-high black panel.
         AABB area = new AABB(centerX - 22, screenBaseY - 10, wallZ - 22,
@@ -1312,8 +1349,9 @@ public final class Arena {
         // Main arena board stays blank outside the active target/reveal window.
         if (!classicTarget && !memoryRevealTarget) return;
         Component target = getTargetDisplayComponent();
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.0, targetDisplayYaw, target, 16.0F, tag);
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5 + getTargetDisplayFrontX(),
+                displayCenter.getY() + 2.2, displayCenter.getZ() + 0.5 + getTargetDisplayFrontZ(),
+                targetDisplayYaw, target, 16.0F, tag);
     }
 
     /**
@@ -1460,8 +1498,8 @@ public final class Arena {
                 default -> "";
             };
             if (!lyric.isEmpty()) {
-                BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() - 0.3,
-                        displayCenter.getZ() + 1.0, targetDisplayYaw,
+                BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5 + getTargetDisplayFrontX(),
+                        displayCenter.getY() - 0.3, displayCenter.getZ() + 0.5 + getTargetDisplayFrontZ(), targetDisplayYaw,
                         Component.literal(lyric).withStyle(ChatFormatting.WHITE),
                         12.0F, tag);
             }
@@ -1482,8 +1520,9 @@ public final class Arena {
         // Use exactly the same visible centre as the welcome title. The previous
         // lower anchor put target text behind the main arena's panel, leaving only
         // the old "BlockParty" title visible during Memory Mode.
-        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5, displayCenter.getY() + 2.2,
-                displayCenter.getZ() + 1.0, targetDisplayYaw, text, 16.0F, tag);
+        BlockPartyText.spawnTextDisplay(level, displayCenter.getX() + 0.5 + getTargetDisplayFrontX(),
+                displayCenter.getY() + 2.2, displayCenter.getZ() + 0.5 + getTargetDisplayFrontZ(),
+                targetDisplayYaw, text, 16.0F, tag);
     }
 
     public boolean handleBeaconInteraction(ServerPlayer player, BlockPos clickedPos) {
@@ -5335,6 +5374,11 @@ public final class Arena {
     public void setLoadedCorners(BlockPos first, BlockPos second) {
         this.pos1 = first;
         this.pos2 = second;
+    }
+
+    public void setLoadedRegionCorners(BlockPos first, BlockPos second) {
+        this.regionPos1 = first;
+        this.regionPos2 = second;
     }
 
     public void setLoadedDisplayCenter(BlockPos displayCenter) {
