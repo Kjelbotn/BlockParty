@@ -161,6 +161,9 @@ public final class Arena {
     private BlockPos displayCenter;
     private BlockPos leaderboardCenter;
     private float leaderboardYaw = 90.0F;
+    /** Optional custom feet position for eliminated players' spectator spawn. */
+    private BlockPos spectatorSpawn;
+    private float spectatorSpawnYaw;
     private boolean customDisplayPosition;
     private float targetDisplayYaw;
     private String lastXmasScreenText;
@@ -313,6 +316,13 @@ public final class Arena {
     public BlockPos getDisplayCenter() { return displayCenter; }
     public BlockPos getLeaderboardCenter() { return leaderboardCenter; }
     public float getLeaderboardYaw() { return leaderboardYaw; }
+    public BlockPos getSpectatorSpawn() { return spectatorSpawn; }
+    public float getSpectatorSpawnYaw() { return spectatorSpawnYaw; }
+    public void setSpectatorSpawn(BlockPos position, float yaw) {
+        this.spectatorSpawn = position == null ? null : position.immutable();
+        this.spectatorSpawnYaw = yaw;
+    }
+    public void setLoadedSpectatorSpawn(BlockPos position, float yaw) { setSpectatorSpawn(position, yaw); }
     public void setLeaderboard(BlockPos center, float yaw) {
         this.leaderboardCenter = center == null ? null : center.immutable();
         this.leaderboardYaw = yaw;
@@ -5032,6 +5042,20 @@ public final class Arena {
 
     private void teleportToSpectatorWalkway(ServerPlayer player) {
         if (level == null || pos1 == null || pos2 == null) return;
+        if (spectatorSpawn != null) {
+            BlockPos feet = spectatorSpawn;
+            if (level.hasChunkAt(feet) && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                    && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()
+                    && level.getBlockState(feet.below()).isFaceSturdy(level, feet.below(), Direction.UP)) {
+                player.teleportTo(level, feet.getX() + 0.5D, feet.getY(), feet.getZ() + 0.5D,
+                        spectatorSpawnYaw, 0.0F);
+                player.setDeltaMovement(0.0, 0.0, 0.0);
+                player.fallDistance = 0.0F;
+                return;
+            }
+            BlockPartyMod.LOGGER.warn("Custom spectator spawn for arena '{}' is not safe at {}; using automatic fallback.",
+                    id, feet.toShortString());
+        }
         int minX = Math.min(pos1.getX(), pos2.getX());
         int maxX = Math.max(pos1.getX(), pos2.getX());
         int minZ = Math.min(pos1.getZ(), pos2.getZ());
