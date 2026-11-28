@@ -70,6 +70,14 @@ public final class BlockPartyCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> setRegionCorner(context.getSource(), StringArgumentType.getString(context, "id"), 2))))
+                .then(Commands.literal("set-spectator")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> setSpectatorSpawn(context.getSource(),
+                                        StringArgumentType.getString(context, "id"), null))
+                                .then(Commands.argument("direction", StringArgumentType.word())
+                                        .executes(context -> setSpectatorSpawn(context.getSource(),
+                                                StringArgumentType.getString(context, "id"), StringArgumentType.getString(context, "direction"))))))
                 .then(Commands.literal("paste-leaderboard")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -362,6 +370,35 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("Område-pos" + corner + " for '" + id + "' satt til "
                 + position.toShortString() + ". Området mellom region1 og region2 dekker nå arena og lobby.")
                 .withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    private static int setSpectatorSpawn(CommandSourceStack source, String id, String direction) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() > 0 || arena.isRunning()) {
+            source.sendFailure(Component.literal("Stopp arenaen og tøm den for spillere før du endrer spectator-spawn."));
+            return 0;
+        }
+        if (arena.getLevel() != player.serverLevel()) {
+            source.sendFailure(Component.literal("Spectator-spawn må være i samme dimensjon som arenaen."));
+            return 0;
+        }
+        BlockPos feet = player.blockPosition();
+        if (!player.serverLevel().getBlockState(feet).getCollisionShape(player.serverLevel(), feet).isEmpty()
+                || !player.serverLevel().getBlockState(feet.above()).getCollisionShape(player.serverLevel(), feet.above()).isEmpty()
+                || !player.serverLevel().getBlockState(feet.below()).isFaceSturdy(player.serverLevel(), feet.below(), Direction.UP)) {
+            source.sendFailure(Component.literal("Du må stå på et solid gulv med to frie blokker over deg."));
+            return 0;
+        }
+        Float yaw = displayYaw(player, direction, source);
+        if (yaw == null) return 0;
+        arena.setSpectatorSpawn(feet, yaw);
+        ArenaManager.get().save(source.getServer());
+        source.sendSuccess(() -> Component.literal("Spectator-spawn for '" + id + "' satt til "
+                + feet.toShortString() + ", vendt " + directionName(yaw) + ". Eliminerte spillere havner her.")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
         return 1;
     }
 
@@ -665,6 +702,7 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);
         source.sendSuccess(() -> Component.literal("/bp region1 <id> og /bp region2 <id> – avgrens hele arenaen og lobbyen"), false);
         source.sendSuccess(() -> Component.literal("/bp setlobby <id> – sett lobbyens spawnpunkt der du står"), false);
+        source.sendSuccess(() -> Component.literal("/bp set-spectator <id> [north|south|east|west] – sett hvor eliminerte spillere havner"), false);
         source.sendSuccess(() -> Component.literal("/bp paste-leaderboard <id> [north|south|east|west] – plasser topplisten og kommandopanelet"), false);
         source.sendSuccess(() -> Component.literal("/bp paste-lobby-screen <id> [north|south|east|west] – plasser musikkavstemningen"), false);
         source.sendSuccess(() -> Component.literal("/bp paste-arena-text <id> [north|south|east|west] – plasser farge-/rundedisplayet"), false);
