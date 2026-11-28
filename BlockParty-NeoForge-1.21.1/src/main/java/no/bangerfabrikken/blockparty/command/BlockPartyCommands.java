@@ -62,6 +62,28 @@ public final class BlockPartyCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> setLobby(context.getSource(), StringArgumentType.getString(context, "id")))))
+                .then(Commands.literal("region1")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> setRegionCorner(context.getSource(), StringArgumentType.getString(context, "id"), 1))))
+                .then(Commands.literal("region2")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> setRegionCorner(context.getSource(), StringArgumentType.getString(context, "id"), 2))))
+                .then(Commands.literal("paste-lobby-screen")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> pasteLobbyScreen(context.getSource(), StringArgumentType.getString(context, "id"), null))
+                                .then(Commands.argument("direction", StringArgumentType.word())
+                                        .executes(context -> pasteLobbyScreen(context.getSource(),
+                                                StringArgumentType.getString(context, "id"), StringArgumentType.getString(context, "direction"))))))
+                .then(Commands.literal("paste-arena-text")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> pasteArenaText(context.getSource(), StringArgumentType.getString(context, "id"), null))
+                                .then(Commands.argument("direction", StringArgumentType.word())
+                                        .executes(context -> pasteArenaText(context.getSource(),
+                                                StringArgumentType.getString(context, "id"), StringArgumentType.getString(context, "direction"))))))
                 .then(Commands.literal("join")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> join(context.getSource(), StringArgumentType.getString(context, "id")))))
@@ -309,6 +331,99 @@ public final class BlockPartyCommands {
         return 1;
     }
 
+    private static int setRegionCorner(CommandSourceStack source, String id, int corner) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() > 0 || arena.isRunning()) {
+            source.sendFailure(Component.literal("Stopp arenaen og tøm den for spillere før du endrer områdegrensene."));
+            return 0;
+        }
+        if (arena.getLevel() != player.serverLevel()) {
+            source.sendFailure(Component.literal("Områdegrensene må settes i samme dimensjon som arenaen."));
+            return 0;
+        }
+        BlockPos position = player.blockPosition();
+        BlockPos other = corner == 1 ? arena.getRegionPos2() : arena.getRegionPos1();
+        if (other != null && (other.getX() == position.getX() && other.getY() == position.getY()
+                && other.getZ() == position.getZ())) {
+            source.sendFailure(Component.literal("De to områdehjørnene kan ikke være samme blokk."));
+            return 0;
+        }
+        arena.setRegionCorner(corner, position);
+        ArenaManager.get().save(source.getServer());
+        source.sendSuccess(() -> Component.literal("Område-pos" + corner + " for '" + id + "' satt til "
+                + position.toShortString() + ". Området mellom region1 og region2 dekker nå arena og lobby.")
+                .withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    private static int pasteLobbyScreen(CommandSourceStack source, String id, String direction) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() > 0 || arena.isRunning()) {
+            source.sendFailure(Component.literal("Stopp arenaen og tøm lobbyen før du flytter voting-/leaderboard-skjermen."));
+            return 0;
+        }
+        if (arena.getLevel() != player.serverLevel()) {
+            source.sendFailure(Component.literal("Skjermen må plasseres i samme dimensjon som arenaen."));
+            return 0;
+        }
+        Float yaw = displayYaw(player, direction, source);
+        if (yaw == null) return 0;
+        arena.setLobbyScreen(player.blockPosition(), yaw);
+        ArenaManager.get().save(source.getServer());
+        source.sendSuccess(() -> Component.literal("Voting- og leaderboard-skjermen for '" + id
+                + "' er plassert her, vendt " + directionName(yaw) + ".")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+        return 1;
+    }
+
+    private static int pasteArenaText(CommandSourceStack source, String id, String direction) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        Arena arena = getArena(source, id);
+        if (arena == null) return 0;
+        if (arena.getPlayerCount() > 0 || arena.isRunning()) {
+            source.sendFailure(Component.literal("Stopp arenaen og tøm den for spillere før du flytter arena-displayet."));
+            return 0;
+        }
+        if (arena.getLevel() != player.serverLevel()) {
+            source.sendFailure(Component.literal("Arena-displayet må plasseres i samme dimensjon som arenaen."));
+            return 0;
+        }
+        Float yaw = displayYaw(player, direction, source);
+        if (yaw == null) return 0;
+        arena.setTargetDisplay(player.blockPosition(), yaw);
+        ArenaManager.get().save(source.getServer());
+        source.sendSuccess(() -> Component.literal("Arenaens farge-/rundedisplay for '" + id
+                + "' er plassert her, vendt " + directionName(yaw) + ".")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+        return 1;
+    }
+
+    private static Float displayYaw(ServerPlayer player, String direction, CommandSourceStack source) {
+        if (direction == null) return Math.round(player.getYRot() / 90.0F) * 90.0F;
+        return switch (direction.toLowerCase(java.util.Locale.ROOT)) {
+            case "north", "nord" -> 180.0F;
+            case "south", "sør", "sor" -> 0.0F;
+            case "east", "øst", "ost" -> -90.0F;
+            case "west", "vest" -> 90.0F;
+            default -> {
+                source.sendFailure(Component.literal("Retning må være north, south, east eller west (nord, sør, øst, vest)."));
+                yield null;
+            }
+        };
+    }
+
+    private static String directionName(float yaw) {
+        float normalized = ((yaw % 360.0F) + 360.0F) % 360.0F;
+        if (normalized >= 315.0F || normalized < 45.0F) return "sør";
+        if (normalized < 135.0F) return "vest";
+        if (normalized < 225.0F) return "nord";
+        return "øst";
+    }
+
     private static int join(CommandSourceStack source, String id) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         Arena arena = getArena(source, id);
@@ -519,7 +634,10 @@ public final class BlockPartyCommands {
         source.sendSuccess(() -> Component.literal("/bp – åpne kartvelgeren | /bp main eller /bp xmas – gå direkte til en lobby | /bp join <id> – velg arena"), false);
         source.sendSuccess(() -> Component.literal("/bp create <id> – opprett en tom, manuelt konfigurert arena"), false);
         source.sendSuccess(() -> Component.literal("/bp pos1 <id> og /bp pos2 <id> – velg gulvets motsatte hjørner"), false);
-        source.sendSuccess(() -> Component.literal("/bp setlobby <id> – oppdater lobbyspawn"), false);
+        source.sendSuccess(() -> Component.literal("/bp region1 <id> og /bp region2 <id> – avgrens hele arenaen og lobbyen"), false);
+        source.sendSuccess(() -> Component.literal("/bp setlobby <id> – sett lobbyens spawnpunkt der du står"), false);
+        source.sendSuccess(() -> Component.literal("/bp paste-lobby-screen <id> [north|south|east|west] – plasser voting/leaderboard-skjermen"), false);
+        source.sendSuccess(() -> Component.literal("/bp paste-arena-text <id> [north|south|east|west] – plasser farge-/rundedisplayet"), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk den turkise Join-stjernen i lobbyen for å bli med. /bp join <id> er fortsatt tilgjengelig som reserve."), false);
         source.sendSuccess(() -> Component.literal("Høyreklikk Music Vote-boken for å stemme på musikk | /bp leave – forlat"), false);
         source.sendSuccess(() -> Component.literal("/bp start <id> – start manuelt | /bp forcestart <id> – admin solo-test (1 spiller) | /bp stop <id> – stopp"), false);
